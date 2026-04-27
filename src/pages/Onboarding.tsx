@@ -61,7 +61,10 @@ export default function Onboarding() {
 
   const addPreset = (p: typeof BLOCK_PRESETS[number]) => {
     if (blocks.some((b) => b.name === p.name)) return;
-    setBlocks([...blocks, { ...p }]);
+    setBlocks([...blocks, {
+      name: p.name, start_time: p.start, end_time: p.end,
+      days_of_week: p.days, color: p.color, type: p.type,
+    }]);
   };
 
   const addCustomBlock = () =>
