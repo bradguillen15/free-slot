@@ -35,6 +35,7 @@ const App = () => (
               }
             />
             <Route path="/app" element={<ProtectedRoute><OnboardingGate><CalendarPage /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/app/week" element={<ProtectedRoute><OnboardingGate><WeekPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/dashboard" element={<ProtectedRoute><OnboardingGate><Placeholder title="Dashboard" body="Stats — coming in Phase 7." /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/activities" element={<ProtectedRoute><OnboardingGate><Placeholder title="Activities" body="Goal stack & weekly priority — coming next." /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/settings" element={<ProtectedRoute><OnboardingGate><Placeholder title="Settings" body="Preferences & categories — coming next." /></OnboardingGate></ProtectedRoute>} />
