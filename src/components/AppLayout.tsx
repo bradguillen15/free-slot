@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles } from "lucide-react";
+import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { to: "/app", label: "Calendar", icon: Calendar },
+  { to: "/app", label: "Day", icon: Calendar },
+  { to: "/app/week", label: "Week", icon: CalendarRange },
   { to: "/app/dashboard", label: "Dashboard", icon: BarChart3 },
   { to: "/app/activities", label: "Activities", icon: Target },
   { to: "/app/settings", label: "Settings", icon: Settings },
