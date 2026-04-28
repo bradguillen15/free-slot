@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
 import type { GapWindow } from "@/lib/gaps";
-import type { ScheduleBlock, TimeLog } from "./day/DayTimeline";
 
 const PX_PER_HOUR = 32;
 const HOURS_START = 6;
