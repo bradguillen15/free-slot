@@ -27,6 +27,8 @@ function heightFor(seg: Seg) {
   return ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
 }
 
+export type AISlotSeg = { seg: Seg; name: string };
+
 export type DayCellData = {
   iso: string;
   weekday: number;
@@ -36,6 +38,7 @@ export type DayCellData = {
   blocks: { seg: Seg; name: string; color: string }[];
   logs: { seg: Seg; name: string; color: string }[];
   gaps: GapWindow[];
+  aiSlots?: AISlotSeg[];
   totalFree: number;
 };
 
