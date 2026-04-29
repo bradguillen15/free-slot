@@ -27,6 +27,8 @@ function heightFor(seg: Seg) {
   return ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
 }
 
+export type AISlotSeg = { seg: Seg; name: string };
+
 export type DayCellData = {
   iso: string;
   weekday: number;
@@ -36,6 +38,7 @@ export type DayCellData = {
   blocks: { seg: Seg; name: string; color: string }[];
   logs: { seg: Seg; name: string; color: string }[];
   gaps: GapWindow[];
+  aiSlots?: AISlotSeg[];
   totalFree: number;
 };
 
@@ -193,6 +196,25 @@ export function WeekGrid({
                   }}
                 >
                   <div className="text-[9px] font-semibold truncate text-white">{l.name}</div>
+                </motion.div>
+              );
+            })}
+
+            {/* AI suggested slots (centered ribbon, dashed primary) */}
+            {(d.aiSlots ?? []).map((s, i) => {
+              const c = clamp(s.seg);
+              if (!c) return null;
+              return (
+                <motion.div
+                  key={`ai-${i}`}
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.02 }}
+                  className="absolute left-[18%] right-[18%] rounded-md px-1.5 py-0.5 pointer-events-none border border-primary/70 bg-primary/[0.18] backdrop-blur-sm shadow-glow"
+                  style={{ top: topFor(c.startMin), height: heightFor(c) }}
+                >
+                  <div className="text-[9px] uppercase tracking-wider text-primary/90">AI</div>
+                  <div className="text-[10px] font-semibold truncate text-foreground">{s.name}</div>
                 </motion.div>
               );
             })}
