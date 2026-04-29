@@ -12,6 +12,7 @@ import { WeekGrid, type DayCellData } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
 import { toMin } from "@/lib/time";
+import { AIPlanPanel, type WeeklyPlan } from "@/components/week/AIPlanPanel";
 
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
