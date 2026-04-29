@@ -98,6 +98,13 @@ export default function WeekPage() {
         }));
       });
 
+      const aiSlots = (aiPlan?.slots ?? [])
+        .filter((s) => s.day === iso)
+        .map((s) => ({
+          seg: { startMin: toMin(s.start), endMin: toMin(s.end) },
+          name: s.activity_name,
+        }));
+
       return {
         iso,
         weekday,
@@ -107,10 +114,19 @@ export default function WeekPage() {
         blocks: blockSegs,
         logs: logSegs,
         gaps,
+        aiSlots,
         totalFree: totalFreeMinutes(gaps),
       };
     });
-  }, [days, blocks, logs, catMap, profile, today]);
+  }, [days, blocks, logs, catMap, profile, today, aiPlan]);
+
+  const flatGaps = useMemo(
+    () => dayCells.flatMap((d) => d.gaps.map((g) => ({
+      day: d.iso, start: fromMin(g.start), end: fromMin(g.end),
+      durationMin: g.durationMin, isPeak: g.isPeak,
+    }))),
+    [dayCells]
+  );
 
   const totalWeekFree = useMemo(
     () => dayCells.reduce((s, d) => s + d.totalFree, 0),
