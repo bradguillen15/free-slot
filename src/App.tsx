@@ -12,6 +12,7 @@ import Onboarding from "./pages/Onboarding";
 import CalendarPage from "./pages/CalendarPage";
 import WeekPage from "./pages/WeekPage";
 import ActivitiesPage from "./pages/ActivitiesPage";
+import DashboardPage from "./pages/DashboardPage";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -37,7 +38,7 @@ const App = () => (
             />
             <Route path="/app" element={<ProtectedRoute><OnboardingGate><CalendarPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/week" element={<ProtectedRoute><OnboardingGate><WeekPage /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/app/dashboard" element={<ProtectedRoute><OnboardingGate><Placeholder title="Dashboard" body="Stats — coming in Phase 7." /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/app/dashboard" element={<ProtectedRoute><OnboardingGate><DashboardPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/activities" element={<ProtectedRoute><OnboardingGate><ActivitiesPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/settings" element={<ProtectedRoute><OnboardingGate><Placeholder title="Settings" body="Preferences & categories — coming next." /></OnboardingGate></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
