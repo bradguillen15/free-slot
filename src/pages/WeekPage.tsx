@@ -25,6 +25,7 @@ export default function WeekPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [profile, setProfile] = useState<{ buffer_minutes: number; peak_hours: { start: string; end: string } | null } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+  const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
   const [logCtx, setLogCtx] = useState<{ date: string; start: string; end: string }>({
     date: todayISO(), start: "09:00", end: "10:00",
   });
