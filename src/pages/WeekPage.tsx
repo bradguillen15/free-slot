@@ -12,6 +12,7 @@ import { WeekGrid, type DayCellData } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
 import { toMin } from "@/lib/time";
+import { AIPlanPanel, type WeeklyPlan } from "@/components/week/AIPlanPanel";
 
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -24,6 +25,7 @@ export default function WeekPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [profile, setProfile] = useState<{ buffer_minutes: number; peak_hours: { start: string; end: string } | null } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+  const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
   const [logCtx, setLogCtx] = useState<{ date: string; start: string; end: string }>({
     date: todayISO(), start: "09:00", end: "10:00",
   });
@@ -96,6 +98,13 @@ export default function WeekPage() {
         }));
       });
 
+      const aiSlots = (aiPlan?.slots ?? [])
+        .filter((s) => s.day === iso)
+        .map((s) => ({
+          seg: { startMin: toMin(s.start), endMin: toMin(s.end) },
+          name: s.activity_name,
+        }));
+
       return {
         iso,
         weekday,
@@ -105,10 +114,19 @@ export default function WeekPage() {
         blocks: blockSegs,
         logs: logSegs,
         gaps,
+        aiSlots,
         totalFree: totalFreeMinutes(gaps),
       };
     });
-  }, [days, blocks, logs, catMap, profile, today]);
+  }, [days, blocks, logs, catMap, profile, today, aiPlan]);
+
+  const flatGaps = useMemo(
+    () => dayCells.flatMap((d) => d.gaps.map((g) => ({
+      day: d.iso, start: fromMin(g.start), end: fromMin(g.end),
+      durationMin: g.durationMin, isPeak: g.isPeak,
+    }))),
+    [dayCells]
+  );
 
   const totalWeekFree = useMemo(
     () => dayCells.reduce((s, d) => s + d.totalFree, 0),
@@ -172,10 +190,13 @@ export default function WeekPage() {
           />
         </div>
 
-        <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+        <AIPlanPanel weekStart={weekStart} gaps={flatGaps} onPlanChange={setAiPlan} />
+
+        <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-dashed border-primary/60 bg-primary/10" /> Free / peak</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
           <span className="ml-auto">Click a free slot to log it</span>
         </div>
 
