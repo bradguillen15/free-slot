@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3, Trophy } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { celebrateIfPersonalBest, getBestRatio } from "@/lib/celebrate";
