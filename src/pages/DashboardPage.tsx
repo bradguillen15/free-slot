@@ -84,6 +84,20 @@ export default function DashboardPage() {
     return { prod, unprod, total, ratio: total ? Math.round((prod / total) * 100) : 0 };
   }, [perDay]);
 
+  // Celebrate when productive ratio sets a new personal best (current week only)
+  const isCurrentWeek = weekStart === weekStartISO();
+  useEffect(() => {
+    if (!isCurrentWeek) return;
+    if (totals.total < 60) return;
+    const prevBest = getBestRatio();
+    if (celebrateIfPersonalBest(totals.ratio, totals.total)) {
+      toast.success(`New personal best — ${totals.ratio}% productive!`, {
+        description: `Previous best: ${prevBest}%. Keep it up.`,
+        icon: "🎉",
+      });
+    }
+  }, [totals.ratio, totals.total, isCurrentWeek]);
+
   // Category breakdown (top categories by minutes)
   const catBreakdown = useMemo(() => {
     const map = new Map<string, number>();
