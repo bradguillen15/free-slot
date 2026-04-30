@@ -233,6 +233,7 @@ export default function WeekPage() {
           categories={categories}
           defaultStart={logCtx.start}
           defaultEnd={logCtx.end}
+          onOptimisticInsert={(log) => setLogs((prev) => [...prev, log as TimeLog])}
           onSaved={load}
         />
       </div>
