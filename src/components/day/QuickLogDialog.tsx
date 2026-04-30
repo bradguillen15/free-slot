@@ -26,6 +26,15 @@ type Props = {
   defaultEnd?: string;
   defaultCategoryId?: string;
   onSaved?: () => void;
+  onOptimisticInsert?: (log: {
+    id: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+    category_id: string;
+    type: "productive" | "unproductive";
+    notes: string | null;
+  }) => void;
 };
 
 export function QuickLogDialog({
