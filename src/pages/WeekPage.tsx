@@ -23,6 +23,7 @@ export default function WeekPage() {
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
   const [logs, setLogs] = useState<TimeLog[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [activities, setActivities] = useState<{ id: string; name: string; category_id: string | null }[]>([]);
   const [profile, setProfile] = useState<{ buffer_minutes: number; peak_hours: { start: string; end: string } | null } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
@@ -36,16 +37,18 @@ export default function WeekPage() {
   const load = useCallback(async () => {
     if (!user) return;
     const weekEnd = addDaysISO(weekStart, 6);
-    const [b, l, c, p] = await Promise.all([
+    const [b, l, c, p, a] = await Promise.all([
       supabase.from("schedule_blocks").select("*").eq("user_id", user.id),
       supabase.from("time_logs").select("*").eq("user_id", user.id).gte("date", weekStart).lte("date", weekEnd),
       supabase.from("categories").select("id,name,color,type").eq("user_id", user.id),
       supabase.from("profiles").select("buffer_minutes,peak_hours").eq("id", user.id).maybeSingle(),
+      supabase.from("activities").select("id,name,category_id").eq("user_id", user.id).eq("is_active", true),
     ]);
     setBlocks((b.data ?? []) as ScheduleBlock[]);
     setLogs((l.data ?? []) as TimeLog[]);
     setCategories((c.data ?? []) as Category[]);
     setProfile((p.data ?? null) as any);
+    setActivities((a.data ?? []) as any);
   }, [user, weekStart]);
 
   useEffect(() => { load(); }, [load]);
@@ -103,6 +106,7 @@ export default function WeekPage() {
         .map((s) => ({
           seg: { startMin: toMin(s.start), endMin: toMin(s.end) },
           name: s.activity_name,
+          rationale: s.rationale,
         }));
 
       return {
@@ -190,7 +194,14 @@ export default function WeekPage() {
           />
         </div>
 
-        <AIPlanPanel weekStart={weekStart} gaps={flatGaps} onPlanChange={setAiPlan} />
+        <AIPlanPanel
+          weekStart={weekStart}
+          gaps={flatGaps}
+          activities={activities}
+          categories={categories}
+          onPlanChange={setAiPlan}
+          onSlotAccepted={load}
+        />
 
         <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
