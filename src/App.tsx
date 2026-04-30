@@ -41,7 +41,7 @@ const App = () => (
             <Route path="/app/week" element={<ProtectedRoute><OnboardingGate><WeekPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/dashboard" element={<ProtectedRoute><OnboardingGate><DashboardPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/activities" element={<ProtectedRoute><OnboardingGate><ActivitiesPage /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/app/settings" element={<ProtectedRoute><OnboardingGate><Placeholder title="Settings" body="Preferences & categories — coming next." /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/app/settings" element={<ProtectedRoute><OnboardingGate><SettingsPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
