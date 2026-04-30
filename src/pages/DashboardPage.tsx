@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3 } from "lucide-react";
+import { toast } from "sonner";
+import { EmptyState } from "@/components/EmptyState";
+import { celebrateIfPersonalBest, getBestRatio } from "@/lib/celebrate";
 import {
   Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -81,6 +84,20 @@ export default function DashboardPage() {
     return { prod, unprod, total, ratio: total ? Math.round((prod / total) * 100) : 0 };
   }, [perDay]);
 
+  // Celebrate when productive ratio sets a new personal best (current week only)
+  const isCurrentWeek = weekStart === weekStartISO();
+  useEffect(() => {
+    if (!isCurrentWeek) return;
+    if (totals.total < 60) return;
+    const prevBest = getBestRatio();
+    if (celebrateIfPersonalBest(totals.ratio, totals.total)) {
+      toast.success(`New personal best — ${totals.ratio}% productive!`, {
+        description: `Previous best: ${prevBest}%. Keep it up.`,
+        icon: "🎉",
+      });
+    }
+  }, [totals.ratio, totals.total, isCurrentWeek]);
+
   // Category breakdown (top categories by minutes)
   const catBreakdown = useMemo(() => {
     const map = new Map<string, number>();
@@ -135,6 +152,18 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
+
+        {totals.total === 0 && planSlots.length === 0 && (
+          <div className="mb-6">
+            <EmptyState
+              icon={<BarChart3 className="h-5 w-5" />}
+              title="Your dashboard is waiting for its first data point"
+              description="Log a few sessions on the Day view, or generate an AI weekly plan, and your charts will come alive here."
+              ctaLabel="Go to Day view"
+              ctaTo="/app"
+            />
+          </div>
+        )}
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

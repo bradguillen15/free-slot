@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Sparkles } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -112,6 +113,17 @@ export default function CalendarPage() {
                 currentMinute={currentMinute}
               />
             </div>
+            {blocks.length === 0 && logs.length === 0 && (
+              <div className="mt-3">
+                <EmptyState
+                  icon={<Sparkles className="h-5 w-5" />}
+                  title="Nothing logged yet — that's a clean canvas"
+                  description="Click any hour on the timeline to log what you just did, or use the floating + button for a quick entry."
+                  ctaLabel="Quick log"
+                  onCtaClick={openQuickLog}
+                />
+              </div>
+            )}
           </div>
 
           {/* Side summary */}
@@ -138,6 +150,9 @@ export default function CalendarPage() {
           categories={categories}
           defaultStart={logDefaults.start}
           defaultEnd={logDefaults.end}
+          onOptimisticInsert={(log) => {
+            if (log.date === date) setLogs((prev) => [...prev, log as TimeLog].sort((a, b) => a.start_time.localeCompare(b.start_time)));
+          }}
           onSaved={load}
         />
       </div>

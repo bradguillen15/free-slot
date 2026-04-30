@@ -26,12 +26,21 @@ type Props = {
   defaultEnd?: string;
   defaultCategoryId?: string;
   onSaved?: () => void;
+  onOptimisticInsert?: (log: {
+    id: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+    category_id: string;
+    type: "productive" | "unproductive";
+    notes: string | null;
+  }) => void;
 };
 
 export function QuickLogDialog({
   open, onOpenChange, date, categories,
   defaultStart = "09:00", defaultEnd = "10:00",
-  defaultCategoryId, onSaved,
+  defaultCategoryId, onSaved, onOptimisticInsert,
 }: Props) {
   const { user } = useAuth();
   const [start, setStart] = useState(defaultStart);
@@ -59,6 +68,24 @@ export function QuickLogDialog({
       return;
     }
     setSaving(true);
+
+    // Optimistic insert: show the log instantly, close the dialog, reconcile with server.
+    const optimisticId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : `tmp-${Date.now()}`;
+    const optimistic = {
+      id: optimisticId,
+      date,
+      start_time: start,
+      end_time: end,
+      category_id: categoryId,
+      type: (selected?.type ?? "productive") as "productive" | "unproductive",
+      notes: notes || null,
+    };
+    onOptimisticInsert?.(optimistic);
+    onOpenChange(false);
+    toast.success(`Logged ${fmtDuration(duration)}`);
+
     const { error } = await supabase.from("time_logs").insert({
       user_id: user.id,
       date,
@@ -70,11 +97,11 @@ export function QuickLogDialog({
     });
     setSaving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(`Save failed: ${error.message}`);
+      // Trigger reload anyway so optimistic row is removed.
+      onSaved?.();
       return;
     }
-    toast.success(`Logged ${fmtDuration(duration)}`);
-    onOpenChange(false);
     onSaved?.();
   };
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Zap, CalendarRange } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -194,14 +195,26 @@ export default function WeekPage() {
           />
         </div>
 
-        <AIPlanPanel
-          weekStart={weekStart}
-          gaps={flatGaps}
-          activities={activities}
-          categories={categories}
-          onPlanChange={setAiPlan}
-          onSlotAccepted={load}
-        />
+        {activities.length === 0 ? (
+          <div className="mb-5">
+            <EmptyState
+              icon={<CalendarRange className="h-5 w-5" />}
+              title="Add a few activities to unlock AI planning"
+              description="Tell FreeSlot what you want to spend more time on (e.g. Reading, Workout, Deep work) and the AI will fit them into your free windows."
+              ctaLabel="Add activities"
+              ctaTo="/app/activities"
+            />
+          </div>
+        ) : (
+          <AIPlanPanel
+            weekStart={weekStart}
+            gaps={flatGaps}
+            activities={activities}
+            categories={categories}
+            onPlanChange={setAiPlan}
+            onSlotAccepted={load}
+          />
+        )}
 
         <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
@@ -220,6 +233,7 @@ export default function WeekPage() {
           categories={categories}
           defaultStart={logCtx.start}
           defaultEnd={logCtx.end}
+          onOptimisticInsert={(log) => setLogs((prev) => [...prev, log as TimeLog])}
           onSaved={load}
         />
       </div>
