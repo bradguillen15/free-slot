@@ -13,6 +13,7 @@ import CalendarPage from "./pages/CalendarPage";
 import WeekPage from "./pages/WeekPage";
 import ActivitiesPage from "./pages/ActivitiesPage";
 import DashboardPage from "./pages/DashboardPage";
+import SettingsPage from "./pages/SettingsPage";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound.tsx";
 
