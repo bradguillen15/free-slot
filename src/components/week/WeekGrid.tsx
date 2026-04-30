@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { GapWindow } from "@/lib/gaps";
 
 const PX_PER_HOUR = 32;
@@ -27,7 +28,7 @@ function heightFor(seg: Seg) {
   return ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
 }
 
-export type AISlotSeg = { seg: Seg; name: string };
+export type AISlotSeg = { seg: Seg; name: string; rationale?: string };
 
 export type DayCellData = {
   iso: string;
@@ -57,6 +58,7 @@ export function WeekGrid({
   );
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="rounded-2xl border border-border bg-surface overflow-hidden">
       {/* Day headers */}
       <div className="grid" style={{ gridTemplateColumns: `48px repeat(7, 1fr)` }}>
@@ -204,23 +206,34 @@ export function WeekGrid({
             {(d.aiSlots ?? []).map((s, i) => {
               const c = clamp(s.seg);
               if (!c) return null;
-              return (
+              const block = (
                 <motion.div
-                  key={`ai-${i}`}
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.02 }}
-                  className="absolute left-[18%] right-[18%] rounded-md px-1.5 py-0.5 pointer-events-none border border-primary/70 bg-primary/[0.18] backdrop-blur-sm shadow-glow"
+                  className="absolute left-[18%] right-[18%] rounded-md px-1.5 py-0.5 border border-primary/70 bg-primary/[0.18] backdrop-blur-sm shadow-glow cursor-help"
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
                 >
                   <div className="text-[9px] uppercase tracking-wider text-primary/90">AI</div>
                   <div className="text-[10px] font-semibold truncate text-foreground">{s.name}</div>
                 </motion.div>
               );
+              return s.rationale ? (
+                <Tooltip key={`ai-${i}`}>
+                  <TooltipTrigger asChild>{block}</TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs">
+                    <div className="font-semibold mb-1">{s.name}</div>
+                    {s.rationale}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <div key={`ai-${i}`}>{block}</div>
+              );
             })}
           </div>
         ))}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
