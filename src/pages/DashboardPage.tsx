@@ -153,6 +153,18 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {totals.total === 0 && planSlots.length === 0 && (
+          <div className="mb-6">
+            <EmptyState
+              icon={<BarChart3 className="h-5 w-5" />}
+              title="Your dashboard is waiting for its first data point"
+              description="Log a few sessions on the Day view, or generate an AI weekly plan, and your charts will come alive here."
+              ctaLabel="Go to Day view"
+              ctaTo="/app"
+            />
+          </div>
+        )}
+
         {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Kpi icon={<Activity className="h-4 w-4" />} label="Total tracked" value={fmtDuration(totals.total)} tone="muted" />
