@@ -150,6 +150,9 @@ export default function CalendarPage() {
           categories={categories}
           defaultStart={logDefaults.start}
           defaultEnd={logDefaults.end}
+          onOptimisticInsert={(log) => {
+            if (log.date === date) setLogs((prev) => [...prev, log as TimeLog].sort((a, b) => a.start_time.localeCompare(b.start_time)));
+          }}
           onSaved={load}
         />
       </div>
