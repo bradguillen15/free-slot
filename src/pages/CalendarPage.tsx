@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { AppLayout } from "@/components/AppLayout";
@@ -10,14 +11,32 @@ import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/
 import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { useCategories, useScheduleBlocks, useTimeLogsInRange } from "@/lib/dataStore";
+import { ViewSwitcher } from "@/components/ViewSwitcher";
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const [date, setDate] = useState<string>(todayISO());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialDate = searchParams.get("date") || todayISO();
+  const [date, setDate] = useState<string>(initialDate);
   const [logOpen, setLogOpen] = useState(false);
   const [logDefaults, setLogDefaults] = useState<{ start: string; end: string }>({ start: "09:00", end: "10:00" });
   const [now, setNow] = useState(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Sync ?date= on change (without polluting history)
+  useEffect(() => {
+    if (date === todayISO()) {
+      if (searchParams.get("date")) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("date");
+        setSearchParams(next, { replace: true });
+      }
+    } else if (searchParams.get("date") !== date) {
+      const next = new URLSearchParams(searchParams);
+      next.set("date", date);
+      setSearchParams(next, { replace: true });
+    }
+  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const weekday = isoToWeekday(date);
   const isToday = date === todayISO();
