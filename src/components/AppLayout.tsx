@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, LogIn, Lock } from "lucide-react";
+import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, CalendarDays, LogIn, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { GuestBanner } from "@/components/GuestBanner";
@@ -8,8 +8,17 @@ import { GuestBanner } from "@/components/GuestBanner";
 const nav = [
   { to: "/app", label: "Day", icon: Calendar, requiresAuth: false },
   { to: "/app/week", label: "Week", icon: CalendarRange, requiresAuth: false },
+  { to: "/app/month", label: "Month", icon: CalendarDays, requiresAuth: false },
   { to: "/app/dashboard", label: "Dashboard", icon: BarChart3, requiresAuth: true },
   { to: "/app/activities", label: "Activities", icon: Target, requiresAuth: false },
+  { to: "/app/settings", label: "Settings", icon: Settings, requiresAuth: true },
+];
+
+// Mobile bottom nav: keep it focused — calendar views are switched via the in-page ViewSwitcher.
+const mobileNav = [
+  { to: "/app", label: "Calendar", icon: Calendar, requiresAuth: false, matchPrefixes: ["/app", "/app/week", "/app/month"] },
+  { to: "/app/activities", label: "Activities", icon: Target, requiresAuth: false },
+  { to: "/app/dashboard", label: "Stats", icon: BarChart3, requiresAuth: true },
   { to: "/app/settings", label: "Settings", icon: Settings, requiresAuth: true },
 ];
 
