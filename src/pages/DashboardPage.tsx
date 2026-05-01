@@ -304,6 +304,8 @@ export default function DashboardPage() {
             )}
           </Card>
         </div>
+
+        <WeeklyReviewModal open={reviewOpen} onOpenChange={setReviewOpen} weekStart={reviewWeek} />
       </div>
     </AppLayout>
   );
