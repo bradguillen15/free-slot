@@ -22,9 +22,14 @@ export default function Landing() {
           </div>
           <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
         </div>
-        <Link to="/auth">
-          <Button variant="ghost" size="sm">Sign in</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/app">
+            <Button variant="ghost" size="sm">Try the app</Button>
+          </Link>
+          <Link to="/auth">
+            <Button variant="ghost" size="sm">Sign in</Button>
+          </Link>
+        </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-6">
