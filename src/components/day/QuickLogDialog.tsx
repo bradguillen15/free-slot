@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { fmtDuration, toMin } from "@/lib/time";
+import { insertTimeLog } from "@/lib/dataStore";
 
 export type Category = {
   id: string;
@@ -62,14 +62,13 @@ export function QuickLogDialog({
   const selected = categories.find((c) => c.id === categoryId);
 
   const save = async () => {
-    if (!user || !categoryId) return;
+    if (!categoryId) return;
     if (toMin(end) <= toMin(start)) {
       toast.error("End time must be after start");
       return;
     }
     setSaving(true);
 
-    // Optimistic insert: show the log instantly, close the dialog, reconcile with server.
     const optimisticId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
       ? crypto.randomUUID()
       : `tmp-${Date.now()}`;
@@ -86,23 +85,22 @@ export function QuickLogDialog({
     onOpenChange(false);
     toast.success(`Logged ${fmtDuration(duration)}`);
 
-    const { error } = await supabase.from("time_logs").insert({
-      user_id: user.id,
-      date,
-      start_time: start,
-      end_time: end,
-      category_id: categoryId,
-      type: selected?.type ?? "productive",
-      notes: notes || null,
-    });
-    setSaving(false);
-    if (error) {
-      toast.error(`Save failed: ${error.message}`);
-      // Trigger reload anyway so optimistic row is removed.
+    try {
+      await insertTimeLog(user ? "cloud" : "guest", user?.id ?? null, {
+        date,
+        start_time: start,
+        end_time: end,
+        category_id: categoryId,
+        type: selected?.type ?? "productive",
+        notes: notes || null,
+      });
       onSaved?.();
-      return;
+    } catch (err: any) {
+      toast.error(`Save failed: ${err?.message ?? "unknown"}`);
+      onSaved?.();
+    } finally {
+      setSaving(false);
     }
-    onSaved?.();
   };
 
   const productive = categories.filter((c) => c.type === "productive");
