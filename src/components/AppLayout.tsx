@@ -111,9 +111,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-sidebar-border bg-sidebar/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
-        <ul className="grid grid-cols-5">
-          {nav.map(({ to, label, icon: Icon, requiresAuth }) => {
-            const active = to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to);
+        <ul className="grid grid-cols-4">
+          {mobileNav.map((item) => {
+            const { to, label, icon: Icon, requiresAuth } = item;
+            const prefixes = (item as any).matchPrefixes as string[] | undefined;
+            const active = prefixes
+              ? prefixes.some((p) => (p === "/app" ? location.pathname === "/app" : location.pathname.startsWith(p)))
+              : (to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to));
             const locked = isGuest && requiresAuth;
             const target = locked ? "/auth" : to;
             return (
