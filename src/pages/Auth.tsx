@@ -78,12 +78,12 @@ export default function Auth() {
     setMigrating(true);
     try {
       const result = await migrateGuestToCloud(pendingUserId);
-      const { categories, activities, schedule_blocks, time_logs } = result.counts;
+      const c = result.counts;
       const parts = [
-        time_logs && `${time_logs} log${time_logs > 1 ? "s" : ""}`,
-        activities && `${activities} activit${activities > 1 ? "ies" : "y"}`,
-        schedule_blocks && `${schedule_blocks} block${schedule_blocks > 1 ? "s" : ""}`,
-        categories && `${categories} categor${categories > 1 ? "ies" : "y"}`,
+        c.time_logs && `${c.time_logs} log${c.time_logs > 1 ? "s" : ""}`,
+        c.activities && `${c.activities} activit${c.activities > 1 ? "ies" : "y"}`,
+        c.schedule_blocks && `${c.schedule_blocks} block${c.schedule_blocks > 1 ? "s" : ""}`,
+        c.categories && `${c.categories} categor${c.categories > 1 ? "ies" : "y"}`,
       ].filter(Boolean).join(" · ");
       toast.success("Your guest data is now in your account", { description: parts || undefined });
       setMigrateOpen(false);
