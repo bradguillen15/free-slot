@@ -102,6 +102,36 @@ export default function DashboardPage() {
     }
   }, [totals.ratio, totals.total, isCurrentWeek]);
 
+  // Auto-prompt review for last week if it's the configured review day and not yet reviewed
+  useEffect(() => {
+    if (!user || !isCurrentWeek) return;
+    const lastWeek = addDaysISO(weekStart, -7);
+    if (autoPromptedFor === lastWeek) return;
+    const dismissedKey = `freeslot.review.dismissed.${lastWeek}`;
+    if (typeof window !== "undefined" && localStorage.getItem(dismissedKey)) return;
+    (async () => {
+      const [profileRes, reviewRes] = await Promise.all([
+        supabase.from("profiles").select("weekly_review_day").eq("id", user.id).maybeSingle(),
+        supabase.from("weekly_reviews").select("id").eq("user_id", user.id).eq("week_start", lastWeek).maybeSingle(),
+      ]);
+      if (reviewRes.data) return; // already reviewed
+      const reviewDay = (profileRes.data?.weekly_review_day ?? 0) as number; // 0=Sun
+      const today = new Date().getDay();
+      if (today !== reviewDay) return;
+      setAutoPromptedFor(lastWeek);
+      toast("Time for your weekly review", {
+        description: "Reflect on last week and let AI summarize it for you.",
+        icon: "📝",
+        duration: 8000,
+        action: {
+          label: "Open",
+          onClick: () => { setReviewWeek(lastWeek); setReviewOpen(true); },
+        },
+        onDismiss: () => localStorage.setItem(dismissedKey, "1"),
+      });
+    })();
+  }, [user, isCurrentWeek, weekStart, autoPromptedFor]);
+
   // Category breakdown (top categories by minutes)
   const catBreakdown = useMemo(() => {
     const map = new Map<string, number>();
