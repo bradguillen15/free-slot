@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Plus, Trash2, Save, Tag } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Settings as SettingsIcon, Plus, Trash2, Save, Tag, AlertTriangle } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 type Profile = {
@@ -30,11 +35,27 @@ type Category = {
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
+  const deleteAccount = async () => {
+    setDeleting(true);
+    const { error } = await supabase.functions.invoke("delete-account");
+    if (error) {
+      setDeleting(false);
+      toast.error(error.message ?? "Failed to delete account");
+      return;
+    }
+    toast.success("Account deleted");
+    await signOut();
+    navigate("/", { replace: true });
+  };
   const [newCat, setNewCat] = useState({ name: "", color: "#3b82f6", type: "productive" as "productive" | "unproductive" });
 
   useEffect(() => {
@@ -253,6 +274,51 @@ export default function SettingsPage() {
                 <Plus className="h-4 w-4" /> Add
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Danger zone
+            </CardTitle>
+            <CardDescription>
+              Permanently delete your account and all associated data. This cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertDialog onOpenChange={(o) => !o && setConfirmText("")}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="gap-2">
+                  <Trash2 className="h-4 w-4" /> Delete account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently erase your profile, activities, categories, time logs,
+                    weekly plans, and reviews. Type <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <Input
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  autoFocus
+                />
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={confirmText !== "DELETE" || deleting}
+                    onClick={(e) => { e.preventDefault(); deleteAccount(); }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleting ? "Deleting…" : "Delete forever"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       </div>
