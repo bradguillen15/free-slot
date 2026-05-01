@@ -99,6 +99,31 @@ export async function migrateGuestToCloud(userId: string) {
     }).eq("id", userId);
   }
 
+  // 6. Weekly priorities — need both the cloud activity_id and a valid week_start.
+  // Build a name-based map from local activity id -> cloud activity id.
+  let prioritiesCount = 0;
+  if (snap.priorities.length && snap.activities.length) {
+    const { data: cloudActs } = await supabase
+      .from("activities")
+      .select("id,name")
+      .eq("user_id", userId);
+    const cloudActByName = new Map<string, string>((cloudActs ?? []).map((a) => [a.name, a.id]));
+    const localActById = new Map(snap.activities.map((a) => [a.id, a]));
+
+    const rows = snap.priorities.flatMap((p) => {
+      const localAct = localActById.get(p.activity_id);
+      if (!localAct) return [];
+      const cloudId = cloudActByName.get(localAct.name);
+      if (!cloudId) return [];
+      return [{ user_id: userId, week_start: p.week_start, activity_id: cloudId, rank: p.rank }];
+    });
+    if (rows.length) {
+      const { data, error } = await supabase.from("weekly_priorities").insert(rows).select("id");
+      if (error) throw error;
+      prioritiesCount = data?.length ?? 0;
+    }
+  }
+
   clearGuestData();
 
   return {
@@ -108,6 +133,7 @@ export async function migrateGuestToCloud(userId: string) {
       activities: activitiesCount,
       schedule_blocks: blocksCount,
       time_logs: logsCount,
+      priorities: prioritiesCount,
     },
   };
 }
