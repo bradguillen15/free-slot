@@ -133,17 +133,20 @@ Plan activities into these windows. Each slot must use start/end inside one wind
       return json({ error: "Invalid AI output" }, 500);
     }
 
-    // Persist (upsert by user_id + week_start)
-    await supabase.from("weekly_plans").delete().eq("user_id", user.id).eq("week_start", week_start);
+    // Atomic upsert by (user_id, week_start) — relies on unique constraint
     const { data: saved, error: insErr } = await supabase
       .from("weekly_plans")
-      .insert({
-        user_id: user.id,
-        week_start,
-        slots: parsed.slots,
-        raw_prompt: { system: systemPrompt, user: userPrompt },
-        raw_response: aiJson,
-      })
+      .upsert(
+        {
+          user_id: user.id,
+          week_start,
+          slots: parsed.slots,
+          generated_at: new Date().toISOString(),
+          raw_prompt: { system: systemPrompt, user: userPrompt },
+          raw_response: aiJson,
+        },
+        { onConflict: "user_id,week_start" }
+      )
       .select()
       .single();
 
