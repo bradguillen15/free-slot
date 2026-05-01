@@ -103,9 +103,36 @@ export default function Onboarding() {
   const removeActivity = (i: number) => setActivities(activities.filter((_, idx) => idx !== i));
 
   const finish = async () => {
-    if (!user) return;
     setSaving(true);
     try {
+      if (!user) {
+        // Guest mode — persist to localStorage
+        for (const b of blocks) {
+          upsertLocalBlock({
+            name: b.name, start_time: b.start_time, end_time: b.end_time,
+            days_of_week: b.days_of_week, color: b.color, type: b.type,
+          });
+        }
+        for (const a of activities) {
+          upsertLocalActivity({
+            name: a.name,
+            target_hours_per_week: a.target_hours_per_week,
+            category_id: a.category_id ?? null,
+            is_active: true,
+          });
+        }
+        updateLocalProfile({
+          buffer_minutes: bufferMinutes,
+          peak_hours: { start: peakStart, end: peakEnd },
+          include_weekends: includeWeekends,
+          weekly_review_day: reviewDay,
+          onboarding_completed: true,
+        });
+        toast.success("You're all set");
+        navigate("/app", { replace: true });
+        return;
+      }
+
       if (blocks.length) {
         const { error: bErr } = await supabase.from("schedule_blocks").insert(
           blocks.map((b) => ({ ...b, user_id: user.id }))
