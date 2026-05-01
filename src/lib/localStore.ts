@@ -271,12 +271,39 @@ export function deleteLog(id: string) {
 }
 
 // ---------- Snapshot for migration ----------
+export type LocalPriority = { week_start: string; activity_id: string; rank: number };
+
+function prioKey(weekStart: string) {
+  return `${PREFIX}.weekly_priorities.${weekStart}`;
+}
+
+export function listPriorities(weekStart: string): LocalPriority[] {
+  return read<LocalPriority[]>(prioKey(weekStart), []);
+}
+
+export function setPriorities(weekStart: string, items: { activity_id: string; rank: number }[]) {
+  write(prioKey(weekStart), items.map((it) => ({ week_start: weekStart, ...it })));
+}
+
+export function listAllPriorities(): LocalPriority[] {
+  if (typeof window === "undefined") return [];
+  const out: LocalPriority[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(`${PREFIX}.weekly_priorities.`)) {
+      out.push(...read<LocalPriority[]>(k, []));
+    }
+  }
+  return out;
+}
+
 export type GuestSnapshot = {
   profile: LocalProfile;
   categories: LocalCategory[];
   activities: LocalActivity[];
   schedule_blocks: LocalScheduleBlock[];
   time_logs: LocalTimeLog[];
+  priorities: LocalPriority[];
 };
 
 export function snapshot(): GuestSnapshot {
@@ -286,6 +313,7 @@ export function snapshot(): GuestSnapshot {
     activities: listActivities(),
     schedule_blocks: listScheduleBlocks(),
     time_logs: listAllLogs(),
+    priorities: listAllPriorities(),
   };
 }
 
@@ -295,6 +323,7 @@ export function hasGuestData() {
     s.activities.length > 0 ||
     s.schedule_blocks.length > 0 ||
     s.time_logs.length > 0 ||
+    s.priorities.length > 0 ||
     s.profile.onboarding_completed
   );
 }
