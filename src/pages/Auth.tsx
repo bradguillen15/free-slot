@@ -8,6 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { hasGuestData } from "@/lib/localStore";
+import { migrateGuestToCloud } from "@/lib/migrateGuest";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -16,33 +22,82 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [migrateOpen, setMigrateOpen] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [migrating, setMigrating] = useState(false);
 
+  // If we land on /auth already signed-in, decide what to do.
   useEffect(() => {
-    if (user) navigate("/app", { replace: true });
-  }, [user, navigate]);
+    if (!user) return;
+    if (hasGuestData() && !pendingUserId) {
+      setPendingUserId(user.id);
+      setMigrateOpen(true);
+      return;
+    }
+    if (!migrateOpen) navigate("/app", { replace: true });
+  }, [user, navigate, pendingUserId, migrateOpen]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${window.location.origin}/app` },
         });
         if (error) throw error;
-        toast.success("Welcome to FreeSlot");
+        // Auto-confirm is on, so the user is signed in immediately.
+        const newUser = data.user;
+        if (newUser && hasGuestData()) {
+          setPendingUserId(newUser.id);
+          setMigrateOpen(true);
+        } else {
+          toast.success("Welcome to FreeSlot");
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Signed in");
+        if (data.user && hasGuestData()) {
+          setPendingUserId(data.user.id);
+          setMigrateOpen(true);
+        } else {
+          toast.success("Signed in");
+        }
       }
     } catch (err: any) {
       toast.error(err.message ?? "Something went wrong");
     } finally {
       setLoading(false);
     }
+  };
+
+  const importNow = async () => {
+    if (!pendingUserId) return;
+    setMigrating(true);
+    try {
+      const result = await migrateGuestToCloud(pendingUserId);
+      const c = result.counts;
+      const parts = [
+        c.time_logs && `${c.time_logs} log${c.time_logs > 1 ? "s" : ""}`,
+        c.activities && `${c.activities} activit${c.activities > 1 ? "ies" : "y"}`,
+        c.schedule_blocks && `${c.schedule_blocks} block${c.schedule_blocks > 1 ? "s" : ""}`,
+        c.categories && `${c.categories} categor${c.categories > 1 ? "ies" : "y"}`,
+      ].filter(Boolean).join(" · ");
+      toast.success("Your guest data is now in your account", { description: parts || undefined });
+      setMigrateOpen(false);
+      navigate("/app", { replace: true });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Migration failed");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const startFresh = () => {
+    setMigrateOpen(false);
+    navigate("/app", { replace: true });
   };
 
   return (
@@ -63,10 +118,12 @@ export default function Auth() {
             <span className="font-display text-xl font-semibold tracking-tight">FreeSlot</span>
           </div>
           <h1 className="font-display text-3xl font-semibold tracking-tight">
-            {mode === "signup" ? "Find time for what matters" : "Welcome back"}
+            {mode === "signup" ? "Save your work, sync your time" : "Welcome back"}
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            {mode === "signup" ? "Map your week. Track your focus. Get more done." : "Sign in to your FreeSlot."}
+            {mode === "signup"
+              ? "Create an account to keep your data, sync devices, and unlock AI plans."
+              : "Sign in to your FreeSlot."}
           </p>
         </div>
 
@@ -113,6 +170,23 @@ export default function Auth() {
           </div>
         </div>
       </motion.div>
+
+      <AlertDialog open={migrateOpen} onOpenChange={setMigrateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bring your guest data along?</AlertDialogTitle>
+            <AlertDialogDescription>
+              We found data from your guest session. Want to import it into your new account so nothing is lost?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={startFresh} disabled={migrating}>Start fresh</AlertDialogCancel>
+            <AlertDialogAction onClick={importNow} disabled={migrating}>
+              {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Import everything"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

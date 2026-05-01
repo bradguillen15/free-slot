@@ -22,9 +22,14 @@ export default function Landing() {
           </div>
           <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
         </div>
-        <Link to="/auth">
-          <Button variant="ghost" size="sm">Sign in</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/app">
+            <Button variant="ghost" size="sm">Try the app</Button>
+          </Link>
+          <Link to="/auth">
+            <Button variant="ghost" size="sm">Sign in</Button>
+          </Link>
+        </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-6">
@@ -47,13 +52,21 @@ export default function Landing() {
             <p className="text-lg text-muted-foreground mt-6 max-w-xl mx-auto">
               FreeSlot maps your recurring week, tracks where your time actually goes, and uses AI to schedule the activities you keep meaning to do.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-3">
-              <Link to="/auth">
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+              <Link to="/app">
                 <Button size="lg" className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
-                  Get started <ArrowRight className="ml-1 h-4 w-4" />
+                  Try it free — no signup <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+              <Link to="/auth">
+                <Button size="lg" variant="outline">
+                  Create account
                 </Button>
               </Link>
             </div>
+            <p className="text-xs text-muted-foreground mt-4">
+              Use FreeSlot instantly with local storage. Sign up to sync across devices and unlock AI plans + dashboards.
+            </p>
           </motion.div>
         </section>
 
