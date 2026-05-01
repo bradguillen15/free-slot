@@ -37,13 +37,16 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return json({ error: "AI not configured" }, 500);
 
-    const ranked = priorities
-      .sort((a, b) => a.rank - b.rank)
-      .map((p, i) => {
-        const a = activities.find((x) => x.id === p.activity_id);
-        return a ? `${i + 1}. ${a.name} (target ${a.target_hours_per_week}h/wk, id=${a.id})` : null;
-      })
-      .filter(Boolean)
+    // If no explicit priorities, fall back to all activities ranked by target hours desc
+    const ordered = priorities.length
+      ? priorities
+          .sort((a, b) => a.rank - b.rank)
+          .map((p) => activities.find((x) => x.id === p.activity_id))
+          .filter(Boolean) as Activity[]
+      : [...activities].sort((a, b) => (b.target_hours_per_week ?? 0) - (a.target_hours_per_week ?? 0));
+
+    const ranked = ordered
+      .map((a, i) => `${i + 1}. ${a.name} (target ${a.target_hours_per_week}h/wk, id=${a.id})`)
       .join("\n");
 
     const gapText = gaps
