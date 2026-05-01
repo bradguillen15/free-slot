@@ -11,6 +11,13 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { DAYS, BLOCK_PRESETS, ACTIVITY_PRESETS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
+import {
+  ensureBootstrap,
+  listCategories as listLocalCategories,
+  upsertScheduleBlock as upsertLocalBlock,
+  upsertActivity as upsertLocalActivity,
+  updateProfile as updateLocalProfile,
+} from "@/lib/localStore";
 
 type Block = {
   name: string;
