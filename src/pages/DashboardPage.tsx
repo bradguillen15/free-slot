@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3, NotebookPen } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
 import { celebrateIfPersonalBest, getBestRatio } from "@/lib/celebrate";
 import {
   Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
@@ -41,6 +42,9 @@ export default function DashboardPage() {
   const [cats, setCats] = useState<Cat[]>([]);
   const [planSlots, setPlanSlots] = useState<AISlot[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewWeek, setReviewWeek] = useState<string>(weekStart);
+  const [autoPromptedFor, setAutoPromptedFor] = useState<string | null>(null);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
@@ -98,6 +102,36 @@ export default function DashboardPage() {
     }
   }, [totals.ratio, totals.total, isCurrentWeek]);
 
+  // Auto-prompt review for last week if it's the configured review day and not yet reviewed
+  useEffect(() => {
+    if (!user || !isCurrentWeek) return;
+    const lastWeek = addDaysISO(weekStart, -7);
+    if (autoPromptedFor === lastWeek) return;
+    const dismissedKey = `freeslot.review.dismissed.${lastWeek}`;
+    if (typeof window !== "undefined" && localStorage.getItem(dismissedKey)) return;
+    (async () => {
+      const [profileRes, reviewRes] = await Promise.all([
+        supabase.from("profiles").select("weekly_review_day").eq("id", user.id).maybeSingle(),
+        supabase.from("weekly_reviews").select("id").eq("user_id", user.id).eq("week_start", lastWeek).maybeSingle(),
+      ]);
+      if (reviewRes.data) return; // already reviewed
+      const reviewDay = (profileRes.data?.weekly_review_day ?? 0) as number; // 0=Sun
+      const today = new Date().getDay();
+      if (today !== reviewDay) return;
+      setAutoPromptedFor(lastWeek);
+      toast("Time for your weekly review", {
+        description: "Reflect on last week and let AI summarize it for you.",
+        icon: "📝",
+        duration: 8000,
+        action: {
+          label: "Open",
+          onClick: () => { setReviewWeek(lastWeek); setReviewOpen(true); },
+        },
+        onDismiss: () => localStorage.setItem(dismissedKey, "1"),
+      });
+    })();
+  }, [user, isCurrentWeek, weekStart, autoPromptedFor]);
+
   // Category breakdown (top categories by minutes)
   const catBreakdown = useMemo(() => {
     const map = new Map<string, number>();
@@ -143,6 +177,14 @@ export default function DashboardPage() {
             <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
           </motion.div>
           <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 mr-1"
+              onClick={() => { setReviewWeek(weekStart); setReviewOpen(true); }}
+            >
+              <NotebookPen className="h-3.5 w-3.5" /> Review week
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -262,6 +304,8 @@ export default function DashboardPage() {
             )}
           </Card>
         </div>
+
+        <WeeklyReviewModal open={reviewOpen} onOpenChange={setReviewOpen} weekStart={reviewWeek} />
       </div>
     </AppLayout>
   );
