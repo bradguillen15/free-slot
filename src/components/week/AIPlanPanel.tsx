@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Loader2, Wand2, Trash2, Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,8 @@ export function AIPlanPanel({
   const [summary, setSummary] = useState<string>("");
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [acceptingAll, setAcceptingAll] = useState(false);
+  const generatingRef = useRef(false);
+  const acceptingKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -75,6 +77,8 @@ export function AIPlanPanel({
 
   const generate = async () => {
     if (!user) return;
+    if (generatingRef.current || loading) return;
+    generatingRef.current = true;
     setLoading(true);
     try {
       const [actsRes, prioRes] = await Promise.all([
@@ -89,7 +93,7 @@ export function AIPlanPanel({
         return;
       }
       if (gaps.length === 0) {
-        toast({ title: "No free windows", description: "Your week has no detectable free time.", variant: "destructive" });
+        toast({ title: "No free windows this week", description: "Your week is fully booked. Try removing a block or pick another week.", variant: "destructive" });
         return;
       }
 
@@ -105,11 +109,16 @@ export function AIPlanPanel({
       onPlanChange(newPlan);
       setSummary((data as any).summary ?? "");
       setAccepted(new Set());
-      toast({ title: "Plan ready", description: `${newPlan.slots.length} slots generated.` });
+      const slotCount = newPlan?.slots?.length ?? 0;
+      toast({
+        title: slotCount ? "Plan ready" : "Empty plan",
+        description: slotCount ? `${slotCount} slots generated.` : "AI couldn't fit anything — try setting priorities or adding more free time.",
+      });
     } catch (e: any) {
       toast({ title: "Couldn't generate plan", description: e.message ?? "Try again.", variant: "destructive" });
     } finally {
       setLoading(false);
+      generatingRef.current = false;
     }
   };
 
