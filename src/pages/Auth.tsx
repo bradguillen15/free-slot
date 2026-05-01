@@ -174,6 +174,7 @@ export default function Auth() {
           </div>
         </div>
       </motion.div>
+      </div>
 
       <AlertDialog open={migrateOpen} onOpenChange={setMigrateOpen}>
         <AlertDialogContent>
