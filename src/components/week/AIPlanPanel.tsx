@@ -134,28 +134,33 @@ export function AIPlanPanel({
   const acceptSlot = async (slot: AISlot) => {
     if (!user) return;
     const key = slotKey(slot);
-    if (accepted.has(key)) return;
+    if (accepted.has(key) || acceptingKeysRef.current.has(key)) return;
+    acceptingKeysRef.current.add(key);
 
     const activity = activities.find((a) => a.id === slot.activity_id);
     const category = activity?.category_id ? categories.find((c) => c.id === activity.category_id) : undefined;
     const type: "productive" | "unproductive" = category?.type ?? "productive";
 
-    const { error } = await supabase.from("time_logs").insert({
-      user_id: user.id,
-      date: slot.day,
-      start_time: slot.start,
-      end_time: slot.end,
-      type,
-      category_id: category?.id ?? null,
-      notes: `Accepted from AI plan: ${slot.activity_name}`,
-    });
+    try {
+      const { error } = await supabase.from("time_logs").insert({
+        user_id: user.id,
+        date: slot.day,
+        start_time: slot.start,
+        end_time: slot.end,
+        type,
+        category_id: category?.id ?? null,
+        notes: `Accepted from AI plan: ${slot.activity_name}`,
+      });
 
-    if (error) {
-      toast({ title: "Couldn't accept slot", description: error.message, variant: "destructive" });
-      return;
+      if (error) {
+        toast({ title: "Couldn't accept slot", description: error.message, variant: "destructive" });
+        return;
+      }
+      setAccepted((s) => new Set(s).add(key));
+      onSlotAccepted();
+    } finally {
+      acceptingKeysRef.current.delete(key);
     }
-    setAccepted((s) => new Set(s).add(key));
-    onSlotAccepted();
   };
 
   const acceptAll = async () => {
