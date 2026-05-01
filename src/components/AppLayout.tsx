@@ -85,7 +85,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-x-hidden">
+      <main className="flex-1 min-w-0 overflow-x-hidden pb-20 md:pb-0">
         <GuestBanner />
         <motion.div
           key={location.pathname}
@@ -96,6 +96,46 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </motion.div>
       </main>
+
+      {/* Mobile bottom nav */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-sidebar-border bg-sidebar/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+        aria-label="Primary"
+      >
+        <ul className="grid grid-cols-5">
+          {nav.map(({ to, label, icon: Icon, requiresAuth }) => {
+            const active = to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to);
+            const locked = isGuest && requiresAuth;
+            const target = locked ? "/auth" : to;
+            return (
+              <li key={to}>
+                <Link
+                  to={target}
+                  className={cn(
+                    "relative flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors",
+                    active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="mobileNavIndicator"
+                      className="absolute top-0 h-0.5 w-8 rounded-b-full bg-primary"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative">
+                    <Icon className="h-5 w-5" />
+                    {locked && (
+                      <Lock className="absolute -right-1.5 -top-1 h-2.5 w-2.5 text-muted-foreground" />
+                    )}
+                  </span>
+                  <span>{label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </div>
   );
 }
