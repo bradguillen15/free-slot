@@ -177,6 +177,14 @@ export default function DashboardPage() {
             <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
           </motion.div>
           <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 mr-1"
+              onClick={() => { setReviewWeek(weekStart); setReviewOpen(true); }}
+            >
+              <NotebookPen className="h-3.5 w-3.5" /> Review week
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
               <ChevronLeft className="h-4 w-4" />
             </Button>
