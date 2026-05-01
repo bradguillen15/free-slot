@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3, NotebookPen } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
 import { celebrateIfPersonalBest, getBestRatio } from "@/lib/celebrate";
 import {
   Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
@@ -41,6 +42,9 @@ export default function DashboardPage() {
   const [cats, setCats] = useState<Cat[]>([]);
   const [planSlots, setPlanSlots] = useState<AISlot[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewWeek, setReviewWeek] = useState<string>(weekStart);
+  const [autoPromptedFor, setAutoPromptedFor] = useState<string | null>(null);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
