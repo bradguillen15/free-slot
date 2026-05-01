@@ -14,6 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { PublicHeader } from "@/components/PublicHeader";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -101,9 +102,12 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col px-4 relative overflow-hidden">
       <div className="absolute inset-0 -z-10 opacity-60" style={{ backgroundImage: "var(--gradient-glow)" }} />
 
+      <PublicHeader />
+
+      <div className="flex-1 flex items-center justify-center">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -170,6 +174,7 @@ export default function Auth() {
           </div>
         </div>
       </motion.div>
+      </div>
 
       <AlertDialog open={migrateOpen} onOpenChange={setMigrateOpen}>
         <AlertDialogContent>
