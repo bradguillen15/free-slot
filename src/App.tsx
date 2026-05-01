@@ -29,18 +29,14 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/onboarding"
-              element={
-                <ProtectedRoute>
-                  <OnboardingGate><Onboarding /></OnboardingGate>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/app" element={<ProtectedRoute><OnboardingGate><CalendarPage /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/app/week" element={<ProtectedRoute><OnboardingGate><WeekPage /></OnboardingGate></ProtectedRoute>} />
+            {/* Onboarding works for both guests and signed-in users */}
+            <Route path="/onboarding" element={<OnboardingGate><Onboarding /></OnboardingGate>} />
+            {/* Guest-accessible app routes */}
+            <Route path="/app" element={<OnboardingGate><CalendarPage /></OnboardingGate>} />
+            <Route path="/app/week" element={<OnboardingGate><WeekPage /></OnboardingGate>} />
+            <Route path="/app/activities" element={<OnboardingGate><ActivitiesPage /></OnboardingGate>} />
+            {/* Auth-only routes (AI dashboard, settings) */}
             <Route path="/app/dashboard" element={<ProtectedRoute><OnboardingGate><DashboardPage /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/app/activities" element={<ProtectedRoute><OnboardingGate><ActivitiesPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/app/settings" element={<ProtectedRoute><OnboardingGate><SettingsPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
