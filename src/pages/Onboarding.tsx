@@ -57,8 +57,15 @@ export default function Onboarding() {
   const [reviewDay, setReviewDay] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
     (async () => {
+      if (!user) {
+        ensureBootstrap();
+        const cats = listLocalCategories().map((c) => ({
+          id: c.id, name: c.name, type: c.type, color: c.color,
+        }));
+        setCategories(cats);
+        return;
+      }
       const { data } = await supabase.from("categories").select("id,name,type,color").eq("user_id", user.id);
       if (data) setCategories(data as Category[]);
     })();
