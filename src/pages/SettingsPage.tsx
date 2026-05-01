@@ -35,11 +35,27 @@ type Category = {
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
+  const deleteAccount = async () => {
+    setDeleting(true);
+    const { error } = await supabase.functions.invoke("delete-account");
+    if (error) {
+      setDeleting(false);
+      toast.error(error.message ?? "Failed to delete account");
+      return;
+    }
+    toast.success("Account deleted");
+    await signOut();
+    navigate("/", { replace: true });
+  };
   const [newCat, setNewCat] = useState({ name: "", color: "#3b82f6", type: "productive" as "productive" | "unproductive" });
 
   useEffect(() => {
