@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { DAYS, BLOCK_PRESETS, ACTIVITY_PRESETS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
+import { PublicHeader } from "@/components/PublicHeader";
 import {
   ensureBootstrap,
   listCategories as listLocalCategories,
@@ -171,13 +172,9 @@ export default function Onboarding() {
     <div className="min-h-screen relative overflow-hidden">
       <div className="absolute inset-0 -z-10 opacity-50" style={{ backgroundImage: "var(--gradient-glow)" }} />
 
-      <div className="max-w-3xl mx-auto px-6 py-10">
-        <div className="flex items-center gap-2 mb-10">
-          <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
-        </div>
+      <PublicHeader showAppLink={false} />
+
+      <div className="max-w-3xl mx-auto px-6 py-6">
 
         {/* Progress */}
         <div className="flex items-center gap-3 mb-10">
