@@ -11,6 +11,13 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { DAYS, BLOCK_PRESETS, ACTIVITY_PRESETS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
+import {
+  ensureBootstrap,
+  listCategories as listLocalCategories,
+  upsertScheduleBlock as upsertLocalBlock,
+  upsertActivity as upsertLocalActivity,
+  updateProfile as updateLocalProfile,
+} from "@/lib/localStore";
 
 type Block = {
   name: string;
@@ -50,8 +57,15 @@ export default function Onboarding() {
   const [reviewDay, setReviewDay] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
     (async () => {
+      if (!user) {
+        ensureBootstrap();
+        const cats = listLocalCategories().map((c) => ({
+          id: c.id, name: c.name, type: c.type, color: c.color,
+        }));
+        setCategories(cats);
+        return;
+      }
       const { data } = await supabase.from("categories").select("id,name,type,color").eq("user_id", user.id);
       if (data) setCategories(data as Category[]);
     })();
@@ -89,9 +103,36 @@ export default function Onboarding() {
   const removeActivity = (i: number) => setActivities(activities.filter((_, idx) => idx !== i));
 
   const finish = async () => {
-    if (!user) return;
     setSaving(true);
     try {
+      if (!user) {
+        // Guest mode — persist to localStorage
+        for (const b of blocks) {
+          upsertLocalBlock({
+            name: b.name, start_time: b.start_time, end_time: b.end_time,
+            days_of_week: b.days_of_week, color: b.color, type: b.type,
+          });
+        }
+        for (const a of activities) {
+          upsertLocalActivity({
+            name: a.name,
+            target_hours_per_week: a.target_hours_per_week,
+            category_id: a.category_id ?? null,
+            is_active: true,
+          });
+        }
+        updateLocalProfile({
+          buffer_minutes: bufferMinutes,
+          peak_hours: { start: peakStart, end: peakEnd },
+          include_weekends: includeWeekends,
+          weekly_review_day: reviewDay,
+          onboarding_completed: true,
+        });
+        toast.success("You're all set");
+        navigate("/app", { replace: true });
+        return;
+      }
+
       if (blocks.length) {
         const { error: bErr } = await supabase.from("schedule_blocks").insert(
           blocks.map((b) => ({ ...b, user_id: user.id }))
