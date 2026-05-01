@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import CalendarPage from "./pages/CalendarPage";
 import WeekPage from "./pages/WeekPage";
+import MonthPage from "./pages/MonthPage";
 import ActivitiesPage from "./pages/ActivitiesPage";
 import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -34,6 +35,7 @@ const App = () => (
             {/* Guest-accessible app routes */}
             <Route path="/app" element={<OnboardingGate><CalendarPage /></OnboardingGate>} />
             <Route path="/app/week" element={<OnboardingGate><WeekPage /></OnboardingGate>} />
+            <Route path="/app/month" element={<OnboardingGate><MonthPage /></OnboardingGate>} />
             <Route path="/app/activities" element={<OnboardingGate><ActivitiesPage /></OnboardingGate>} />
             {/* Auth-only routes (AI dashboard, settings) */}
             <Route path="/app/dashboard" element={<ProtectedRoute><OnboardingGate><DashboardPage /></OnboardingGate></ProtectedRoute>} />
