@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { AppLayout } from "@/components/AppLayout";
@@ -10,14 +11,32 @@ import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/
 import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { useCategories, useScheduleBlocks, useTimeLogsInRange } from "@/lib/dataStore";
+import { ViewSwitcher } from "@/components/ViewSwitcher";
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const [date, setDate] = useState<string>(todayISO());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialDate = searchParams.get("date") || todayISO();
+  const [date, setDate] = useState<string>(initialDate);
   const [logOpen, setLogOpen] = useState(false);
   const [logDefaults, setLogDefaults] = useState<{ start: string; end: string }>({ start: "09:00", end: "10:00" });
   const [now, setNow] = useState(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Sync ?date= on change (without polluting history)
+  useEffect(() => {
+    if (date === todayISO()) {
+      if (searchParams.get("date")) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("date");
+        setSearchParams(next, { replace: true });
+      }
+    } else if (searchParams.get("date") !== date) {
+      const next = new URLSearchParams(searchParams);
+      next.set("date", date);
+      setSearchParams(next, { replace: true });
+    }
+  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const weekday = isoToWeekday(date);
   const isToday = date === todayISO();
@@ -65,22 +84,27 @@ export default function CalendarPage() {
   return (
     <AppLayout>
       <div className="px-6 md:px-10 py-8 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
-          </motion.div>
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, -1))} aria-label="Previous day">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setDate(todayISO())} className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" />
-              Today
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, 1))} aria-label="Next day">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex justify-center md:justify-start">
+            <ViewSwitcher />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
+              <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
+            </motion.div>
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, -1))} aria-label="Previous day">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDate(todayISO())} className="gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Today
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, 1))} aria-label="Next day">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 

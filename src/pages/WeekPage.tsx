@@ -1,31 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Zap, CalendarRange } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Zap, CalendarRange, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { addDaysISO, fmtDuration, fromMin, isoToWeekday, todayISO } from "@/lib/time";
+import { addDaysISO, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { findFreeWindows, totalFreeMinutes, type GapWindow } from "@/lib/gaps";
 import { WeekGrid, type DayCellData } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
-import { toMin } from "@/lib/time";
 import { AIPlanPanel, type WeeklyPlan } from "@/components/week/AIPlanPanel";
+import { ViewSwitcher } from "@/components/ViewSwitcher";
+import {
+  useActivities,
+  useCategories,
+  useProfile,
+  useScheduleBlocks,
+  useTimeLogsInRange,
+} from "@/lib/dataStore";
 
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 export default function WeekPage() {
   const { user } = useAuth();
+  const isGuest = !user;
   const [weekStart, setWeekStart] = useState<string>(weekStartISO());
-  const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
-  const [logs, setLogs] = useState<TimeLog[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [activities, setActivities] = useState<{ id: string; name: string; category_id: string | null }[]>([]);
-  const [profile, setProfile] = useState<{ buffer_minutes: number; peak_hours: { start: string; end: string } | null } | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
   const [logCtx, setLogCtx] = useState<{ date: string; start: string; end: string }>({
@@ -34,25 +37,22 @@ export default function WeekPage() {
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const today = todayISO();
+  const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
 
-  const load = useCallback(async () => {
-    if (!user) return;
-    const weekEnd = addDaysISO(weekStart, 6);
-    const [b, l, c, p, a] = await Promise.all([
-      supabase.from("schedule_blocks").select("*").eq("user_id", user.id),
-      supabase.from("time_logs").select("*").eq("user_id", user.id).gte("date", weekStart).lte("date", weekEnd),
-      supabase.from("categories").select("id,name,color,type").eq("user_id", user.id),
-      supabase.from("profiles").select("buffer_minutes,peak_hours").eq("id", user.id).maybeSingle(),
-      supabase.from("activities").select("id,name,category_id").eq("user_id", user.id).eq("is_active", true),
-    ]);
-    setBlocks((b.data ?? []) as ScheduleBlock[]);
-    setLogs((l.data ?? []) as TimeLog[]);
-    setCategories((c.data ?? []) as Category[]);
-    setProfile((p.data ?? null) as any);
-    setActivities((a.data ?? []) as any);
-  }, [user, weekStart]);
+  const { data: blocksRaw } = useScheduleBlocks();
+  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(weekStart, weekEnd);
+  const { data: categoriesRaw } = useCategories();
+  const { data: activitiesRaw } = useActivities();
+  const { data: profileRaw } = useProfile();
 
-  useEffect(() => { load(); }, [load]);
+  const blocks = blocksRaw as unknown as ScheduleBlock[];
+  const logs = logsRaw as unknown as TimeLog[];
+  const categories = categoriesRaw as unknown as Category[];
+  const activities = useMemo(
+    () => (activitiesRaw ?? []).filter((a: any) => a.is_active),
+    [activitiesRaw]
+  );
+  const profile = profileRaw as unknown as { buffer_minutes: number; peak_hours: { start: string; end: string } | null } | null;
 
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
@@ -155,21 +155,26 @@ export default function WeekPage() {
   return (
     <AppLayout>
       <div className="px-6 md:px-10 py-8 max-w-[1400px] mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Week view</div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
-          </motion.div>
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())} className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" /> This week
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex justify-center md:justify-start">
+            <ViewSwitcher />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Week view</div>
+              <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
+            </motion.div>
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())} className="gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" /> This week
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -195,7 +200,22 @@ export default function WeekPage() {
           />
         </div>
 
-        {activities.length === 0 ? (
+        {isGuest ? (
+          <div className="mb-5 rounded-2xl border border-dashed border-primary/40 bg-primary/[0.05] p-4 flex items-start gap-3">
+            <div className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm">AI weekly planning is a member feature</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Create a free account to let FreeSlot fit your activities into your free windows automatically.
+              </p>
+            </div>
+            <Button asChild size="sm" className="gradient-primary shadow-glow">
+              <Link to="/auth">Create account</Link>
+            </Button>
+          </div>
+        ) : activities.length === 0 ? (
           <div className="mb-5">
             <EmptyState
               icon={<CalendarRange className="h-5 w-5" />}
@@ -209,10 +229,10 @@ export default function WeekPage() {
           <AIPlanPanel
             weekStart={weekStart}
             gaps={flatGaps}
-            activities={activities}
+            activities={activities as any}
             categories={categories}
             onPlanChange={setAiPlan}
-            onSlotAccepted={load}
+            onSlotAccepted={refreshLogs}
           />
         )}
 
@@ -224,7 +244,11 @@ export default function WeekPage() {
           <span className="ml-auto">Click a free slot to log it</span>
         </div>
 
-        <WeekGrid days={dayCells} onGapClick={onGapClick} onSlotClick={onSlotClick} />
+        <div className="overflow-x-auto -mx-6 md:mx-0 px-6 md:px-0">
+          <div className="min-w-[720px]">
+            <WeekGrid days={dayCells} onGapClick={onGapClick} onSlotClick={onSlotClick} />
+          </div>
+        </div>
 
         <QuickLogDialog
           open={logOpen}
@@ -233,8 +257,8 @@ export default function WeekPage() {
           categories={categories}
           defaultStart={logCtx.start}
           defaultEnd={logCtx.end}
-          onOptimisticInsert={(log) => setLogs((prev) => [...prev, log as TimeLog])}
-          onSaved={load}
+          onOptimisticInsert={() => { /* refresh below covers it */ }}
+          onSaved={refreshLogs}
         />
       </div>
     </AppLayout>
