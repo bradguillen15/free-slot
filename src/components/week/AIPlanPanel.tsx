@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Loader2, Wand2, Trash2, Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,8 @@ export function AIPlanPanel({
   const [summary, setSummary] = useState<string>("");
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [acceptingAll, setAcceptingAll] = useState(false);
+  const generatingRef = useRef(false);
+  const acceptingKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -75,6 +77,8 @@ export function AIPlanPanel({
 
   const generate = async () => {
     if (!user) return;
+    if (generatingRef.current || loading) return;
+    generatingRef.current = true;
     setLoading(true);
     try {
       const [actsRes, prioRes] = await Promise.all([
@@ -89,7 +93,7 @@ export function AIPlanPanel({
         return;
       }
       if (gaps.length === 0) {
-        toast({ title: "No free windows", description: "Your week has no detectable free time.", variant: "destructive" });
+        toast({ title: "No free windows this week", description: "Your week is fully booked. Try removing a block or pick another week.", variant: "destructive" });
         return;
       }
 
@@ -105,11 +109,16 @@ export function AIPlanPanel({
       onPlanChange(newPlan);
       setSummary((data as any).summary ?? "");
       setAccepted(new Set());
-      toast({ title: "Plan ready", description: `${newPlan.slots.length} slots generated.` });
+      const slotCount = newPlan?.slots?.length ?? 0;
+      toast({
+        title: slotCount ? "Plan ready" : "Empty plan",
+        description: slotCount ? `${slotCount} slots generated.` : "AI couldn't fit anything — try setting priorities or adding more free time.",
+      });
     } catch (e: any) {
       toast({ title: "Couldn't generate plan", description: e.message ?? "Try again.", variant: "destructive" });
     } finally {
       setLoading(false);
+      generatingRef.current = false;
     }
   };
 
@@ -125,28 +134,33 @@ export function AIPlanPanel({
   const acceptSlot = async (slot: AISlot) => {
     if (!user) return;
     const key = slotKey(slot);
-    if (accepted.has(key)) return;
+    if (accepted.has(key) || acceptingKeysRef.current.has(key)) return;
+    acceptingKeysRef.current.add(key);
 
     const activity = activities.find((a) => a.id === slot.activity_id);
     const category = activity?.category_id ? categories.find((c) => c.id === activity.category_id) : undefined;
     const type: "productive" | "unproductive" = category?.type ?? "productive";
 
-    const { error } = await supabase.from("time_logs").insert({
-      user_id: user.id,
-      date: slot.day,
-      start_time: slot.start,
-      end_time: slot.end,
-      type,
-      category_id: category?.id ?? null,
-      notes: `Accepted from AI plan: ${slot.activity_name}`,
-    });
+    try {
+      const { error } = await supabase.from("time_logs").insert({
+        user_id: user.id,
+        date: slot.day,
+        start_time: slot.start,
+        end_time: slot.end,
+        type,
+        category_id: category?.id ?? null,
+        notes: `Accepted from AI plan: ${slot.activity_name}`,
+      });
 
-    if (error) {
-      toast({ title: "Couldn't accept slot", description: error.message, variant: "destructive" });
-      return;
+      if (error) {
+        toast({ title: "Couldn't accept slot", description: error.message, variant: "destructive" });
+        return;
+      }
+      setAccepted((s) => new Set(s).add(key));
+      onSlotAccepted();
+    } finally {
+      acceptingKeysRef.current.delete(key);
     }
-    setAccepted((s) => new Set(s).add(key));
-    onSlotAccepted();
   };
 
   const acceptAll = async () => {
