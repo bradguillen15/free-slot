@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Cloud, X, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasGuestData } from "@/lib/localStore";
 
@@ -9,6 +10,7 @@ const DISMISS_KEY = "freeslot.guestBanner.dismissed";
 
 export function GuestBanner() {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
   const [dismissed, setDismissed] = useState(false);
   const [hasData, setHasData] = useState(false);
 
@@ -38,9 +40,9 @@ export function GuestBanner() {
           <Cloud className="h-3.5 w-3.5" />
         </div>
         <div className="flex-1 min-w-0 text-sm">
-          <span className="font-medium">You're using FreeSlot as a guest.</span>
+          <span className="font-medium">{t("guestBanner.using")}</span>
           <span className="text-muted-foreground hidden sm:inline">
-            {" "}{hasData ? "Create a free account to keep your data, sync across devices, and unlock AI plans + dashboards." : "Create an account to sync across devices and unlock AI plans + dashboards."}
+            {" "}{hasData ? t("guestBanner.withData") : t("guestBanner.withoutData")}
           </span>
         </div>
         <Link
@@ -48,11 +50,11 @@ export function GuestBanner() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity shrink-0"
         >
           <Sparkles className="h-3 w-3" />
-          Create account
+          {t("guestBanner.cta")}
         </Link>
         <button
           onClick={dismiss}
-          aria-label="Dismiss"
+          aria-label={t("guestBanner.dismiss")}
           className="text-muted-foreground hover:text-foreground transition-colors p-1 shrink-0"
         >
           <X className="h-3.5 w-3.5" />

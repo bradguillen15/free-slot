@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { DAYS, BLOCK_PRESETS, ACTIVITY_PRESETS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import { PublicHeader } from "@/components/PublicHeader";
+import { useTranslation } from "react-i18next";
 import {
   ensureBootstrap,
   listCategories as listLocalCategories,
@@ -37,11 +38,11 @@ type Activity = {
 
 type Category = { id: string; name: string; type: "productive" | "unproductive"; color: string };
 
-const STEPS = ["Schedule", "Activities", "Preferences"];
-
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const STEPS = [t("onboarding.steps.schedule"), t("onboarding.steps.activities"), t("onboarding.steps.preferences")];
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -129,7 +130,7 @@ export default function Onboarding() {
           weekly_review_day: reviewDay,
           onboarding_completed: true,
         });
-        toast.success("You're all set");
+        toast.success(t("onboarding.allSet"));
         navigate("/app", { replace: true });
         return;
       }
@@ -157,10 +158,10 @@ export default function Onboarding() {
         })
         .eq("id", user.id);
       if (pErr) throw pErr;
-      toast.success("You're all set");
+      toast.success(t("onboarding.allSet"));
       navigate("/app", { replace: true });
     } catch (e: any) {
-      toast.error(e.message ?? "Something went wrong");
+      toast.error(e.message ?? t("common.somethingWrong"));
     } finally {
       setSaving(false);
     }
@@ -209,8 +210,8 @@ export default function Onboarding() {
             {step === 0 && (
               <section className="space-y-5">
                 <header>
-                  <h2 className="font-display text-2xl font-semibold tracking-tight">Map your week</h2>
-                  <p className="text-muted-foreground text-sm mt-1">Add the things that already happen on repeat — work, sleep, meals, gym. We'll find the gaps in between.</p>
+                  <h2 className="font-display text-2xl font-semibold tracking-tight">{t("onboarding.schedule.title")}</h2>
+                  <p className="text-muted-foreground text-sm mt-1">{t("onboarding.schedule.subtitle")}</p>
                 </header>
 
                 <div className="flex flex-wrap gap-2">
@@ -236,14 +237,14 @@ export default function Onboarding() {
                     onClick={addCustomBlock}
                     className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
                   >
-                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />Custom
+                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />{t("onboarding.schedule.custom")}
                   </button>
                 </div>
 
                 <div className="space-y-2">
                   {blocks.length === 0 && (
                     <div className="glass border border-dashed border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                      Pick a few presets above to get started.
+                      {t("onboarding.schedule.empty")}
                     </div>
                   )}
                   {blocks.map((b, i) => (
@@ -306,8 +307,8 @@ export default function Onboarding() {
             {step === 1 && (
               <section className="space-y-5">
                 <header>
-                  <h2 className="font-display text-2xl font-semibold tracking-tight">What do you want time for?</h2>
-                  <p className="text-muted-foreground text-sm mt-1">Pick activities you keep meaning to do. Set a weekly hour target. The plan will fit them into your gaps.</p>
+                  <h2 className="font-display text-2xl font-semibold tracking-tight">{t("onboarding.activities.title")}</h2>
+                  <p className="text-muted-foreground text-sm mt-1">{t("onboarding.activities.subtitle")}</p>
                 </header>
 
                 <div className="flex flex-wrap gap-2">
@@ -333,14 +334,14 @@ export default function Onboarding() {
                     onClick={addCustomActivity}
                     className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
                   >
-                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />Custom
+                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />{t("onboarding.schedule.custom")}
                   </button>
                 </div>
 
                 <div className="space-y-2">
                   {activities.length === 0 && (
                     <div className="glass border border-dashed border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                      Add at least one activity to keep going.
+                      {t("onboarding.activities.empty")}
                     </div>
                   )}
                   {activities.map((a, i) => (
@@ -374,7 +375,7 @@ export default function Onboarding() {
                           onChange={(e) => updateActivity(i, { target_hours_per_week: Number(e.target.value) })}
                           className="bg-input border-border w-20 font-mono text-right"
                         />
-                        <span className="text-xs text-muted-foreground">hrs/wk</span>
+                        <span className="text-xs text-muted-foreground">{t("onboarding.activities.hrsWk")}</span>
                       </div>
                       <button onClick={() => removeActivity(i)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
                         <X className="h-4 w-4" />
@@ -388,13 +389,13 @@ export default function Onboarding() {
             {step === 2 && (
               <section className="space-y-6">
                 <header>
-                  <h2 className="font-display text-2xl font-semibold tracking-tight">A few preferences</h2>
-                  <p className="text-muted-foreground text-sm mt-1">Tune how FreeSlot finds gaps and when it asks you to reflect.</p>
+                  <h2 className="font-display text-2xl font-semibold tracking-tight">{t("onboarding.preferences.title")}</h2>
+                  <p className="text-muted-foreground text-sm mt-1">{t("onboarding.preferences.subtitle")}</p>
                 </header>
 
                 <div className="glass rounded-xl border border-border p-5 space-y-5">
                   <div>
-                    <Label className="mb-2 block">Buffer between commitments</Label>
+                    <Label className="mb-2 block">{t("onboarding.preferences.buffer")}</Label>
                     <div className="flex items-center gap-3">
                       <Input
                         type="number"
@@ -404,30 +405,30 @@ export default function Onboarding() {
                         onChange={(e) => setBufferMinutes(Number(e.target.value))}
                         className="bg-input border-border w-24 font-mono text-right"
                       />
-                      <span className="text-sm text-muted-foreground">minutes — protects time for transitions</span>
+                      <span className="text-sm text-muted-foreground">{t("onboarding.preferences.bufferHint")}</span>
                     </div>
                   </div>
 
                   <div>
-                    <Label className="mb-2 block">Peak focus hours</Label>
+                    <Label className="mb-2 block">{t("onboarding.preferences.peak")}</Label>
                     <div className="flex items-center gap-2">
                       <Input type="time" value={peakStart} onChange={(e) => setPeakStart(e.target.value)} className="bg-input border-border w-32 font-mono" />
                       <span className="text-muted-foreground text-xs">→</span>
                       <Input type="time" value={peakEnd} onChange={(e) => setPeakEnd(e.target.value)} className="bg-input border-border w-32 font-mono" />
-                      <span className="text-sm text-muted-foreground ml-2">deep activities prefer this window</span>
+                      <span className="text-sm text-muted-foreground ml-2">{t("onboarding.preferences.peakHint")}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="block">Schedule on weekends</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">Include Saturday and Sunday when planning</p>
+                      <Label className="block">{t("onboarding.preferences.weekends")}</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t("onboarding.preferences.weekendsHint")}</p>
                     </div>
                     <Switch checked={includeWeekends} onCheckedChange={setIncludeWeekends} />
                   </div>
 
                   <div>
-                    <Label className="mb-2 block">Weekly review day</Label>
+                    <Label className="mb-2 block">{t("onboarding.preferences.reviewDay")}</Label>
                     <div className="flex flex-wrap gap-1.5">
                       {DAYS.map((d) => (
                         <button
@@ -457,7 +458,7 @@ export default function Onboarding() {
             onClick={() => setStep(Math.max(0, step - 1))}
             disabled={step === 0 || saving}
           >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t("common.back")}
           </Button>
           {step < STEPS.length - 1 ? (
             <Button
@@ -465,7 +466,7 @@ export default function Onboarding() {
               disabled={!canNext}
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >
-              Continue <ArrowRight className="h-4 w-4 ml-1" />
+              {t("common.continue")} <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
           ) : (
             <Button
@@ -473,7 +474,7 @@ export default function Onboarding() {
               disabled={saving}
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Finish <Check className="h-4 w-4 ml-1" /></>}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>{t("common.finish")} <Check className="h-4 w-4 ml-1" /></>}
             </Button>
           )}
         </div>

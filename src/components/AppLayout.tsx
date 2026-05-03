@@ -1,30 +1,32 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, CalendarDays, LogIn, Lock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { GuestBanner } from "@/components/GuestBanner";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-const nav = [
-  { to: "/app", label: "Day", icon: Calendar, requiresAuth: false },
-  { to: "/app/week", label: "Week", icon: CalendarRange, requiresAuth: false },
-  { to: "/app/month", label: "Month", icon: CalendarDays, requiresAuth: false },
-  { to: "/app/dashboard", label: "Dashboard", icon: BarChart3, requiresAuth: true },
-  { to: "/app/activities", label: "Activities", icon: Target, requiresAuth: false },
-  { to: "/app/settings", label: "Settings", icon: Settings, requiresAuth: true },
+const navItems = [
+  { to: "/app", labelKey: "nav.day", icon: Calendar, requiresAuth: false },
+  { to: "/app/week", labelKey: "nav.week", icon: CalendarRange, requiresAuth: false },
+  { to: "/app/month", labelKey: "nav.month", icon: CalendarDays, requiresAuth: false },
+  { to: "/app/dashboard", labelKey: "nav.dashboard", icon: BarChart3, requiresAuth: true },
+  { to: "/app/activities", labelKey: "nav.activities", icon: Target, requiresAuth: false },
+  { to: "/app/settings", labelKey: "nav.settings", icon: Settings, requiresAuth: true },
 ];
 
-// Mobile bottom nav: keep it focused — calendar views are switched via the in-page ViewSwitcher.
-const mobileNav = [
-  { to: "/app", label: "Calendar", icon: Calendar, requiresAuth: false, matchPrefixes: ["/app", "/app/week", "/app/month"] },
-  { to: "/app/activities", label: "Activities", icon: Target, requiresAuth: false },
-  { to: "/app/dashboard", label: "Stats", icon: BarChart3, requiresAuth: true },
-  { to: "/app/settings", label: "Settings", icon: Settings, requiresAuth: true },
+const mobileNavItems = [
+  { to: "/app", labelKey: "nav.calendar", icon: Calendar, requiresAuth: false, matchPrefixes: ["/app", "/app/week", "/app/month"] },
+  { to: "/app/activities", labelKey: "nav.activities", icon: Target, requiresAuth: false },
+  { to: "/app/dashboard", labelKey: "nav.stats", icon: BarChart3, requiresAuth: true },
+  { to: "/app/settings", labelKey: "nav.settings", icon: Settings, requiresAuth: true },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { t } = useTranslation();
   const isGuest = !user;
 
   return (
@@ -39,7 +41,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
         <nav className="flex-1 px-3 space-y-1">
-          {nav.map(({ to, label, icon: Icon, requiresAuth }) => {
+          {navItems.map(({ to, labelKey, icon: Icon, requiresAuth }) => {
             const active = to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to);
             const locked = isGuest && requiresAuth;
             const target = locked ? "/auth" : to;
@@ -63,23 +65,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     />
                   )}
                   <Icon className="h-4 w-4" />
-                  <span className="flex-1">{label}</span>
+                  <span className="flex-1">{t(labelKey)}</span>
                   {locked && <Lock className="h-3 w-3 text-muted-foreground" />}
                 </motion.div>
               </Link>
             );
           })}
         </nav>
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="p-3 border-t border-sidebar-border space-y-2">
+          <div className="px-1"><LanguageSwitcher /></div>
           {user ? (
             <>
-              <div className="px-3 py-2 mb-1 text-xs text-muted-foreground truncate">{user.email}</div>
+              <div className="px-3 py-2 text-xs text-muted-foreground truncate">{user.email}</div>
               <button
                 onClick={signOut}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                Sign out
+                {t("common.signOut")}
               </button>
             </>
           ) : (
@@ -88,7 +91,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm gradient-primary text-primary-foreground font-medium hover:opacity-90 shadow-glow transition-opacity"
             >
               <LogIn className="h-4 w-4" />
-              Sign in / Create account
+              {t("nav.signInCreate")}
             </Link>
           )}
         </div>
@@ -112,8 +115,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         aria-label="Primary"
       >
         <ul className="grid grid-cols-4">
-          {mobileNav.map((item) => {
-            const { to, label, icon: Icon, requiresAuth } = item;
+          {mobileNavItems.map((item) => {
+            const { to, labelKey, icon: Icon, requiresAuth } = item;
             const prefixes = (item as any).matchPrefixes as string[] | undefined;
             const active = prefixes
               ? prefixes.some((p) => (p === "/app" ? location.pathname === "/app" : location.pathname.startsWith(p)))
@@ -142,7 +145,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       <Lock className="absolute -right-1.5 -top-1 h-2.5 w-2.5 text-muted-foreground" />
                     )}
                   </span>
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                 </Link>
               </li>
             );
