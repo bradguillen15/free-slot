@@ -15,10 +15,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PublicHeader } from "@/components/PublicHeader";
+import { useTranslation } from "react-i18next";
 
 export default function Auth() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,7 +57,7 @@ export default function Auth() {
           setPendingUserId(newUser.id);
           setMigrateOpen(true);
         } else {
-          toast.success("Welcome to FreeSlot");
+          toast.success(t("auth.welcome"));
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -64,11 +66,11 @@ export default function Auth() {
           setPendingUserId(data.user.id);
           setMigrateOpen(true);
         } else {
-          toast.success("Signed in");
+          toast.success(t("auth.signedIn"));
         }
       }
     } catch (err: any) {
-      toast.error(err.message ?? "Something went wrong");
+      toast.error(err.message ?? t("common.somethingWrong"));
     } finally {
       setLoading(false);
     }
@@ -86,11 +88,11 @@ export default function Auth() {
         c.schedule_blocks && `${c.schedule_blocks} block${c.schedule_blocks > 1 ? "s" : ""}`,
         c.categories && `${c.categories} categor${c.categories > 1 ? "ies" : "y"}`,
       ].filter(Boolean).join(" · ");
-      toast.success("Your guest data is now in your account", { description: parts || undefined });
+      toast.success(t("auth.migrate.done"), { description: parts || undefined });
       setMigrateOpen(false);
       navigate("/app", { replace: true });
     } catch (e: any) {
-      toast.error(e?.message ?? "Migration failed");
+      toast.error(e?.message ?? t("auth.migrate.failed"));
     } finally {
       setMigrating(false);
     }
@@ -122,19 +124,17 @@ export default function Auth() {
             <span className="font-display text-xl font-semibold tracking-tight">FreeSlot</span>
           </div>
           <h1 className="font-display text-3xl font-semibold tracking-tight">
-            {mode === "signup" ? "Save your work, sync your time" : "Welcome back"}
+            {mode === "signup" ? t("auth.titleSignup") : t("auth.titleSignin")}
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            {mode === "signup"
-              ? "Create an account to keep your data, sync devices, and unlock AI plans."
-              : "Sign in to your FreeSlot."}
+            {mode === "signup" ? t("auth.subtitleSignup") : t("auth.subtitleSignin")}
           </p>
         </div>
 
         <div className="glass rounded-2xl border border-border p-6 shadow-elevated">
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -146,7 +146,7 @@ export default function Auth() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -159,19 +159,20 @@ export default function Auth() {
               />
             </div>
             <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signup" ? "Create account" : "Sign in"}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signup" ? t("auth.submitSignup") : t("auth.submitSignin")}
             </Button>
           </form>
 
           <div className="mt-5 text-center text-sm text-muted-foreground">
-            {mode === "signup" ? "Already have an account?" : "New here?"}{" "}
+            {mode === "signup" ? t("auth.haveAccount") : t("auth.newHere")}{" "}
             <button
               onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
               className="text-primary hover:text-primary-glow transition-colors font-medium"
             >
-              {mode === "signup" ? "Sign in" : "Create one"}
+              {mode === "signup" ? t("auth.submitSignin") : t("auth.createOne")}
             </button>
           </div>
+        </div>
         </div>
       </motion.div>
       </div>
@@ -179,15 +180,15 @@ export default function Auth() {
       <AlertDialog open={migrateOpen} onOpenChange={setMigrateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Bring your guest data along?</AlertDialogTitle>
+            <AlertDialogTitle>{t("auth.migrate.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              We found data from your guest session. Want to import it into your new account so nothing is lost?
+              {t("auth.migrate.desc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={startFresh} disabled={migrating}>Start fresh</AlertDialogCancel>
+            <AlertDialogCancel onClick={startFresh} disabled={migrating}>{t("auth.migrate.startFresh")}</AlertDialogCancel>
             <AlertDialogAction onClick={importNow} disabled={migrating}>
-              {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Import everything"}
+              {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("auth.migrate.import")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
