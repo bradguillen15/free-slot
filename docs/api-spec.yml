@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  title: FreeSlot API
+  description: |
+    FreeSlot uses Supabase client SDK for CRUD (PostgREST) and edge functions for AI workflows.
+    CRUD tables are documented in docs/data-model.md and docs/CLOUD.md.
+    This spec covers edge function contracts.
+  version: 0.1.0
+
+paths:
+  /functions/v1/generate-weekly-plan:
+    post:
+      summary: Generate AI weekly plan
+      description: Calls Lovable AI Gateway with gaps, activities, and priorities; upserts weekly_plans.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - week_start
+              properties:
+                week_start:
+                  type: string
+                  format: date
+                gaps:
+                  type: array
+                  description: Free windows for the week
+                activities:
+                  type: array
+                priorities:
+                  type: array
+      responses:
+        "200":
+          description: Plan generated and stored
+        "401":
+          description: Unauthorized
+
+  /functions/v1/weekly-review:
+    post:
+      summary: Generate weekly review
+      description: Aggregates planned-vs-actual and writes weekly_reviews with AI insights.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                week_start:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Review created
+        "401":
+          description: Unauthorized
+
+  /functions/v1/delete-account:
+    post:
+      summary: Delete user account
+      description: Service-role cleanup and auth user deletion.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account deleted
+        "401":
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

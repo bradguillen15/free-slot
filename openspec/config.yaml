@@ -1,0 +1,54 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  Tech stack: React 18, Vite 5, TypeScript 5, Tailwind CSS 3, shadcn/ui (Radix), framer-motion,
+  React Query, react-router-dom v6, react-hook-form + zod, Vitest
+  Backend: Lovable Cloud (Supabase) — Postgres with RLS, Auth, Deno edge functions, Lovable AI Gateway
+  Architecture: Single-page React app with guest/cloud data abstraction via dataStore hooks
+  Domain: FreeSlot (plan-grow) — personal time-awareness app (schedule, time logs, free windows, AI planning)
+  All code, comments, documentation, and technical artifacts must be in English
+
+  Project specs (single source of truth): All artifact creation and implementation MUST follow the project's technical context in docs/. Read and apply these when creating or implementing:
+  - docs/base-standards.md — core principles, TDD, language standards, links to backend/frontend/docs standards
+  - docs/frontend-standards.md — React, UI/UX, dataStore patterns (frontend changes)
+  - docs/backend-standards.md — Supabase schema, RLS, edge functions (backend changes)
+  - docs/ARCHITECTURE.md — guest/cloud abstraction, routing, data flow
+  - docs/TECH_STACK.md — dependencies and conventions
+  - docs/CLOUD.md — database schema, RLS, edge functions, secrets
+  - docs/DESIGN.md — design tokens, motion, responsive rules
+  - docs/api-spec.yml — edge function contracts and API definitions
+  - docs/data-model.md — domain entities and relationships
+  - docs/development_guide.md — how to run, test, and verify locally
+  - docs/documentation-standards.md — docs structure and maintenance
+  For implementation: adopt the relevant agent from ai-specs/agents/ (e.g. backend-developer.md for Supabase/edge functions, frontend-developer.md for React UI).
+
+rules:
+  _global:
+    - Before creating any artifact, read and apply docs/base-standards.md
+    - For frontend-related artifacts, read docs/frontend-standards.md, docs/ARCHITECTURE.md, docs/DESIGN.md, and adopt guidelines from ai-specs/agents/frontend-developer.md
+    - For backend-related artifacts, read docs/backend-standards.md, docs/CLOUD.md, and adopt guidelines from ai-specs/agents/backend-developer.md
+    - Use docs/api-spec.yml and docs/data-model.md for API and data consistency in specs and tasks
+    - Guest mode parity: any feature touching user data must work via dataStore hooks and localStore for guests unless explicitly account-only
+
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - All tasks must include: review/update tests, run `bun run test`, manual verification steps
+    - Frontend tasks must verify guest mode when the feature is not account-gated
+    - Backend tasks must include RLS policy verification for new tables
+
+  spec:
+    - Reference docs/ARCHITECTURE.md for guest/cloud patterns when specifying data access
+    - Account-gated features (AI planner, dashboard, settings) must be called out explicitly in requirements
+
+  frontend:
+    - Use dataStore hooks for data access in pages — never call supabase.from() directly from guest-capable views
+    - Use semantic design tokens from index.css and tailwind.config.ts — no hardcoded colors
+    - Never edit src/integrations/supabase/{client,types}.ts — both are generated
+    - Run `bun run test` and `bun run lint` before marking implementation complete
+
+  backend:
+    - New tables require user_id, RLS enabled, and own-data policy; add localStore + dataStore parity when client-accessible
+    - Edge functions live under supabase/functions/ (Deno); document in docs/api-spec.yml
+    - Database changes go through Supabase migrations; update docs/data-model.md and docs/CLOUD.md
