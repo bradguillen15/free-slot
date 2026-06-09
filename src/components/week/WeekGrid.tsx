@@ -1,5 +1,6 @@
-import { motion } from "framer-motion";
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -64,12 +65,14 @@ export function WeekGrid({
       <div className="grid" style={{ gridTemplateColumns: `48px repeat(7, 1fr)` }}>
         <div />
         {days.map((d) => (
-          <div
+          <Link
             key={d.iso}
+            to={`/app?date=${d.iso}`}
             className={cn(
-              "px-2 py-3 text-center border-l border-border/40",
+              "px-2 py-3 text-center border-l border-border/40 transition-colors hover:bg-muted/30",
               d.isToday && "bg-primary/[0.06]"
             )}
+            aria-label={`Open day view for ${d.label}`}
           >
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{d.short}</div>
             <div className={cn("font-display text-lg font-semibold mt-0.5", d.isToday && "text-primary")}>
@@ -78,7 +81,7 @@ export function WeekGrid({
             <div className="text-[10px] text-muted-foreground font-mono-num mt-0.5">
               {fmtDuration(d.totalFree)} free
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 

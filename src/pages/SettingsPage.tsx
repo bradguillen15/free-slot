@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Settings as SettingsIcon, Plus, Trash2, Save, Tag, AlertTriangle } from "lucide-react";
-import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -123,17 +122,14 @@ export default function SettingsPage() {
 
   if (loading || !profile) {
     return (
-      <AppLayout>
-        <div className="p-8 max-w-4xl mx-auto">
-          <div className="h-64 rounded-2xl bg-muted/20 animate-pulse" />
-        </div>
-      </AppLayout>
+      <div className="p-8 max-w-4xl mx-auto">
+        <div className="h-64 rounded-2xl bg-muted/20 animate-pulse" />
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
         <header>
           <h1 className="font-display text-3xl font-semibold tracking-tight flex items-center gap-2">
             <SettingsIcon className="h-6 w-6 text-primary" />
@@ -321,7 +317,6 @@ export default function SettingsPage() {
             </AlertDialog>
           </CardContent>
         </Card>
-      </div>
-    </AppLayout>
+    </div>
   );
 }

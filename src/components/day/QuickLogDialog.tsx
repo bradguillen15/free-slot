@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { fmtDuration, toMin } from "@/lib/time";
-import { insertTimeLog } from "@/lib/dataStore";
+import { insertTimeLog, updateTimeLog } from "@/lib/dataStore";
 
 export type Category = {
   id: string;
@@ -25,6 +25,8 @@ type Props = {
   defaultStart?: string;
   defaultEnd?: string;
   defaultCategoryId?: string;
+  defaultNotes?: string;
+  editId?: string;
   onSaved?: () => void;
   onOptimisticInsert?: (log: {
     id: string;
@@ -40,13 +42,14 @@ type Props = {
 export function QuickLogDialog({
   open, onOpenChange, date, categories,
   defaultStart = "09:00", defaultEnd = "10:00",
-  defaultCategoryId, onSaved, onOptimisticInsert,
+  defaultCategoryId, defaultNotes, editId,
+  onSaved, onOptimisticInsert,
 }: Props) {
   const { user } = useAuth();
   const [start, setStart] = useState(defaultStart);
   const [end, setEnd] = useState(defaultEnd);
   const [categoryId, setCategoryId] = useState<string | undefined>(defaultCategoryId);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(defaultNotes ?? "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -54,9 +57,9 @@ export function QuickLogDialog({
       setStart(defaultStart);
       setEnd(defaultEnd);
       setCategoryId(defaultCategoryId ?? categories[0]?.id);
-      setNotes("");
+      setNotes(defaultNotes ?? "");
     }
-  }, [open, defaultStart, defaultEnd, defaultCategoryId, categories]);
+  }, [open, defaultStart, defaultEnd, defaultCategoryId, defaultNotes, categories]);
 
   const duration = useMemo(() => Math.max(0, toMin(end) - toMin(start)), [start, end]);
   const selected = categories.find((c) => c.id === categoryId);
@@ -68,32 +71,41 @@ export function QuickLogDialog({
       return;
     }
     setSaving(true);
-
-    const optimisticId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
-      ? crypto.randomUUID()
-      : `tmp-${Date.now()}`;
-    const optimistic = {
-      id: optimisticId,
-      date,
-      start_time: start,
-      end_time: end,
-      category_id: categoryId,
-      type: (selected?.type ?? "productive") as "productive" | "unproductive",
-      notes: notes || null,
-    };
-    onOptimisticInsert?.(optimistic);
     onOpenChange(false);
-    toast.success(`Logged ${fmtDuration(duration)}`);
 
     try {
-      await insertTimeLog(user ? "cloud" : "guest", user?.id ?? null, {
-        date,
-        start_time: start,
-        end_time: end,
-        category_id: categoryId,
-        type: selected?.type ?? "productive",
-        notes: notes || null,
-      });
+      if (editId) {
+        await updateTimeLog(user ? "cloud" : "guest", user?.id ?? null, editId, {
+          start_time: start,
+          end_time: end,
+          category_id: categoryId,
+          type: selected?.type ?? "productive",
+          notes: notes || null,
+        });
+        toast.success(`Updated ${fmtDuration(duration)}`);
+      } else {
+        const optimisticId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+          ? crypto.randomUUID()
+          : `tmp-${Date.now()}`;
+        onOptimisticInsert?.({
+          id: optimisticId,
+          date,
+          start_time: start,
+          end_time: end,
+          category_id: categoryId,
+          type: (selected?.type ?? "productive") as "productive" | "unproductive",
+          notes: notes || null,
+        });
+        toast.success(`Logged ${fmtDuration(duration)}`);
+        await insertTimeLog(user ? "cloud" : "guest", user?.id ?? null, {
+          date,
+          start_time: start,
+          end_time: end,
+          category_id: categoryId,
+          type: selected?.type ?? "productive",
+          notes: notes || null,
+        });
+      }
       onSaved?.();
     } catch (err: any) {
       toast.error(`Save failed: ${err?.message ?? "unknown"}`);
@@ -110,7 +122,7 @@ export function QuickLogDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-surface border-border max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">Log time</DialogTitle>
+          <DialogTitle className="font-display text-xl">{editId ? "Edit log" : "Log time"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">

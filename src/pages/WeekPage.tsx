@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Zap, CalendarRange, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
-import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
@@ -13,7 +12,6 @@ import { WeekGrid, type DayCellData } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
 import { AIPlanPanel, type WeeklyPlan } from "@/components/week/AIPlanPanel";
-import { ViewSwitcher } from "@/components/ViewSwitcher";
 import {
   useActivities,
   useCategories,
@@ -25,10 +23,21 @@ import {
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+function weekFromSearchParams(sp: URLSearchParams): string {
+  const w = sp.get("week");
+  if (w && ISO.test(w)) return w;
+  const d = sp.get("date");
+  if (d && ISO.test(d)) return weekStartISO(d);
+  return weekStartISO();
+}
+
 export default function WeekPage() {
   const { user } = useAuth();
   const isGuest = !user;
-  const [weekStart, setWeekStart] = useState<string>(weekStartISO());
+  const [searchParams] = useSearchParams();
+  const [weekStart, setWeekStart] = useState(() => weekFromSearchParams(searchParams));
   const [logOpen, setLogOpen] = useState(false);
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
   const [logCtx, setLogCtx] = useState<{ date: string; start: string; end: string }>({
@@ -153,28 +162,23 @@ export default function WeekPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="px-6 md:px-10 py-8 max-w-[1400px] mx-auto">
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex justify-center md:justify-start">
-            <ViewSwitcher />
+    <>
+      <div className="px-6 md:px-10 pt-4 pb-8 max-w-[1400px] mx-auto">
+        <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Week view</div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Week view</div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
-            </motion.div>
-            <div className="flex items-center gap-1.5">
-              <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())} className="gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" /> This week
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())} className="gap-1.5">
+              <CalendarDays className="h-3.5 w-3.5" /> This week
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
@@ -236,17 +240,19 @@ export default function WeekPage() {
           />
         )}
 
-        <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-dashed border-primary/60 bg-primary/10" /> Free / peak</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
-          <span className="ml-auto">Click a free slot to log it</span>
-        </div>
+        <div>
+          <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-dashed border-primary/60 bg-primary/10" /> Free / peak</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
+            <span className="ml-auto">Click a free slot to log it</span>
+          </div>
 
-        <div className="overflow-x-auto -mx-6 md:mx-0 px-6 md:px-0">
-          <div className="min-w-[720px]">
-            <WeekGrid days={dayCells} onGapClick={onGapClick} onSlotClick={onSlotClick} />
+          <div className="overflow-x-auto -mx-6 md:mx-0 px-6 md:px-0">
+            <div className="min-w-[720px]">
+              <WeekGrid days={dayCells} onGapClick={onGapClick} onSlotClick={onSlotClick} />
+            </div>
           </div>
         </div>
 
@@ -261,7 +267,7 @@ export default function WeekPage() {
           onSaved={refreshLogs}
         />
       </div>
-    </AppLayout>
+    </>
   );
 }
 
@@ -271,16 +277,12 @@ function SummaryCard({
   const ring = tone === "primary" ? "ring-primary/30" : tone === "accent" ? "ring-accent/30" : "ring-border";
   const bg = tone === "primary" ? "bg-primary/10 text-primary" : tone === "accent" ? "bg-accent/15 text-accent-foreground" : "bg-muted/50 text-muted-foreground";
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl border border-border bg-surface px-4 py-3 ring-1 ${ring}`}
-    >
+    <div className={`rounded-2xl border border-border bg-surface px-4 py-3 ring-1 ${ring}`}>
       <div className="flex items-center gap-2 mb-1">
         <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${bg}`}>{icon}</span>
         <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
       </div>
       <div className="font-display text-2xl font-semibold tracking-tight font-mono-num">{value}</div>
-    </motion.div>
+    </div>
   );
 }

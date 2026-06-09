@@ -1,5 +1,5 @@
+import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Calendar, CalendarRange, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,10 +9,34 @@ const items = [
   { to: "/app/month",  label: "Month", icon: CalendarDays },
 ];
 
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+function viewHref(base: string, search: string): string {
+  const params = new URLSearchParams(search);
+  const date = params.get("date");
+  const week = params.get("week");
+  const q = new URLSearchParams();
+  if (base === "/app" && date && ISO.test(date)) q.set("date", date);
+  if (base === "/app/week") {
+    if (week && ISO.test(week)) q.set("week", week);
+    else if (date && ISO.test(date)) q.set("date", date);
+  }
+  const qs = q.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
 export function ViewSwitcher({ className }: { className?: string }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const activeIdx = items.findIndex((i) =>
     i.to === "/app" ? pathname === "/app" : pathname.startsWith(i.to)
+  );
+  const hrefByBase = useMemo(
+    () => ({
+      "/app": viewHref("/app", search),
+      "/app/week": viewHref("/app/week", search),
+      "/app/month": "/app/month",
+    }),
+    [search]
   );
 
   return (
@@ -30,21 +54,16 @@ export function ViewSwitcher({ className }: { className?: string }) {
         return (
           <Link
             key={it.to}
-            to={it.to}
+            to={hrefByBase[it.to as keyof typeof hrefByBase]}
             role="tab"
             aria-selected={isActive}
             className={cn(
-              "relative z-10 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-colors",
-              isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              "relative flex items-center gap-1.5 px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-colors duration-150",
+              isActive
+                ? "gradient-primary text-primary-foreground shadow-glow"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {isActive && (
-              <motion.span
-                layoutId="viewSwitcherPill"
-                className="absolute inset-0 -z-10 rounded-full gradient-primary shadow-glow"
-                transition={{ type: "spring", stiffness: 380, damping: 32 }}
-              />
-            )}
             <Icon className="h-3.5 w-3.5" />
             <span>{it.label}</span>
           </Link>
