@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { useCategories, useTimeLogsInRange } from "@/lib/dataStore";
 import { fmtDuration, fromMin, todayISO, toMin } from "@/lib/time";
@@ -52,7 +53,10 @@ export default function MonthPage() {
 
   const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(firstISO, lastISO);
   const { data: categoriesRaw } = useCategories();
-  const categories = (categoriesRaw ?? []) as unknown as Category[];
+  const categories = useMemo(
+    () => (categoriesRaw ?? []) as unknown as Category[],
+    [categoriesRaw]
+  );
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
     [categories]
@@ -118,15 +122,11 @@ export default function MonthPage() {
 
   return (
     <>
-      <div className="px-6 md:px-10 pt-4 pb-8 max-w-[1400px] mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Month view</div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">
-              {MONTHS[month0]} {year}
-            </h1>
-          </div>
-          <div className="flex items-center gap-1.5">
+      <CalendarViewHeader
+        label="Month view"
+        title={`${MONTHS[month0]} ${year}`}
+        actions={
+          <>
             <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Previous month">
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -136,10 +136,11 @@ export default function MonthPage() {
             <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Next month">
               <ChevronRight className="h-4 w-4" />
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-3 gap-3 mb-5">
           <Stat label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
           <Stat label="Productive" value={fmtDuration(monthProd)} tone="accent" />
           <Stat label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
@@ -216,7 +217,6 @@ export default function MonthPage() {
             <span className="ml-auto">Tap day number for day view · tap a 6h block to quick-log</span>
           </div>
         </div>
-      </div>
 
       <QuickLogDialog
         open={logOpen}

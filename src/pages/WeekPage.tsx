@@ -4,14 +4,16 @@ import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Zap, CalendarRange, 
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
+import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { findFreeWindows, totalFreeMinutes, type GapWindow } from "@/lib/gaps";
-import { WeekGrid, type DayCellData } from "@/components/week/WeekGrid";
+import { WeekGrid, type DayCellData, type DayCellBlock, type DayCellLog } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
+import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
-import { AIPlanPanel, type WeeklyPlan } from "@/components/week/AIPlanPanel";
+import { AIPlanPanel, type WeeklyPlan, type ActivityLite } from "@/components/week/AIPlanPanel";
 import {
   useActivities,
   useCategories,
@@ -38,17 +40,27 @@ export default function WeekPage() {
   const isGuest = !user;
   const [searchParams] = useSearchParams();
   const [weekStart, setWeekStart] = useState(() => weekFromSearchParams(searchParams));
+
+  // Quick-log dialog
   const [logOpen, setLogOpen] = useState(false);
+  const [logCtx, setLogCtx] = useState<{
+    date: string; start: string; end: string; editId?: string;
+    defaultCategoryId?: string; defaultNotes?: string;
+  }>({ date: todayISO(), start: "09:00", end: "10:00" });
+
+  // Schedule-block dialog
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockDialogTarget, setBlockDialogTarget] = useState<{
+    block?: ScheduleBlock; defaultStartTime?: string; defaultWeekday?: number;
+  }>({});
+
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
-  const [logCtx, setLogCtx] = useState<{ date: string; start: string; end: string }>({
-    date: todayISO(), start: "09:00", end: "10:00",
-  });
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const today = todayISO();
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
 
-  const { data: blocksRaw } = useScheduleBlocks();
+  const { data: blocksRaw, refresh: refreshBlocks } = useScheduleBlocks();
   const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(weekStart, weekEnd);
   const { data: categoriesRaw } = useCategories();
   const { data: activitiesRaw } = useActivities();
@@ -58,7 +70,7 @@ export default function WeekPage() {
   const logs = logsRaw as unknown as TimeLog[];
   const categories = categoriesRaw as unknown as Category[];
   const activities = useMemo(
-    () => (activitiesRaw ?? []).filter((a: any) => a.is_active),
+    () => (activitiesRaw ?? []).filter((a) => (a as { is_active?: boolean }).is_active),
     [activitiesRaw]
   );
   const profile = profileRaw as unknown as { buffer_minutes: number; peak_hours: { start: string; end: string } | null } | null;
@@ -68,6 +80,18 @@ export default function WeekPage() {
     [categories]
   );
 
+  // Map from block id to full ScheduleBlock for click-to-edit
+  const blockById = useMemo(
+    () => Object.fromEntries(blocks.map((b) => [b.id, b])),
+    [blocks]
+  );
+
+  // Map from log id to full TimeLog for click-to-edit
+  const logById = useMemo(
+    () => Object.fromEntries(logs.map((l) => [l.id, l])),
+    [logs]
+  );
+
   const dayCells: DayCellData[] = useMemo(() => {
     const buffer = profile?.buffer_minutes ?? 15;
     const peak = profile?.peak_hours ?? null;
@@ -75,7 +99,7 @@ export default function WeekPage() {
     return days.map((iso) => {
       const weekday = isoToWeekday(iso);
       const dayBlocks = blocks.filter((b) => b.days_of_week?.includes(weekday));
-      const dayLogs = logs.filter((l) => (l as any).date === iso);
+      const dayLogs = logs.filter((l) => l.date === iso);
 
       const gaps: GapWindow[] = findFreeWindows({
         blocks: dayBlocks,
@@ -87,24 +111,26 @@ export default function WeekPage() {
         peakEnd: peak?.end,
       });
 
-      const blockSegs = dayBlocks.flatMap((b) => {
+      const blockSegs: DayCellBlock[] = dayBlocks.flatMap((b) => {
         const s = toMin(b.start_time);
         const e = toMin(b.end_time);
         const ranges = e > s ? [[s, e]] : [[s, 24*60], [0, e]];
         return ranges.map(([a, c]) => ({
+          id: b.id,
           seg: { startMin: a, endMin: c },
           name: b.name,
           color: b.color,
         }));
       });
 
-      const logSegs = dayLogs.flatMap((l) => {
+      const logSegs: DayCellLog[] = dayLogs.flatMap((l) => {
         const s = toMin(l.start_time);
         const e = toMin(l.end_time);
         const ranges = e > s ? [[s, e]] : [[s, 24*60], [0, e]];
         const cat = l.category_id ? catMap[l.category_id] : undefined;
         const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
         return ranges.map(([a, c]) => ({
+          id: l.id,
           seg: { startMin: a, endMin: c },
           name: cat?.name ?? l.type,
           color,
@@ -161,15 +187,35 @@ export default function WeekPage() {
     setLogOpen(true);
   };
 
+  const onBlockClick = (_iso: string, cellBlock: DayCellBlock) => {
+    const full = cellBlock.id ? blockById[cellBlock.id] : undefined;
+    if (full) {
+      setBlockDialogTarget({ block: full });
+      setBlockDialogOpen(true);
+    }
+  };
+
+  const onLogClick = (iso: string, cellLog: DayCellLog) => {
+    const full = cellLog.id ? logById[cellLog.id] : undefined;
+    if (!full) return;
+    setLogCtx({
+      date: iso,
+      start: full.start_time,
+      end: full.end_time,
+      editId: full.id,
+      defaultCategoryId: full.category_id ?? undefined,
+      defaultNotes: full.notes ?? undefined,
+    });
+    setLogOpen(true);
+  };
+
   return (
     <>
-      <div className="px-6 md:px-10 pt-4 pb-8 max-w-[1400px] mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Week view</div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
-          </div>
-          <div className="flex items-center gap-1.5">
+      <CalendarViewHeader
+        label="Week view"
+        title={fmtWeekRange(weekStart)}
+        actions={
+          <>
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -179,101 +225,106 @@ export default function WeekPage() {
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
               <ChevronRight className="h-4 w-4" />
             </Button>
+          </>
+        }
+      />
+
+      {/* Free-time summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+        <SummaryCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
+        <SummaryCard icon={<Zap className="h-4 w-4" />} label="Peak-hour free" value={fmtDuration(peakFree)} tone="accent" />
+        <SummaryCard icon={<CalendarDays className="h-4 w-4" />} label="Avg per day" value={fmtDuration(Math.round(totalWeekFree / 7))} tone="muted" />
+      </div>
+
+      {isGuest ? (
+        <div className="mb-5 rounded-2xl border border-dashed border-primary/40 bg-primary/[0.05] p-4 flex items-start gap-3">
+          <div className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+            <Lock className="h-4 w-4" />
           </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm">AI weekly planning is a member feature</div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Create a free account to let FreeSlot fit your activities into your free windows automatically.
+            </p>
+          </div>
+          <Button asChild size="sm" className="gradient-primary shadow-glow">
+            <Link to="/auth">Create account</Link>
+          </Button>
+        </div>
+      ) : activities.length === 0 ? (
+        <div className="mb-5">
+          <EmptyState
+            icon={<CalendarRange className="h-5 w-5" />}
+            title="Add a few activities to unlock AI planning"
+            description="Tell FreeSlot what you want to spend more time on and the AI will fit them into your free windows."
+            ctaLabel="Add activities"
+            ctaTo="/app/activities"
+          />
+        </div>
+      ) : (
+        <AIPlanPanel
+          weekStart={weekStart}
+          gaps={flatGaps}
+          activities={activities as ActivityLite[]}
+          categories={categories}
+          onPlanChange={setAiPlan}
+          onSlotAccepted={refreshLogs}
+        />
+      )}
+
+      <div>
+        <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-dashed border-primary/60 bg-primary/10" /> Free / peak</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
+          <span className="ml-auto">Click a block or log to edit</span>
         </div>
 
-        {/* Free-time summary cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-          <SummaryCard
-            icon={<Sparkles className="h-4 w-4" />}
-            label="Total free time"
-            value={fmtDuration(totalWeekFree)}
-            tone="primary"
-          />
-          <SummaryCard
-            icon={<Zap className="h-4 w-4" />}
-            label="Peak-hour free"
-            value={fmtDuration(peakFree)}
-            tone="accent"
-          />
-          <SummaryCard
-            icon={<CalendarDays className="h-4 w-4" />}
-            label="Avg per day"
-            value={fmtDuration(Math.round(totalWeekFree / 7))}
-            tone="muted"
-          />
-        </div>
-
-        {isGuest ? (
-          <div className="mb-5 rounded-2xl border border-dashed border-primary/40 bg-primary/[0.05] p-4 flex items-start gap-3">
-            <div className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
-              <Lock className="h-4 w-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm">AI weekly planning is a member feature</div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Create a free account to let FreeSlot fit your activities into your free windows automatically.
-              </p>
-            </div>
-            <Button asChild size="sm" className="gradient-primary shadow-glow">
-              <Link to="/auth">Create account</Link>
-            </Button>
-          </div>
-        ) : activities.length === 0 ? (
-          <div className="mb-5">
-            <EmptyState
-              icon={<CalendarRange className="h-5 w-5" />}
-              title="Add a few activities to unlock AI planning"
-              description="Tell FreeSlot what you want to spend more time on (e.g. Reading, Workout, Deep work) and the AI will fit them into your free windows."
-              ctaLabel="Add activities"
-              ctaTo="/app/activities"
+        <div className="overflow-x-auto">
+          <div className="min-w-[720px]">
+            <WeekGrid
+              days={dayCells}
+              onGapClick={onGapClick}
+              onSlotClick={onSlotClick}
+              onBlockClick={onBlockClick}
+              onLogClick={onLogClick}
             />
           </div>
-        ) : (
-          <AIPlanPanel
-            weekStart={weekStart}
-            gaps={flatGaps}
-            activities={activities as any}
-            categories={categories}
-            onPlanChange={setAiPlan}
-            onSlotAccepted={refreshLogs}
-          />
-        )}
-
-        <div>
-          <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-dashed border-primary/60 bg-primary/10" /> Free / peak</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
-            <span className="ml-auto">Click a free slot to log it</span>
-          </div>
-
-          <div className="overflow-x-auto -mx-6 md:mx-0 px-6 md:px-0">
-            <div className="min-w-[720px]">
-              <WeekGrid days={dayCells} onGapClick={onGapClick} onSlotClick={onSlotClick} />
-            </div>
-          </div>
         </div>
-
-        <QuickLogDialog
-          open={logOpen}
-          onOpenChange={setLogOpen}
-          date={logCtx.date}
-          categories={categories}
-          defaultStart={logCtx.start}
-          defaultEnd={logCtx.end}
-          onOptimisticInsert={() => { /* refresh below covers it */ }}
-          onSaved={refreshLogs}
-        />
       </div>
+
+      <QuickLogDialog
+        open={logOpen}
+        onOpenChange={(v) => {
+          setLogOpen(v);
+          if (!v) setLogCtx({ date: todayISO(), start: "09:00", end: "10:00" });
+        }}
+        date={logCtx.date}
+        categories={categories}
+        defaultStart={logCtx.start}
+        defaultEnd={logCtx.end}
+        editId={logCtx.editId}
+        defaultCategoryId={logCtx.defaultCategoryId}
+        defaultNotes={logCtx.defaultNotes}
+        onOptimisticInsert={() => { /* refresh below covers it */ }}
+        onSaved={refreshLogs}
+      />
+
+      <ScheduleBlockDialog
+        open={blockDialogOpen}
+        onOpenChange={setBlockDialogOpen}
+        block={blockDialogTarget.block}
+        defaultStartTime={blockDialogTarget.defaultStartTime}
+        defaultWeekday={blockDialogTarget.defaultWeekday}
+        onSaved={refreshBlocks}
+        onDeleted={refreshBlocks}
+      />
     </>
   );
 }
 
-function SummaryCard({
-  icon, label, value, tone,
-}: { icon: React.ReactNode; label: string; value: string; tone: "primary" | "accent" | "muted" }) {
+function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: "primary" | "accent" | "muted" }) {
   const ring = tone === "primary" ? "ring-primary/30" : tone === "accent" ? "ring-accent/30" : "ring-border";
   const bg = tone === "primary" ? "bg-primary/10 text-primary" : tone === "accent" ? "bg-accent/15 text-accent-foreground" : "bg-muted/50 text-muted-foreground";
   return (

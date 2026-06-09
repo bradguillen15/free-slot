@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { MIN_PER_DAY, expandRange, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Category } from "./QuickLogDialog";
@@ -16,6 +16,7 @@ export type ScheduleBlock = {
 
 export type TimeLog = {
   id: string;
+  date?: string;
   category_id: string | null;
   type: "productive" | "unproductive";
   start_time: string;
@@ -24,8 +25,10 @@ export type TimeLog = {
 };
 
 const PX_PER_HOUR = 56;
-const TOTAL_HEIGHT = (PX_PER_HOUR * 24);
+const TOTAL_HEIGHT = PX_PER_HOUR * 24;
 const SNAP_MIN = 15;
+const LONG_PRESS_MS = 500;
+const DRAG_CANCEL_PX = 4;
 
 type Segment = { startMin: number; endMin: number };
 
@@ -39,16 +42,20 @@ function segmentsForDay(start: string, end: string): Segment[] {
   return expandRange(s, e).map(([a, b]) => ({ startMin: a, endMin: b }));
 }
 
+type ContextMenu = { x: number; y: number; startMin: number } | null;
+
 export function DayTimeline({
   blocks, logs, categories, onSlotClick, currentMinute, onLogReschedule,
+  onBlockClick, onLogClick,
 }: {
   blocks: ScheduleBlock[];
   logs: TimeLog[];
   categories: Category[];
   onSlotClick: (startMin: number) => void;
   currentMinute: number | null;
-  /** Vertical drag on logged blocks to change start/end (same day). */
   onLogReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
+  onBlockClick?: (block: ScheduleBlock) => void;
+  onLogClick?: (log: TimeLog) => void;
 }) {
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
@@ -56,9 +63,65 @@ export function DayTimeline({
   );
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
+  const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
+
+  // Long-press tracking
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressOriginRef = useRef<{ x: number; y: number; startMin: number } | null>(null);
+
+  const openContextMenu = useCallback((x: number, y: number, startMin: number) => {
+    setContextMenu({ x, y, startMin });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const handleHourContextMenu = useCallback(
+    (e: React.MouseEvent, startMin: number) => {
+      e.preventDefault();
+      openContextMenu(e.clientX, e.clientY, startMin);
+    },
+    [openContextMenu]
+  );
+
+  const handleHourPointerDown = useCallback(
+    (e: React.PointerEvent, startMin: number) => {
+      if (e.button !== 0) return;
+      longPressOriginRef.current = { x: e.clientX, y: e.clientY, startMin };
+      longPressRef.current = setTimeout(() => {
+        if (longPressOriginRef.current) {
+          openContextMenu(
+            longPressOriginRef.current.x,
+            longPressOriginRef.current.y,
+            longPressOriginRef.current.startMin
+          );
+        }
+      }, LONG_PRESS_MS);
+    },
+    [openContextMenu]
+  );
+
+  const handleHourPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!longPressOriginRef.current) return;
+    const dx = Math.abs(e.clientX - longPressOriginRef.current.x);
+    const dy = Math.abs(e.clientY - longPressOriginRef.current.y);
+    if (dx > DRAG_CANCEL_PX || dy > DRAG_CANCEL_PX) {
+      if (longPressRef.current) clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+      longPressOriginRef.current = null;
+    }
+  }, []);
+
+  const handleHourPointerUp = useCallback(() => {
+    if (longPressRef.current) clearTimeout(longPressRef.current);
+    longPressRef.current = null;
+    longPressOriginRef.current = null;
+  }, []);
 
   return (
-    <div className="relative rounded-2xl border border-border bg-surface overflow-hidden">
+    <div
+      className="relative rounded-2xl border border-border bg-surface overflow-hidden"
+      onClick={contextMenu ? closeContextMenu : undefined}
+    >
       <div className="relative" style={{ height: TOTAL_HEIGHT }}>
         {/* Hour grid */}
         {hours.map((h) => (
@@ -73,8 +136,8 @@ export function DayTimeline({
           </div>
         ))}
 
-        {/* Schedule blocks (template) — left lane; must not capture clicks (hour row below handles logging). */}
-        <div className="absolute inset-y-0 left-16 right-0 z-[1] pointer-events-none">
+        {/* Schedule blocks — full width, z-10 */}
+        <div className="absolute inset-y-0 left-16 right-0 z-[10]">
           {blocks.flatMap((b) =>
             segmentsForDay(b.start_time, b.end_time).map((seg, i) => (
               <BlockBar
@@ -82,28 +145,32 @@ export function DayTimeline({
                 seg={seg}
                 color={b.color}
                 name={b.name}
-                lane="left"
+                onClick={onBlockClick ? () => onBlockClick(b) : undefined}
               />
             ))
           )}
         </div>
 
-        {/* Click-to-log: above template blocks, below log bars (log bars are pointer-events-auto). */}
+        {/* Click-to-log hour zones — z-8, below blocks */}
         <div className="absolute inset-y-0 left-16 right-0 z-[8]">
           {hours.map((h) => (
             <button
               key={h}
               type="button"
               aria-label={`Log at ${h}:00`}
-              onClick={() => onSlotClick(h * 60)}
+              onClick={() => { closeContextMenu(); onSlotClick(h * 60); }}
+              onContextMenu={(e) => handleHourContextMenu(e, h * 60)}
+              onPointerDown={(e) => handleHourPointerDown(e, h * 60)}
+              onPointerMove={handleHourPointerMove}
+              onPointerUp={handleHourPointerUp}
               className="absolute left-0 right-0 hover:bg-primary/[0.04] transition-colors"
               style={{ top: h * PX_PER_HOUR, height: PX_PER_HOUR }}
             />
           ))}
         </div>
 
-        {/* Time logs — right lane */}
-        <div className="absolute inset-y-0 left-16 right-0 z-[12] pointer-events-none">
+        {/* Time logs — full width, z-20 (on top of blocks) */}
+        <div className="absolute inset-y-0 left-16 right-0 z-[20] pointer-events-none">
           {logs.flatMap((l, idx) => {
             const cat = l.category_id ? catMap[l.category_id] : undefined;
             const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
@@ -118,6 +185,7 @@ export function DayTimeline({
                 index={idx}
                 draggable={!!onLogReschedule && segs.length === 1 && !!l.category_id}
                 onReschedule={onLogReschedule}
+                onClick={onLogClick ? () => onLogClick(l) : undefined}
               />
             ));
           })}
@@ -126,7 +194,7 @@ export function DayTimeline({
         {/* Now indicator */}
         {currentMinute !== null && (
           <div
-            className="absolute left-16 right-2 z-20 pointer-events-none"
+            className="absolute left-16 right-2 z-30 pointer-events-none"
             style={{ top: (currentMinute / 60) * PX_PER_HOUR }}
           >
             <div className="relative flex items-center">
@@ -136,11 +204,40 @@ export function DayTimeline({
           </div>
         )}
       </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <ContextMenuPopover
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onLog={() => { closeContextMenu(); onSlotClick(contextMenu.startMin); }}
+          onAddBlock={() => {
+            closeContextMenu();
+            // Bubble up via a custom event so CalendarPage can open ScheduleBlockDialog
+            const el = document.getElementById("day-timeline-root");
+            el?.dispatchEvent(
+              new CustomEvent("add-block-here", {
+                detail: { startMin: contextMenu.startMin },
+                bubbles: true,
+              })
+            );
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function BlockBar({ seg, color, name, lane }: { seg: Segment; color: string; name: string; lane: "left" | "right" }) {
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function BlockBar({
+  seg, color, name, onClick,
+}: {
+  seg: Segment;
+  color: string;
+  name: string;
+  onClick?: () => void;
+}) {
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
   return (
@@ -148,8 +245,8 @@ function BlockBar({ seg, color, name, lane }: { seg: Segment; color: string; nam
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       className={cn(
-        "absolute rounded-md px-2 py-1 text-[11px] font-medium overflow-hidden border-l-[3px] pointer-events-none",
-        lane === "left" ? "left-1 w-[46%]" : "right-1 w-[46%]"
+        "absolute left-1 right-1 rounded-md px-2 py-1 text-[11px] font-medium overflow-hidden border-l-[3px]",
+        onClick ? "cursor-pointer pointer-events-auto hover:brightness-95 transition-[filter]" : "pointer-events-none"
       )}
       style={{
         top,
@@ -158,6 +255,7 @@ function BlockBar({ seg, color, name, lane }: { seg: Segment; color: string; nam
         backgroundColor: `${color}22`,
         color: "hsl(var(--foreground) / 0.85)",
       }}
+      onClick={onClick}
     >
       <div className="truncate">{name}</div>
       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Planned</div>
@@ -166,13 +264,7 @@ function BlockBar({ seg, color, name, lane }: { seg: Segment; color: string; nam
 }
 
 function LogBar({
-  log,
-  seg,
-  color,
-  name,
-  index,
-  draggable,
-  onReschedule,
+  log, seg, color, name, index, draggable, onReschedule, onClick,
 }: {
   log: TimeLog;
   seg: Segment;
@@ -181,24 +273,27 @@ function LogBar({
   index: number;
   draggable: boolean;
   onReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
+  onClick?: () => void;
 }) {
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
   const [dragDy, setDragDy] = useState(0);
-  const dragRef = useRef<{ startY: number; origStart: number; origEnd: number } | null>(null);
+  const dragRef = useRef<{ startY: number; origStart: number; origEnd: number; moved: boolean } | null>(null);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!draggable || !onReschedule) return;
     e.stopPropagation();
     e.preventDefault();
-    dragRef.current = { startY: e.clientY, origStart: seg.startMin, origEnd: seg.endMin };
+    dragRef.current = { startY: e.clientY, origStart: seg.startMin, origEnd: seg.endMin, moved: false };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setDragDy(0);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
-    setDragDy(e.clientY - dragRef.current.startY);
+    const dy = e.clientY - dragRef.current.startY;
+    if (Math.abs(dy) > DRAG_CANCEL_PX) dragRef.current.moved = true;
+    setDragDy(dy);
   };
 
   const endDrag = (e: React.PointerEvent) => {
@@ -207,30 +302,35 @@ function LogBar({
       setDragDy(0);
       return;
     }
-    const { startY, origStart, origEnd } = dragRef.current;
+    const { startY, origStart, origEnd, moved } = dragRef.current;
+    dragRef.current = null;
+    setDragDy(0);
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+
+    if (!moved) {
+      // Treat as a click
+      onClick?.();
+      return;
+    }
+
     const dur = origEnd - origStart;
     const deltaMin = snapMin(Math.round(((e.clientY - startY) / PX_PER_HOUR) * 60));
     let newStart = snapMin(origStart + deltaMin);
     let newEnd = newStart + dur;
-    if (newStart < 0) {
-      newEnd -= newStart;
-      newStart = 0;
-    }
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
     if (newEnd > MIN_PER_DAY) {
       const over = newEnd - MIN_PER_DAY;
       newStart = Math.max(0, newStart - over);
       newEnd = MIN_PER_DAY;
     }
-    dragRef.current = null;
-    setDragDy(0);
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
     if (newStart !== origStart || newEnd !== origEnd) {
       onReschedule(log.id, newStart, newEnd);
     }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.();
   };
 
   return (
@@ -243,8 +343,8 @@ function LogBar({
         y: { duration: 0 },
       }}
       className={cn(
-        "absolute right-1 w-[46%] rounded-md px-2 py-1 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
-        draggable ? "cursor-grab touch-none active:cursor-grabbing" : ""
+        "absolute left-1 right-1 rounded-md px-2 py-1 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
+        draggable ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-pointer"
       )}
       style={{
         top,
@@ -252,16 +352,50 @@ function LogBar({
         backgroundColor: color,
         color: "white",
       }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      title={draggable ? "Drag to reschedule" : undefined}
+      onPointerDown={draggable ? onPointerDown : undefined}
+      onPointerMove={draggable ? onPointerMove : undefined}
+      onPointerUp={draggable ? endDrag : undefined}
+      onPointerCancel={draggable ? endDrag : undefined}
+      onClick={!draggable ? handleClick : undefined}
+      title={draggable ? "Drag to reschedule · click to edit" : undefined}
     >
       <div className="truncate">{name}</div>
       <div className="text-[9px] uppercase tracking-wider opacity-80 font-mono-num">
         {fmtDuration(seg.endMin - seg.startMin)}
       </div>
     </motion.div>
+  );
+}
+
+function ContextMenuPopover({
+  x, y, onLog, onAddBlock,
+}: {
+  x: number;
+  y: number;
+  onLog: () => void;
+  onAddBlock: () => void;
+}) {
+  // Position relative to viewport using fixed
+  return (
+    <div
+      className="fixed z-50 min-w-[180px] rounded-lg border border-border bg-surface shadow-lg py-1 text-sm"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={onLog}
+        className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors"
+      >
+        Log time here
+      </button>
+      <button
+        type="button"
+        onClick={onAddBlock}
+        className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors"
+      >
+        Add schedule block here
+      </button>
+    </div>
   );
 }

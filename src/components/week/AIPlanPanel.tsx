@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { fmtDuration, toMin } from "@/lib/time";
 
 export type AISlot = {
@@ -24,7 +24,7 @@ export type WeeklyPlan = {
   slots: AISlot[];
 };
 
-type ActivityLite = { id: string; name: string; category_id: string | null };
+export type ActivityLite = { id: string; name: string; category_id: string | null };
 type CategoryLite = { id: string; name: string; color: string; type: "productive" | "unproductive" };
 
 function slotKey(s: AISlot) {
@@ -66,7 +66,7 @@ export function AIPlanPanel({
         .eq("week_start", weekStart)
         .maybeSingle();
       if (!active) return;
-      const p = (data as any) ?? null;
+      const p = (data as WeeklyPlan | null) ?? null;
       setPlan(p);
       onPlanChange(p);
       setSummary("");
@@ -89,11 +89,11 @@ export function AIPlanPanel({
       const priorities = prioRes.data ?? [];
 
       if (acts.length === 0) {
-        toast({ title: "No active activities", description: "Add activities on the Activities page first.", variant: "destructive" });
+        toast.error("No active activities", { description: "Add activities on the Activities page first." });
         return;
       }
       if (gaps.length === 0) {
-        toast({ title: "No free windows this week", description: "Your week is fully booked. Try removing a block or pick another week.", variant: "destructive" });
+        toast.error("No free windows this week", { description: "Your week is fully booked. Try removing a block or pick another week." });
         return;
       }
 
@@ -102,20 +102,19 @@ export function AIPlanPanel({
       });
 
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if ((data as unknown as Record<string, unknown>)?.error) throw new Error(String((data as unknown as Record<string, unknown>).error));
 
-      const newPlan = (data as any).plan as WeeklyPlan;
+      const newPlan = (data as { plan: WeeklyPlan; summary?: string }).plan;
       setPlan(newPlan);
       onPlanChange(newPlan);
-      setSummary((data as any).summary ?? "");
+      setSummary((data as { plan: WeeklyPlan; summary?: string }).summary ?? "");
       setAccepted(new Set());
       const slotCount = newPlan?.slots?.length ?? 0;
-      toast({
-        title: slotCount ? "Plan ready" : "Empty plan",
+      toast(slotCount ? "Plan ready" : "Empty plan", {
         description: slotCount ? `${slotCount} slots generated.` : "AI couldn't fit anything — try setting priorities or adding more free time.",
       });
-    } catch (e: any) {
-      toast({ title: "Couldn't generate plan", description: e.message ?? "Try again.", variant: "destructive" });
+    } catch (e: unknown) {
+      toast.error("Couldn't generate plan", { description: e instanceof Error ? e.message : "Try again." });
     } finally {
       setLoading(false);
       generatingRef.current = false;
@@ -153,7 +152,7 @@ export function AIPlanPanel({
       });
 
       if (error) {
-        toast({ title: "Couldn't accept slot", description: error.message, variant: "destructive" });
+        toast.error("Couldn't accept slot", { description: error.message });
         return;
       }
       setAccepted((s) => new Set(s).add(key));
@@ -187,7 +186,7 @@ export function AIPlanPanel({
     setAcceptingAll(false);
 
     if (error) {
-      toast({ title: "Couldn't accept plan", description: error.message, variant: "destructive" });
+      toast.error("Couldn't accept plan", { description: error.message });
       return;
     }
     setAccepted((s) => {
@@ -195,7 +194,7 @@ export function AIPlanPanel({
       pending.forEach((p) => next.add(slotKey(p)));
       return next;
     });
-    toast({ title: "Plan accepted", description: `${pending.length} slot${pending.length === 1 ? "" : "s"} added to your week.` });
+    toast.success("Plan accepted", { description: `${pending.length} slot${pending.length === 1 ? "" : "s"} added to your week.` });
     onSlotAccepted();
   };
 

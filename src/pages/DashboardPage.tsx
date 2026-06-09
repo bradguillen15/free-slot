@@ -50,6 +50,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     (async () => {
       const [l, c, p, a] = await Promise.all([
         supabase.from("time_logs").select("date,start_time,end_time,type,category_id")
@@ -58,11 +59,13 @@ export default function DashboardPage() {
         supabase.from("weekly_plans").select("slots").eq("user_id", user.id).eq("week_start", weekStart).maybeSingle(),
         supabase.from("activities").select("id,name").eq("user_id", user.id),
       ]);
+      if (cancelled) return;
       setLogs((l.data ?? []) as LogRow[]);
       setCats((c.data ?? []) as Cat[]);
-      setPlanSlots(((p.data as any)?.slots ?? []) as AISlot[]);
+      setPlanSlots(((p.data as { slots?: AISlot[] } | null)?.slots ?? []) as AISlot[]);
       setActivities((a.data ?? []) as Activity[]);
     })();
+    return () => { cancelled = true; };
   }, [user, weekStart, weekEnd]);
 
   const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.id, c])), [cats]);
@@ -108,11 +111,13 @@ export default function DashboardPage() {
     if (autoPromptedFor === lastWeek) return;
     const dismissedKey = `freeslot.review.dismissed.${lastWeek}`;
     if (typeof window !== "undefined" && localStorage.getItem(dismissedKey)) return;
+    let cancelled = false;
     (async () => {
       const [profileRes, reviewRes] = await Promise.all([
         supabase.from("profiles").select("weekly_review_day").eq("id", user.id).maybeSingle(),
         supabase.from("weekly_reviews").select("id").eq("user_id", user.id).eq("week_start", lastWeek).maybeSingle(),
       ]);
+      if (cancelled) return;
       if (reviewRes.data) return; // already reviewed
       const reviewDay = (profileRes.data?.weekly_review_day ?? 0) as number; // 0=Sun
       const today = new Date().getDay();
@@ -129,6 +134,7 @@ export default function DashboardPage() {
         onDismiss: () => localStorage.setItem(dismissedKey, "1"),
       });
     })();
+    return () => { cancelled = true; };
   }, [user, isCurrentWeek, weekStart, autoPromptedFor]);
 
   // Category breakdown (top categories by minutes)
@@ -143,8 +149,8 @@ export default function DashboardPage() {
         const c = catMap[id];
         return c ? { name: c.name, value: mins, color: c.color, type: c.type } : null;
       })
-      .filter(Boolean)
-      .sort((a: any, b: any) => b.value - a.value) as { name: string; value: number; color: string; type: string }[];
+      .filter((x): x is { name: string; value: number; color: string; type: string } => x !== null)
+      .sort((a, b) => b.value - a.value);
   }, [logs, catMap]);
 
   // Plan vs actual: AI-planned minutes per activity vs logged minutes (matched by activity name → category name fallback)

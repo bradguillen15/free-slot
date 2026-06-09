@@ -9,6 +9,7 @@ import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/li
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
+import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { toast } from "sonner";
 import { useCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
 
@@ -17,12 +18,24 @@ export default function CalendarPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date") || todayISO();
   const [date, setDate] = useState<string>(initialDate);
+
+  // Quick-log dialog state
   const [logOpen, setLogOpen] = useState(false);
-  const [logDefaults, setLogDefaults] = useState<{ start: string; end: string }>({ start: "09:00", end: "10:00" });
+  const [logDefaults, setLogDefaults] = useState<{
+    start: string; end: string; editId?: string;
+    defaultCategoryId?: string; defaultNotes?: string;
+  }>({ start: "09:00", end: "10:00" });
+
+  // Schedule-block dialog state
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockDialogTarget, setBlockDialogTarget] = useState<{
+    block?: ScheduleBlock; defaultStartTime?: string; defaultWeekday?: number;
+  }>({});
+
   const [now, setNow] = useState(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Sync ?date= on change (without polluting history)
+  // Sync ?date= on change
   useEffect(() => {
     if (date === todayISO()) {
       if (searchParams.get("date")) {
@@ -40,7 +53,7 @@ export default function CalendarPage() {
   const weekday = isoToWeekday(date);
   const isToday = date === todayISO();
 
-  const { data: allBlocks } = useScheduleBlocks();
+  const { data: allBlocks, refresh: refreshBlocks } = useScheduleBlocks();
   const { data: categories } = useCategories();
   const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(date, date);
 
@@ -67,6 +80,19 @@ export default function CalendarPage() {
 
   const currentMinute = isToday ? now.getHours() * 60 + now.getMinutes() : null;
 
+  // Listen for "add-block-here" custom event from DayTimeline context menu
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { startMin } = (e as CustomEvent<{ startMin: number }>).detail;
+      const h = Math.floor(startMin / 60);
+      const hStr = `${String(h).padStart(2, "0")}:00`;
+      setBlockDialogTarget({ defaultStartTime: hStr, defaultWeekday: weekday });
+      setBlockDialogOpen(true);
+    };
+    document.addEventListener("add-block-here", handler);
+    return () => document.removeEventListener("add-block-here", handler);
+  }, [weekday]);
+
   const openLogAt = (startMin: number) => {
     const snapped = Math.floor(startMin / 30) * 30;
     setLogDefaults({ start: fromMin(snapped), end: fromMin(snapped + 60) });
@@ -78,7 +104,21 @@ export default function CalendarPage() {
     openLogAt(Math.max(0, base));
   };
 
-  const heading = useMemo(() => fmtDayHeading(date), [date]);
+  const handleBlockClick = useCallback((block: ScheduleBlock) => {
+    setBlockDialogTarget({ block });
+    setBlockDialogOpen(true);
+  }, []);
+
+  const handleLogClick = useCallback((log: TimeLog) => {
+    setLogDefaults({
+      start: log.start_time,
+      end: log.end_time,
+      editId: log.id,
+      defaultCategoryId: log.category_id ?? undefined,
+      defaultNotes: log.notes ?? undefined,
+    });
+    setLogOpen(true);
+  }, []);
 
   const handleLogReschedule = useCallback(
     async (logId: string, newStartMin: number, newEndMin: number) => {
@@ -104,6 +144,8 @@ export default function CalendarPage() {
     },
     [logs, mode, user?.id, refreshLogs]
   );
+
+  const heading = useMemo(() => fmtDayHeading(date), [date]);
 
   return (
     <>
@@ -132,9 +174,10 @@ export default function CalendarPage() {
             <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-              <span className="ml-auto">Click an hour to log · drag a block to reschedule</span>
+              <span className="ml-auto">Click a block to edit · right-click to add</span>
             </div>
             <div
+              id="day-timeline-root"
               ref={scrollRef}
               className="max-h-[calc(100vh-220px)] overflow-y-auto rounded-2xl"
             >
@@ -145,6 +188,8 @@ export default function CalendarPage() {
                 onSlotClick={openLogAt}
                 currentMinute={currentMinute}
                 onLogReschedule={handleLogReschedule}
+                onBlockClick={handleBlockClick}
+                onLogClick={handleLogClick}
               />
             </div>
             {blocks.length === 0 && logs.length === 0 && (
@@ -152,7 +197,7 @@ export default function CalendarPage() {
                 <EmptyState
                   icon={<Sparkles className="h-5 w-5" />}
                   title="Nothing logged yet — that's a clean canvas"
-                  description="Click any hour on the timeline to log what you just did, or use the floating + button for a quick entry."
+                  description="Click any hour to log time, right-click to add a repeating schedule block."
                   ctaLabel="Quick log"
                   onCtaClick={openQuickLog}
                 />
@@ -177,15 +222,31 @@ export default function CalendarPage() {
 
         <QuickLogDialog
           open={logOpen}
-          onOpenChange={setLogOpen}
+          onOpenChange={(v) => {
+            setLogOpen(v);
+            if (!v) setLogDefaults({ start: "09:00", end: "10:00" });
+          }}
           date={date}
           categories={cats}
           defaultStart={logDefaults.start}
           defaultEnd={logDefaults.end}
+          editId={logDefaults.editId}
+          defaultCategoryId={logDefaults.defaultCategoryId}
+          defaultNotes={logDefaults.defaultNotes}
           onOptimisticInsert={(log) => {
-            if (log.date === date) setDayLogs((prev) => [...prev, log as any].sort((a, b) => a.start_time.localeCompare(b.start_time)));
+            if (log.date === date) setDayLogs((prev) => [...prev, log as typeof prev[0]].sort((a, b) => a.start_time.localeCompare(b.start_time)));
           }}
           onSaved={refreshLogs}
+        />
+
+        <ScheduleBlockDialog
+          open={blockDialogOpen}
+          onOpenChange={setBlockDialogOpen}
+          block={blockDialogTarget.block}
+          defaultStartTime={blockDialogTarget.defaultStartTime}
+          defaultWeekday={blockDialogTarget.defaultWeekday}
+          onSaved={refreshBlocks}
+          onDeleted={refreshBlocks}
         />
       </div>
     </>

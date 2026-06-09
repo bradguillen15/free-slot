@@ -2,18 +2,13 @@ import { Link, useLocation, useOutlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, CalendarDays, LogIn, Lock } from "lucide-react";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
+import { CALENDAR_PAGE_SHELL, isCalendarRoute } from "@/components/calendar/calendarLayout";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { GuestBanner } from "@/components/GuestBanner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-function getViewLevel(pathname: string): number {
-  if (pathname === "/app") return 0;
-  if (pathname.startsWith("/app/week")) return 1;
-  if (pathname.startsWith("/app/month")) return 2;
-  return -1;
-}
 
 const navItems = [
   { to: "/app", labelKey: "nav.day", icon: Calendar, requiresAuth: false },
@@ -35,18 +30,33 @@ const mobileNavItems = [
 export function AppLayoutOutlet() {
   const location = useLocation();
   const outlet = useOutlet();
+  const isCalendar = isCalendarRoute(location.pathname);
+
+  const animatedOutlet = (
+    <AnimatePresence initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
+        {outlet}
+      </motion.div>
+    </AnimatePresence>
+  );
+
   return (
     <AppLayout>
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
-        >
-          {outlet}
-        </motion.div>
-      </AnimatePresence>
+      {isCalendar ? (
+        <div className={CALENDAR_PAGE_SHELL}>
+          <div className="pt-5 pb-3">
+            <ViewSwitcher />
+          </div>
+          {animatedOutlet}
+        </div>
+      ) : (
+        animatedOutlet
+      )}
     </AppLayout>
   );
 }
@@ -127,11 +137,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 min-w-0 overflow-x-hidden pb-20 md:pb-0">
         <GuestBanner />
-        {getViewLevel(location.pathname) !== -1 && (
-          <div className="px-6 md:px-10 pt-5 pb-1 flex items-center">
-            <ViewSwitcher />
-          </div>
-        )}
         {children}
       </main>
 
@@ -143,7 +148,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <ul className="grid grid-cols-4">
           {mobileNavItems.map((item) => {
             const { to, labelKey, icon: Icon, requiresAuth } = item;
-            const prefixes = (item as any).matchPrefixes as string[] | undefined;
+            const prefixes = (item as typeof item & { matchPrefixes?: string[] }).matchPrefixes;
             const active = prefixes
               ? prefixes.some((p) => (p === "/app" ? location.pathname === "/app" : location.pathname.startsWith(p)))
               : (to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to));

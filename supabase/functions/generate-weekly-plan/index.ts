@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
 
     if (!week_start) return json({ error: "week_start required" }, 400);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return json({ error: "AI not configured" }, 500);
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) return json({ error: "AI not configured" }, 500);
 
     // If no explicit priorities, fall back to all activities ranked by target hours desc
     const ordered = priorities.length
@@ -65,73 +65,64 @@ ${gapText || "(none)"}
 
 Plan activities into these windows. Each slot must use start/end inside one window on the same day. Slot duration in minutes <= window duration. Total minutes per activity should approximate target_hours_per_week*60 if possible.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
         tools: [
           {
-            type: "function",
-            function: {
-              name: "propose_plan",
-              description: "Return scheduled slots for the week.",
-              parameters: {
-                type: "object",
-                properties: {
-                  slots: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        activity_id: { type: "string" },
-                        activity_name: { type: "string" },
-                        day: { type: "string", description: "ISO date YYYY-MM-DD" },
-                        start: { type: "string", description: "HH:MM 24h" },
-                        end: { type: "string", description: "HH:MM 24h" },
-                        rationale: { type: "string" },
-                      },
-                      required: ["activity_id", "activity_name", "day", "start", "end"],
-                      additionalProperties: false,
+            name: "propose_plan",
+            description: "Return scheduled slots for the week.",
+            input_schema: {
+              type: "object",
+              properties: {
+                slots: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      activity_id: { type: "string" },
+                      activity_name: { type: "string" },
+                      day: { type: "string", description: "ISO date YYYY-MM-DD" },
+                      start: { type: "string", description: "HH:MM 24h" },
+                      end: { type: "string", description: "HH:MM 24h" },
+                      rationale: { type: "string" },
                     },
+                    required: ["activity_id", "activity_name", "day", "start", "end"],
+                    additionalProperties: false,
                   },
-                  summary: { type: "string" },
                 },
-                required: ["slots", "summary"],
-                additionalProperties: false,
+                summary: { type: "string" },
               },
+              required: ["slots", "summary"],
+              additionalProperties: false,
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "propose_plan" } },
+        tool_choice: { type: "tool", name: "propose_plan" },
       }),
     });
 
     if (!aiRes.ok) {
       if (aiRes.status === 429) return json({ error: "Rate limit, try again shortly." }, 429);
-      if (aiRes.status === 402) return json({ error: "AI credits exhausted. Add credits in workspace settings." }, 402);
       const t = await aiRes.text();
       console.error("AI error", aiRes.status, t);
-      return json({ error: "AI gateway error" }, 500);
+      return json({ error: "AI error" }, 500);
     }
 
     const aiJson = await aiRes.json();
-    const toolCall = aiJson.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) return json({ error: "No plan returned" }, 500);
+    const toolBlock = aiJson.content?.find((b: { type: string }) => b.type === "tool_use");
+    if (!toolBlock) return json({ error: "No plan returned" }, 500);
 
-    let parsed: { slots: any[]; summary: string };
-    try {
-      parsed = JSON.parse(toolCall.function.arguments);
-    } catch {
-      return json({ error: "Invalid AI output" }, 500);
-    }
+    const parsed: { slots: unknown[]; summary: string } = toolBlock.input;
 
     // Atomic upsert by (user_id, week_start) — relies on unique constraint
     const { data: saved, error: insErr } = await supabase

@@ -107,8 +107,8 @@ export function QuickLogDialog({
         });
       }
       onSaved?.();
-    } catch (err: any) {
-      toast.error(`Save failed: ${err?.message ?? "unknown"}`);
+    } catch (err: unknown) {
+      toast.error(`Save failed: ${err instanceof Error ? err.message : "unknown"}`);
       onSaved?.();
     } finally {
       setSaving(false);
