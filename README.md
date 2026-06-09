@@ -78,6 +78,18 @@ See [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) for the full breakdown and [`do
 - [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) — every dependency and why it's there, conventions for contributors.
 - [`docs/CLOUD.md`](./docs/CLOUD.md) — backend (Lovable Cloud / Supabase) — schema, RLS, edge functions, secrets.
 - [`docs/DESIGN.md`](./docs/DESIGN.md) — design system, tokens, motion principles, responsive rules.
+- [`docs/development_guide.md`](./docs/development_guide.md) — local setup, tests, OpenSpec harness workflow.
+- [`docs/initialize-project.md`](./docs/initialize-project.md) — harness setup reference (from `harness-lidr-sdd`).
+
+### AI development harness
+
+This project uses the [LIDR SDD harness](https://github.com/LIDR-academy/AI4Devs-LTI-extended) for spec-driven development with Cursor and Claude Code:
+
+```
+enrich-us → /opsx:new → /opsx:ff → /opsx:apply → /opsx:verify → /opsx:archive
+```
+
+Run `/opsx:onboard` in Cursor for a guided first cycle. Requires [OpenSpec CLI](https://github.com/Fission-AI/OpenSpec): `npm install -g @fission-ai/openspec`.
 
 ---
 
