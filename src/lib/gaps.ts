@@ -112,7 +112,7 @@ export function findFreeWindows({
 
   return free
     .map((w) => {
-      const start = Math.min(MIN_PER_DAY, w.start + bufferMinutes);
+      const start = Math.min(w.end, w.start + bufferMinutes);
       const end = Math.max(0, w.end - bufferMinutes);
       return { start, end };
     })

@@ -56,7 +56,7 @@ export function WeeklyReviewModal({ open, onOpenChange, weekStart }: Props) {
       const logs = (logsRes.data ?? []) as (LogRow & { type: "productive" | "unproductive" })[];
       const cats = (catsRes.data ?? []) as Cat[];
       const catMap = Object.fromEntries(cats.map((c) => [c.id, c]));
-      const slots = (((planRes.data as any)?.slots ?? []) as Slot[]);
+      const slots = ((planRes.data as { slots?: Slot[] } | null)?.slots ?? []) as Slot[];
 
       const plannedMap = new Map<string, number>();
       slots.forEach((s) => plannedMap.set(s.activity_name, (plannedMap.get(s.activity_name) ?? 0) + durMin(s.start, s.end)));
@@ -98,11 +98,11 @@ export function WeeklyReviewModal({ open, onOpenChange, weekStart }: Props) {
         },
       });
       if (error) throw error;
-      setInsights((data as any)?.review?.insights ?? null);
+      setInsights((data as { review?: { insights?: string } } | null)?.review?.insights ?? null);
       setExisting(true);
       toast.success("Weekly review saved");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not generate review");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not generate review");
     } finally {
       setLoading(false);
     }

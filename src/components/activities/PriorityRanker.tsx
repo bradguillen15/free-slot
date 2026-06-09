@@ -61,7 +61,7 @@ export function PriorityRanker({
   activities,
   categories,
 }: {
-  userId: string;
+  userId: string | null;
   activities: Activity[];
   categories: Category[];
 }) {
@@ -79,11 +79,11 @@ export function PriorityRanker({
     (async () => {
       setLoading(true);
       const active = activities.filter((a) => a.is_active);
-      const { data: prios } = await supabase
+      const prios = userId ? (await supabase
         .from("weekly_priorities")
         .select("activity_id, rank")
         .eq("user_id", userId)
-        .eq("week_start", weekStart);
+        .eq("week_start", weekStart)).data : [];
       if (cancelled) return;
       const rankMap = new Map(prios?.map((p) => [p.activity_id, p.rank]) ?? []);
       const ordered = [...active].sort((a, b) => {
@@ -99,6 +99,7 @@ export function PriorityRanker({
   }, [userId, weekStart, activities]);
 
   const persist = async (next: RankItem[]) => {
+    if (!userId) return; // guest: rankings are display-only
     // Replace this week's priorities atomically
     await supabase.from("weekly_priorities").delete().eq("user_id", userId).eq("week_start", weekStart);
     if (next.length === 0) return;

@@ -69,8 +69,8 @@ export default function Auth() {
           toast.success(t("auth.signedIn"));
         }
       }
-    } catch (err: any) {
-      toast.error(err.message ?? t("common.somethingWrong"));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
     } finally {
       setLoading(false);
     }
@@ -91,8 +91,8 @@ export default function Auth() {
       toast.success(t("auth.migrate.done"), { description: parts || undefined });
       setMigrateOpen(false);
       navigate("/app", { replace: true });
-    } catch (e: any) {
-      toast.error(e?.message ?? t("auth.migrate.failed"));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : t("auth.migrate.failed"));
     } finally {
       setMigrating(false);
     }

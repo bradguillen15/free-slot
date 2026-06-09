@@ -21,11 +21,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      })
+      .catch(() => { /* network error — onAuthStateChange will eventually resolve */ })
+      .finally(() => setLoading(false));
     return () => sub.subscription.unsubscribe();
   }, []);
 

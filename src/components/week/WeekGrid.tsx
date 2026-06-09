@@ -31,14 +31,17 @@ function heightFor(seg: Seg) {
 
 export type AISlotSeg = { seg: Seg; name: string; rationale?: string };
 
+export type DayCellBlock = { id?: string; seg: Seg; name: string; color: string };
+export type DayCellLog   = { id?: string; seg: Seg; name: string; color: string };
+
 export type DayCellData = {
   iso: string;
   weekday: number;
   label: string;
   short: string;
   isToday: boolean;
-  blocks: { seg: Seg; name: string; color: string }[];
-  logs: { seg: Seg; name: string; color: string }[];
+  blocks: DayCellBlock[];
+  logs: DayCellLog[];
   gaps: GapWindow[];
   aiSlots?: AISlotSeg[];
   totalFree: number;
@@ -48,10 +51,14 @@ export function WeekGrid({
   days,
   onGapClick,
   onSlotClick,
+  onBlockClick,
+  onLogClick,
 }: {
   days: DayCellData[];
   onGapClick: (iso: string, gap: GapWindow) => void;
   onSlotClick: (iso: string, startMin: number) => void;
+  onBlockClick?: (iso: string, block: DayCellBlock) => void;
+  onLogClick?: (iso: string, log: DayCellLog) => void;
 }) {
   const hours = useMemo(
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
@@ -128,12 +135,12 @@ export function WeekGrid({
                 type="button"
                 aria-label={`Log ${d.short} ${h}:00`}
                 onClick={() => onSlotClick(d.iso, h * 60)}
-                className="absolute left-0 right-0 hover:bg-primary/[0.05] transition-colors"
+                className="absolute left-0 right-0 hover:bg-primary/[0.05] transition-colors z-[5]"
                 style={{ top: (h - HOURS_START) * PX_PER_HOUR, height: PX_PER_HOUR }}
               />
             ))}
 
-            {/* Gap markers (behind blocks) */}
+            {/* Gap markers (z-6, above hour buttons) */}
             {d.gaps.map((g, i) => {
               const c = clamp({ startMin: g.start, endMin: g.end });
               if (!c) return null;
@@ -143,7 +150,7 @@ export function WeekGrid({
                   key={`gap-${i}`}
                   onClick={() => onGapClick(d.iso, g)}
                   className={cn(
-                    "absolute left-0.5 right-0.5 rounded-md border border-dashed text-left px-1.5 transition-colors",
+                    "absolute left-0.5 right-0.5 rounded-md border border-dashed text-left px-1.5 transition-colors z-[6]",
                     g.isPeak
                       ? "border-primary/60 bg-primary/[0.08] hover:bg-primary/[0.14]"
                       : "border-border/60 bg-muted/30 hover:bg-muted/50"
@@ -161,7 +168,7 @@ export function WeekGrid({
               );
             })}
 
-            {/* Blocks */}
+            {/* Schedule blocks — full width, z-10 */}
             {d.blocks.map((b, i) => {
               const c = clamp(b.seg);
               if (!c) return null;
@@ -171,20 +178,24 @@ export function WeekGrid({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.01 }}
-                  className="absolute left-0.5 right-0.5 rounded-sm px-1 overflow-hidden border-l-2 pointer-events-none"
+                  className={cn(
+                    "absolute left-0.5 right-0.5 rounded-sm px-1 overflow-hidden border-l-2 z-[10]",
+                    onBlockClick ? "cursor-pointer hover:brightness-95 transition-[filter]" : "pointer-events-none"
+                  )}
                   style={{
                     top: topFor(c.startMin),
-                    height: heightFor(c),
+                    height: Math.max(heightFor(c), 10),
                     backgroundColor: `${b.color}33`,
                     borderLeftColor: b.color,
                   }}
+                  onClick={onBlockClick ? (e) => { e.stopPropagation(); onBlockClick(d.iso, b); } : undefined}
                 >
                   <div className="text-[10px] font-medium truncate text-foreground/85">{b.name}</div>
                 </motion.div>
               );
             })}
 
-            {/* Logs (overlaid right side) */}
+            {/* Time logs — full width, z-20 (on top of blocks) */}
             {d.logs.map((l, i) => {
               const c = clamp(l.seg);
               if (!c) return null;
@@ -193,19 +204,23 @@ export function WeekGrid({
                   key={`l-${i}`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="absolute right-0.5 w-[40%] rounded-sm px-1 overflow-hidden shadow-soft pointer-events-none"
+                  className={cn(
+                    "absolute left-0.5 right-0.5 rounded-sm px-1 overflow-hidden shadow-soft z-[20]",
+                    onLogClick ? "cursor-pointer hover:brightness-90 transition-[filter]" : "pointer-events-none"
+                  )}
                   style={{
                     top: topFor(c.startMin),
-                    height: heightFor(c),
+                    height: Math.max(heightFor(c), 10),
                     backgroundColor: l.color,
                   }}
+                  onClick={onLogClick ? (e) => { e.stopPropagation(); onLogClick(d.iso, l); } : undefined}
                 >
                   <div className="text-[9px] font-semibold truncate text-white">{l.name}</div>
                 </motion.div>
               );
             })}
 
-            {/* AI suggested slots (centered ribbon, dashed primary) */}
+            {/* AI suggested slots (z-25, dashed primary) */}
             {(d.aiSlots ?? []).map((s, i) => {
               const c = clamp(s.seg);
               if (!c) return null;
@@ -214,7 +229,7 @@ export function WeekGrid({
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.02 }}
-                  className="absolute left-[18%] right-[18%] rounded-md px-1.5 py-0.5 border border-primary/70 bg-primary/[0.18] backdrop-blur-sm shadow-glow cursor-help"
+                  className="absolute left-[18%] right-[18%] rounded-md px-1.5 py-0.5 border border-primary/70 bg-primary/[0.18] backdrop-blur-sm shadow-glow cursor-help z-[25]"
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
                 >
                   <div className="text-[9px] uppercase tracking-wider text-primary/90">AI</div>

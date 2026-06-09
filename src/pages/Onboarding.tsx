@@ -160,8 +160,8 @@ export default function Onboarding() {
       if (pErr) throw pErr;
       toast.success(t("onboarding.allSet"));
       navigate("/app", { replace: true });
-    } catch (e: any) {
-      toast.error(e.message ?? t("common.somethingWrong"));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : t("common.somethingWrong"));
     } finally {
       setSaving(false);
     }

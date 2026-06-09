@@ -25,7 +25,7 @@ export function ActivityEditor({
   activities,
   onChange,
 }: {
-  userId: string;
+  userId: string | null;
   categories: Category[];
   activities: Activity[];
   onChange: () => void;
@@ -39,6 +39,7 @@ export function ActivityEditor({
 
   const addActivity = async () => {
     if (!draft.name.trim()) return toast.error("Name required");
+    if (!userId) return toast.error("Sign in to save activities");
     const { error } = await supabase.from("activities").insert({
       user_id: userId,
       name: draft.name.trim(),

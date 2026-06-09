@@ -66,7 +66,7 @@ export default function SettingsPage() {
       ]);
       if (prof) {
         setProfile({
-          peak_hours: (prof.peak_hours as any) ?? { start: "09:00", end: "12:00" },
+          peak_hours: (prof.peak_hours as { start: string; end: string } | null) ?? { start: "09:00", end: "12:00" },
           buffer_minutes: prof.buffer_minutes ?? 15,
           include_weekends: prof.include_weekends ?? true,
           weekly_review_day: prof.weekly_review_day ?? 0,
@@ -259,7 +259,7 @@ export default function SettingsPage() {
                 onKeyDown={(e) => e.key === "Enter" && addCategory()}
                 className="flex-1 h-9"
               />
-              <Select value={newCat.type} onValueChange={(v) => setNewCat({ ...newCat, type: v as any })}>
+              <Select value={newCat.type} onValueChange={(v) => setNewCat({ ...newCat, type: v as "productive" | "unproductive" })}>
                 <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="productive">Productive</SelectItem>

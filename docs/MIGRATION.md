@@ -145,7 +145,7 @@ Supabase dashboard → Project Settings → API:
 
 1. Go to https://aistudio.google.com/app/apikey
 2. Click **Create API key**.
-3. Copy it — this replaces `LOVABLE_API_KEY` entirely.
+3. Copy it — this replaces the old Lovable AI key entirely.
 
 Free tier: 15 requests/minute, 1 million tokens/day — more than enough for personal use.
 

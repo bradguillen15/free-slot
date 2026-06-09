@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
 
     if (!week_start) return json({ error: "week_start required" }, 400);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return json({ error: "AI not configured" }, 500);
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) return json({ error: "AI not configured" }, 500);
 
     const fmt = (m: number) => `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`;
     const plannedTxt = planned.length
@@ -54,29 +54,31 @@ ${actualTxt}
 
 Write the reflection now.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 512,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
       }),
     });
 
     if (!aiRes.ok) {
       if (aiRes.status === 429) return json({ error: "Rate limit, try again shortly." }, 429);
-      if (aiRes.status === 402) return json({ error: "AI credits exhausted." }, 402);
       const t = await aiRes.text();
       console.error("AI error", aiRes.status, t);
-      return json({ error: "AI gateway error" }, 500);
+      return json({ error: "AI error" }, 500);
     }
 
     const aiJson = await aiRes.json();
     const insights: string =
-      aiJson.choices?.[0]?.message?.content?.trim() ?? "Nice work showing up this week.";
+      aiJson.content?.[0]?.text?.trim() ?? "Nice work showing up this week.";
 
     const planned_vs_actual = { planned, actual, productive_ratio: productiveRatio, total_tracked: totalTracked };
 
