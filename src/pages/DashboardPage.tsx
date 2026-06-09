@@ -9,7 +9,6 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -169,8 +168,7 @@ export default function DashboardPage() {
   }, [planSlots, logs, catMap]);
 
   return (
-    <AppLayout>
-      <div className="px-6 md:px-10 py-8 max-w-[1400px] mx-auto">
+    <div className="px-6 md:px-10 py-8 max-w-[1400px] mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Dashboard</div>
@@ -306,8 +304,7 @@ export default function DashboardPage() {
         </div>
 
         <WeeklyReviewModal open={reviewOpen} onOpenChange={setReviewOpen} weekStart={reviewWeek} />
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 

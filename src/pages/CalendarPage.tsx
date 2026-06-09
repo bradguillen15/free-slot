@@ -3,15 +3,14 @@ import { motion } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
-import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/lib/time";
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
-import { useCategories, useScheduleBlocks, useTimeLogsInRange } from "@/lib/dataStore";
-import { ViewSwitcher } from "@/components/ViewSwitcher";
+import { toast } from "sonner";
+import { useCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -43,7 +42,7 @@ export default function CalendarPage() {
 
   const { data: allBlocks } = useScheduleBlocks();
   const { data: categories } = useCategories();
-  const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs } = useTimeLogsInRange(date, date);
+  const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(date, date);
 
   const blocks = useMemo(
     () => (allBlocks as unknown as ScheduleBlock[]).filter((x) => x.days_of_week?.includes(weekday)),
@@ -81,30 +80,50 @@ export default function CalendarPage() {
 
   const heading = useMemo(() => fmtDayHeading(date), [date]);
 
+  const handleLogReschedule = useCallback(
+    async (logId: string, newStartMin: number, newEndMin: number) => {
+      const log = logs.find((l) => l.id === logId);
+      if (!log?.category_id) {
+        toast.error("Assign a category before dragging this block.");
+        return;
+      }
+      try {
+        await updateTimeLog(mode, user?.id ?? null, logId, {
+          start_time: fromMin(newStartMin),
+          end_time: fromMin(newEndMin),
+          category_id: log.category_id,
+          type: log.type,
+          notes: log.notes,
+        });
+        toast.success("Block rescheduled");
+        await refreshLogs();
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Could not reschedule";
+        toast.error(msg);
+      }
+    },
+    [logs, mode, user?.id, refreshLogs]
+  );
+
   return (
-    <AppLayout>
-      <div className="px-6 md:px-10 py-8 max-w-6xl mx-auto">
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex justify-center md:justify-start">
-            <ViewSwitcher />
+    <>
+      <div className="px-6 md:px-10 pt-4 pb-8 max-w-6xl mx-auto">
+        <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
-            </motion.div>
-            <div className="flex items-center gap-1.5">
-              <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, -1))} aria-label="Previous day">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setDate(todayISO())} className="gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
-                Today
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, 1))} aria-label="Next day">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, -1))} aria-label="Previous day">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setDate(todayISO())} className="gap-1.5">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Today
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, 1))} aria-label="Next day">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
@@ -113,15 +132,19 @@ export default function CalendarPage() {
             <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-              <span className="ml-auto">Click any hour to log</span>
+              <span className="ml-auto">Click an hour to log · drag a block to reschedule</span>
             </div>
-            <div ref={scrollRef} className="max-h-[calc(100vh-220px)] overflow-y-auto rounded-2xl">
+            <div
+              ref={scrollRef}
+              className="max-h-[calc(100vh-220px)] overflow-y-auto rounded-2xl"
+            >
               <DayTimeline
                 blocks={blocks}
                 logs={logs}
                 categories={cats}
                 onSlotClick={openLogAt}
                 currentMinute={currentMinute}
+                onLogReschedule={handleLogReschedule}
               />
             </div>
             {blocks.length === 0 && logs.length === 0 && (
@@ -165,6 +188,6 @@ export default function CalendarPage() {
           onSaved={refreshLogs}
         />
       </div>
-    </AppLayout>
+    </>
   );
 }

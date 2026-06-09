@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MIN_PER_DAY, expandRange, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Category } from "./QuickLogDialog";
@@ -25,8 +25,13 @@ export type TimeLog = {
 
 const PX_PER_HOUR = 56;
 const TOTAL_HEIGHT = (PX_PER_HOUR * 24);
+const SNAP_MIN = 15;
 
 type Segment = { startMin: number; endMin: number };
+
+function snapMin(m: number): number {
+  return Math.round(m / SNAP_MIN) * SNAP_MIN;
+}
 
 function segmentsForDay(start: string, end: string): Segment[] {
   const s = toMin(start);
@@ -35,13 +40,15 @@ function segmentsForDay(start: string, end: string): Segment[] {
 }
 
 export function DayTimeline({
-  blocks, logs, categories, onSlotClick, currentMinute,
+  blocks, logs, categories, onSlotClick, currentMinute, onLogReschedule,
 }: {
   blocks: ScheduleBlock[];
   logs: TimeLog[];
   categories: Category[];
   onSlotClick: (startMin: number) => void;
   currentMinute: number | null;
+  /** Vertical drag on logged blocks to change start/end (same day). */
+  onLogReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
 }) {
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
@@ -66,22 +73,8 @@ export function DayTimeline({
           </div>
         ))}
 
-        {/* Click-to-log overlay (right of time gutter) */}
-        <div className="absolute inset-y-0 left-16 right-0">
-          {hours.map((h) => (
-            <button
-              key={h}
-              type="button"
-              aria-label={`Log at ${h}:00`}
-              onClick={() => onSlotClick(h * 60)}
-              className="absolute left-0 right-0 hover:bg-primary/[0.04] transition-colors"
-              style={{ top: h * PX_PER_HOUR, height: PX_PER_HOUR }}
-            />
-          ))}
-        </div>
-
-        {/* Schedule blocks (template) — left lane */}
-        <div className="absolute inset-y-0 left-16 right-0">
+        {/* Schedule blocks (template) — left lane; must not capture clicks (hour row below handles logging). */}
+        <div className="absolute inset-y-0 left-16 right-0 z-[1] pointer-events-none">
           {blocks.flatMap((b) =>
             segmentsForDay(b.start_time, b.end_time).map((seg, i) => (
               <BlockBar
@@ -95,18 +88,36 @@ export function DayTimeline({
           )}
         </div>
 
+        {/* Click-to-log: above template blocks, below log bars (log bars are pointer-events-auto). */}
+        <div className="absolute inset-y-0 left-16 right-0 z-[8]">
+          {hours.map((h) => (
+            <button
+              key={h}
+              type="button"
+              aria-label={`Log at ${h}:00`}
+              onClick={() => onSlotClick(h * 60)}
+              className="absolute left-0 right-0 hover:bg-primary/[0.04] transition-colors"
+              style={{ top: h * PX_PER_HOUR, height: PX_PER_HOUR }}
+            />
+          ))}
+        </div>
+
         {/* Time logs — right lane */}
-        <div className="absolute inset-y-0 left-16 right-0">
+        <div className="absolute inset-y-0 left-16 right-0 z-[12] pointer-events-none">
           {logs.flatMap((l, idx) => {
             const cat = l.category_id ? catMap[l.category_id] : undefined;
             const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
-            return segmentsForDay(l.start_time, l.end_time).map((seg, i) => (
+            const segs = segmentsForDay(l.start_time, l.end_time);
+            return segs.map((seg, i) => (
               <LogBar
                 key={`${l.id}-${i}`}
+                log={l}
                 seg={seg}
                 color={color}
                 name={cat?.name ?? l.type}
                 index={idx}
+                draggable={!!onLogReschedule && segs.length === 1 && !!l.category_id}
+                onReschedule={onLogReschedule}
               />
             ));
           })}
@@ -137,7 +148,7 @@ function BlockBar({ seg, color, name, lane }: { seg: Segment; color: string; nam
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       className={cn(
-        "absolute rounded-md px-2 py-1 text-[11px] font-medium overflow-hidden border-l-[3px]",
+        "absolute rounded-md px-2 py-1 text-[11px] font-medium overflow-hidden border-l-[3px] pointer-events-none",
         lane === "left" ? "left-1 w-[46%]" : "right-1 w-[46%]"
       )}
       style={{
@@ -154,21 +165,98 @@ function BlockBar({ seg, color, name, lane }: { seg: Segment; color: string; nam
   );
 }
 
-function LogBar({ seg, color, name, index }: { seg: Segment; color: string; name: string; index: number }) {
+function LogBar({
+  log,
+  seg,
+  color,
+  name,
+  index,
+  draggable,
+  onReschedule,
+}: {
+  log: TimeLog;
+  seg: Segment;
+  color: string;
+  name: string;
+  index: number;
+  draggable: boolean;
+  onReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
+}) {
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
+  const [dragDy, setDragDy] = useState(0);
+  const dragRef = useRef<{ startY: number; origStart: number; origEnd: number } | null>(null);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!draggable || !onReschedule) return;
+    e.stopPropagation();
+    e.preventDefault();
+    dragRef.current = { startY: e.clientY, origStart: seg.startMin, origEnd: seg.endMin };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDragDy(0);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    setDragDy(e.clientY - dragRef.current.startY);
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragRef.current || !onReschedule) {
+      dragRef.current = null;
+      setDragDy(0);
+      return;
+    }
+    const { startY, origStart, origEnd } = dragRef.current;
+    const dur = origEnd - origStart;
+    const deltaMin = snapMin(Math.round(((e.clientY - startY) / PX_PER_HOUR) * 60));
+    let newStart = snapMin(origStart + deltaMin);
+    let newEnd = newStart + dur;
+    if (newStart < 0) {
+      newEnd -= newStart;
+      newStart = 0;
+    }
+    if (newEnd > MIN_PER_DAY) {
+      const over = newEnd - MIN_PER_DAY;
+      newStart = Math.max(0, newStart - over);
+      newEnd = MIN_PER_DAY;
+    }
+    dragRef.current = null;
+    setDragDy(0);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (newStart !== origStart || newEnd !== origEnd) {
+      onReschedule(log.id, newStart, newEnd);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 4 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.02 }}
-      className="absolute right-1 w-[46%] rounded-md px-2 py-1 text-[11px] font-semibold overflow-hidden shadow-soft"
+      animate={{ opacity: 1, x: 0, y: dragDy }}
+      transition={{
+        opacity: { delay: index * 0.02 },
+        x: { delay: index * 0.02 },
+        y: { duration: 0 },
+      }}
+      className={cn(
+        "absolute right-1 w-[46%] rounded-md px-2 py-1 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
+        draggable ? "cursor-grab touch-none active:cursor-grabbing" : ""
+      )}
       style={{
         top,
         height: Math.max(height, 14),
         backgroundColor: color,
         color: "white",
       }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      title={draggable ? "Drag to reschedule" : undefined}
     >
       <div className="truncate">{name}</div>
       <div className="text-[9px] uppercase tracking-wider opacity-80 font-mono-num">

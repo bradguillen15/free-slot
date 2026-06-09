@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { OnboardingGate } from "@/components/OnboardingGate";
+import { AppLayoutOutlet } from "@/components/AppLayout";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -15,7 +16,6 @@ import MonthPage from "./pages/MonthPage";
 import ActivitiesPage from "./pages/ActivitiesPage";
 import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
-import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -32,14 +32,22 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             {/* Onboarding works for both guests and signed-in users */}
             <Route path="/onboarding" element={<OnboardingGate><Onboarding /></OnboardingGate>} />
-            {/* Guest-accessible app routes */}
-            <Route path="/app" element={<OnboardingGate><CalendarPage /></OnboardingGate>} />
-            <Route path="/app/week" element={<OnboardingGate><WeekPage /></OnboardingGate>} />
-            <Route path="/app/month" element={<OnboardingGate><MonthPage /></OnboardingGate>} />
-            <Route path="/app/activities" element={<OnboardingGate><ActivitiesPage /></OnboardingGate>} />
-            {/* Auth-only routes (AI dashboard, settings) */}
-            <Route path="/app/dashboard" element={<ProtectedRoute><OnboardingGate><DashboardPage /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/app/settings" element={<ProtectedRoute><OnboardingGate><SettingsPage /></OnboardingGate></ProtectedRoute>} />
+            {/* One AppLayout for all /app/* — child routes fade in/out on navigation */}
+            <Route
+              path="/app"
+              element={
+                <OnboardingGate>
+                  <AppLayoutOutlet />
+                </OnboardingGate>
+              }
+            >
+              <Route index element={<CalendarPage />} />
+              <Route path="week" element={<WeekPage />} />
+              <Route path="month" element={<MonthPage />} />
+              <Route path="activities" element={<ActivitiesPage />} />
+              <Route path="dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

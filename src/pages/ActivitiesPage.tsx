@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Target } from "lucide-react";
-import { AppLayout } from "@/components/AppLayout";
 import { ActivityEditor } from "@/components/activities/ActivityEditor";
 import { PriorityRanker } from "@/components/activities/PriorityRanker";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,8 +39,7 @@ export default function ActivitiesPage() {
   const totalHours = activities.filter((a) => a.is_active).reduce((s, a) => s + Number(a.target_hours_per_week), 0);
 
   return (
-    <AppLayout>
-      <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
         <header className="flex items-end justify-between flex-wrap gap-4">
           <div>
             <h1 className="font-display text-3xl font-semibold tracking-tight flex items-center gap-2">
@@ -81,7 +79,6 @@ export default function ActivitiesPage() {
             />
           </>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

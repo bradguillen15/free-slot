@@ -270,6 +270,22 @@ export function deleteLog(id: string) {
   }
 }
 
+export function updateLog(id: string, patch: Partial<Omit<LocalTimeLog, "id" | "date" | "created_at">>) {
+  if (typeof window === "undefined") return;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(`${PREFIX}.time_logs.`)) continue;
+    const arr = read<LocalTimeLog[]>(k, []);
+    const idx = arr.findIndex((l) => l.id === id);
+    if (idx !== -1) {
+      const updated = [...arr];
+      updated[idx] = { ...updated[idx], ...patch };
+      write(k, updated);
+      return updated[idx];
+    }
+  }
+}
+
 // ---------- Snapshot for migration ----------
 export type LocalPriority = { week_start: string; activity_id: string; rank: number };
 

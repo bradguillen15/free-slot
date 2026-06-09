@@ -195,6 +195,36 @@ export async function deleteTimeLog(mode: Mode, userId: string | null, id: strin
   if (error) throw error;
 }
 
+export async function updateTimeLog(
+  mode: Mode,
+  userId: string | null,
+  id: string,
+  input: {
+    start_time: string;
+    end_time: string;
+    category_id: string;
+    type: "productive" | "unproductive";
+    notes?: string | null;
+  }
+) {
+  if (mode === "guest") return L.updateLog(id, input);
+  const { data, error } = await supabase
+    .from("time_logs")
+    .update({
+      start_time: input.start_time,
+      end_time: input.end_time,
+      category_id: input.category_id,
+      type: input.type,
+      notes: input.notes ?? null,
+    })
+    .eq("id", id)
+    .eq("user_id", userId!)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function upsertActivity(
   mode: Mode,
   userId: string | null,
