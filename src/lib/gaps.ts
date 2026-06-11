@@ -40,16 +40,28 @@ function mergeIntervals(items: Interval[]): Interval[] {
   return out;
 }
 
-/** Intervals occupied by recurring blocks on a given weekday (0=Sun). */
+/**
+ * Intervals occupied by recurring blocks on a given weekday (0=Sun).
+ * An overnight block (end < start) occupies [start, 24:00] on its listed day
+ * and [00:00, end] on the FOLLOWING day — so pass the full block list, not a
+ * list pre-filtered by weekday.
+ */
 export function blocksOnDay(
   blocks: DayBlockInput[],
   weekday: number
 ): Interval[] {
   const segs: Interval[] = [];
+  const prevWeekday = (weekday + 6) % 7;
   for (const b of blocks) {
-    if (!b.days_of_week?.includes(weekday)) continue;
-    for (const [a, c] of expandRange(toMin(b.start_time), toMin(b.end_time))) {
-      segs.push({ start: a, end: c });
+    const s = toMin(b.start_time);
+    const e = toMin(b.end_time);
+    if (s === e) continue; // zero-length block occupies nothing
+    const wraps = e < s;
+    if (b.days_of_week?.includes(weekday)) {
+      segs.push(wraps ? { start: s, end: MIN_PER_DAY } : { start: s, end: e });
+    }
+    if (wraps && b.days_of_week?.includes(prevWeekday)) {
+      segs.push({ start: 0, end: e });
     }
   }
   return segs;

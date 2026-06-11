@@ -75,6 +75,8 @@ export function ScheduleBlockDialog({
   const save = async () => {
     if (!name.trim()) { toast.error("Name is required"); return; }
     if (days.length === 0) { toast.error("Select at least one day"); return; }
+    // end < start is a valid overnight block; equal times would expand to nothing.
+    if (startTime === endTime) { toast.error("End time must differ from start time"); return; }
     setSaving(true);
     try {
       await upsertScheduleBlock(mode, user?.id ?? null, {

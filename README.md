@@ -28,7 +28,7 @@ bun run test:watch     # watch mode
 bun run lint
 ```
 
-The app boots straight into guest mode — no setup needed to play with it. Lovable Cloud (Supabase) is wired up automatically when you sign in.
+The app boots straight into guest mode — no setup needed to play with it. Cloud mode uses a self-managed Supabase project, configured via `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` (see `docs/MIGRATION_RUNBOOK.md`).
 
 ---
 
@@ -46,7 +46,7 @@ The app boots straight into guest mode — no setup needed to play with it. Lova
 | Mode | Storage | AI features | Sync | Trigger |
 |---|---|---|---|---|
 | **Guest** | `localStorage` (monthly buckets for logs) | ❌ | ❌ | Default — no signup |
-| **Cloud** | Lovable Cloud / Supabase with RLS | ✅ | ✅ | Sign in or create account |
+| **Cloud** | Supabase (self-managed) with RLS | ✅ | ✅ | Sign in or create account |
 
 When a guest signs up, `src/lib/migrateGuest.ts` snapshots their localStorage data and migrates it into the new account.
 
@@ -61,11 +61,10 @@ When a guest signs up, `src/lib/migrateGuest.ts` snapshots their localStorage da
 | Styling | **Tailwind CSS v3** with HSL design tokens (see `src/index.css`) |
 | UI primitives | **shadcn/ui** on top of Radix |
 | Animation | **framer-motion** |
-| State / data | React Query, custom `dataStore` hooks (cloud + guest unified) |
-| Forms | `react-hook-form` + `zod` |
+| State / data | Custom `dataStore` hooks (cloud + guest unified); React Query is wired up but not yet adopted |
 | Drag & drop | `@dnd-kit` |
-| Backend | **Lovable Cloud** (Supabase) — Postgres, Auth, Edge Functions |
-| AI | **Lovable AI Gateway** (no API key needed) — Gemini & GPT models |
+| Backend | **Supabase** (self-managed) — Postgres, Auth, Edge Functions |
+| AI | **Anthropic API** (Claude) — called from edge functions with `ANTHROPIC_API_KEY` |
 | Tests | Vitest |
 
 See [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) for the full breakdown and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for how it all fits together.
@@ -76,7 +75,7 @@ See [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) for the full breakdown and [`do
 
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — high-level architecture, data flow, the guest/cloud abstraction.
 - [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) — every dependency and why it's there, conventions for contributors.
-- [`docs/CLOUD.md`](./docs/CLOUD.md) — backend (Lovable Cloud / Supabase) — schema, RLS, edge functions, secrets.
+- [`docs/CLOUD.md`](./docs/CLOUD.md) — backend (self-managed Supabase) — schema, RLS, edge functions, secrets.
 - [`docs/DESIGN.md`](./docs/DESIGN.md) — design system, tokens, motion principles, responsive rules.
 - [`docs/development_guide.md`](./docs/development_guide.md) — local setup, tests, OpenSpec harness workflow.
 - [`docs/initialize-project.md`](./docs/initialize-project.md) — harness setup reference (from `harness-lidr-sdd`).
@@ -118,7 +117,7 @@ src/
 
 supabase/
 ├── functions/         # Edge functions (AI plan, weekly review, account delete)
-└── migrations/        # SQL migrations (managed by Lovable Cloud)
+└── migrations/        # SQL migrations (applied via Supabase CLI)
 ```
 
 ---

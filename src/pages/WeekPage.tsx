@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { useAuth } from "@/contexts/AuthContext";
-import { addDaysISO, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
+import { addDaysISO, expandRange, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { findFreeWindows, totalFreeMinutes, type GapWindow } from "@/lib/gaps";
 import { WeekGrid, type DayCellData, type DayCellBlock, type DayCellLog } from "@/components/week/WeekGrid";
@@ -102,7 +102,10 @@ export default function WeekPage() {
       const dayLogs = logs.filter((l) => l.date === iso);
 
       const gaps: GapWindow[] = findFreeWindows({
-        blocks: dayBlocks,
+        // Full list, not dayBlocks: blocksOnDay attributes an overnight block's
+        // post-midnight segment to the following day, so it needs the previous
+        // day's blocks too.
+        blocks,
         logs: dayLogs,
         weekday,
         bufferMinutes: buffer,
@@ -111,25 +114,19 @@ export default function WeekPage() {
         peakEnd: peak?.end,
       });
 
-      const blockSegs: DayCellBlock[] = dayBlocks.flatMap((b) => {
-        const s = toMin(b.start_time);
-        const e = toMin(b.end_time);
-        const ranges = e > s ? [[s, e]] : [[s, 24*60], [0, e]];
-        return ranges.map(([a, c]) => ({
+      const blockSegs: DayCellBlock[] = dayBlocks.flatMap((b) =>
+        expandRange(toMin(b.start_time), toMin(b.end_time)).map(([a, c]) => ({
           id: b.id,
           seg: { startMin: a, endMin: c },
           name: b.name,
           color: b.color,
-        }));
-      });
+        }))
+      );
 
       const logSegs: DayCellLog[] = dayLogs.flatMap((l) => {
-        const s = toMin(l.start_time);
-        const e = toMin(l.end_time);
-        const ranges = e > s ? [[s, e]] : [[s, 24*60], [0, e]];
         const cat = l.category_id ? catMap[l.category_id] : undefined;
         const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
-        return ranges.map(([a, c]) => ({
+        return expandRange(toMin(l.start_time), toMin(l.end_time)).map(([a, c]) => ({
           id: l.id,
           seg: { startMin: a, endMin: c },
           name: cat?.name ?? l.type,

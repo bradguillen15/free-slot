@@ -11,7 +11,7 @@ export type ScheduleBlock = {
   start_time: string;
   end_time: string;
   days_of_week: number[];
-  type: "fixed" | "flexible" | "buffer";
+  type: "fixed" | "waste_expected"; // matches the block_type DB enum
 };
 
 export type TimeLog = {

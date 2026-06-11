@@ -64,15 +64,15 @@ See [`ARCHITECTURE.md §2`](./ARCHITECTURE.md) for the full pattern.
 
 ---
 
-## Backend (Lovable Cloud / Supabase)
+## Backend (self-managed Supabase)
 
 | Tech | Why |
 |---|---|
-| **@supabase/supabase-js** | Auto-configured client at `src/integrations/supabase/client.ts`. **Never edit that file** — it's regenerated. |
+| **@supabase/supabase-js** | Client at `src/integrations/supabase/client.ts`, configured via `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` env vars. |
 | **Postgres + RLS** | Schema defined via SQL migrations under `supabase/migrations/`. Every table has a `user_id`-scoped policy. |
-| **Supabase Auth** | Email/password + Google OAuth. Auto-confirm enabled so guest→account is instant. |
-| **Edge functions (Deno)** | Under `supabase/functions/`. Auto-deployed on push. Used for AI calls, weekly review, account deletion. |
-| **Lovable AI Gateway** | Server-side calls to Gemini / GPT models with no API key required. Used inside edge functions only. |
+| **Supabase Auth** | Email/password (UI). Auto-confirm enabled so guest→account is instant. Google OAuth can be enabled in the dashboard but is not wired into the UI. |
+| **Edge functions (Deno)** | Under `supabase/functions/`. Deployed with the Supabase CLI (`supabase functions deploy`). Used for AI calls, weekly review, account deletion. |
+| **Anthropic API** | Edge functions call the Anthropic Messages API directly (Claude) using the `ANTHROPIC_API_KEY` Supabase secret. Server-side only. |
 
 See [`CLOUD.md`](./CLOUD.md) for the schema, RLS policies, edge functions, and secrets.
 

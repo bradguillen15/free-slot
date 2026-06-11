@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { useCategories, useTimeLogsInRange } from "@/lib/dataStore";
-import { fmtDuration, fromMin, todayISO, toMin } from "@/lib/time";
+import { durationMinutes, fmtDuration, fromMin, todayISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 function pad(n: number) {
@@ -57,11 +57,6 @@ export default function MonthPage() {
     () => (categoriesRaw ?? []) as unknown as Category[],
     [categoriesRaw]
   );
-  const catMap = useMemo(
-    () => Object.fromEntries(categories.map((c) => [c.id, c])),
-    [categories]
-  );
-
   const openQuickLogForQuarter = useCallback((iso: string, quarterStartMin: number) => {
     const quarterEndMin = quarterStartMin + SIX_HOUR_MIN;
     const defaultEndMin = Math.min(quarterStartMin + 60, quarterEndMin);
@@ -88,15 +83,16 @@ export default function MonthPage() {
     const m: Record<string, { productive: number; unproductive: number; total: number }> = {};
     for (const log of logsRaw ?? []) {
       const l = log as { date: string; end_time: string; start_time: string; category_id: string | null; type: string };
-      const dur = Math.max(0, toMin(l.end_time) - toMin(l.start_time));
+      // Same conventions as Dashboard/DaySummary: overnight logs wrap past
+      // midnight, and the log's STORED type wins over the category's current type.
+      const dur = durationMinutes(l.start_time, l.end_time);
       if (!m[l.date]) m[l.date] = { productive: 0, unproductive: 0, total: 0 };
-      const cat = l.category_id ? catMap[l.category_id] : undefined;
-      const t = (cat?.type ?? l.type) as "productive" | "unproductive";
+      const t = l.type as "productive" | "unproductive";
       m[l.date][t] += dur;
       m[l.date].total += dur;
     }
     return m;
-  }, [logsRaw, catMap]);
+  }, [logsRaw]);
 
   const monthTotal = useMemo(
     () => Object.values(perDay).reduce((s, d) => s + d.total, 0),

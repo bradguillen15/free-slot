@@ -96,7 +96,6 @@ export function QuickLogDialog({
           type: (selected?.type ?? "productive") as "productive" | "unproductive",
           notes: notes || null,
         });
-        toast.success(`Logged ${fmtDuration(duration)}`);
         await insertTimeLog(user ? "cloud" : "guest", user?.id ?? null, {
           date,
           start_time: start,
@@ -105,6 +104,7 @@ export function QuickLogDialog({
           type: selected?.type ?? "productive",
           notes: notes || null,
         });
+        toast.success(`Logged ${fmtDuration(duration)}`);
       }
       onSaved?.();
     } catch (err: unknown) {

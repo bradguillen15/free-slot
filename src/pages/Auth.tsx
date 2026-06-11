@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { hasGuestData } from "@/lib/localStore";
+import { clearGuestData, hasGuestData } from "@/lib/localStore";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -99,6 +99,9 @@ export default function Auth() {
   };
 
   const startFresh = () => {
+    // Discard the guest copy — otherwise the migrate prompt re-appears on every
+    // future /auth visit and stale guest data resurfaces after sign-out.
+    clearGuestData();
     setMigrateOpen(false);
     navigate("/app", { replace: true });
   };

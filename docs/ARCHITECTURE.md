@@ -21,11 +21,11 @@ This document explains how FreeSlot is put together: the layers, the data flow, 
                                          │
                                          ▼
                     ┌───────────────────────────────────┐
-                    │        Lovable Cloud (Supabase)   │
+                    │     Supabase (self-managed)       │
                     │  - Postgres (with RLS)            │
-                    │  - Auth (email + Google)          │
+                    │  - Auth (email + password)        │
                     │  - Edge functions (Deno)          │
-                    │  - Lovable AI Gateway (no keys)   │
+                    │  - Anthropic API (secret key)     │
                     └───────────────────────────────────┘
 ```
 
@@ -128,7 +128,7 @@ Cloud-only. Flow:
 
 1. Component collects this week's `gaps`, the user's `activities`, and their `weekly_priorities`.
 2. Calls the `generate-weekly-plan` edge function.
-3. Edge function calls the **Lovable AI Gateway** (Gemini/GPT, no key needed) with a prompt asking for slot assignments.
+3. Edge function calls the **Anthropic Messages API** directly (Claude, via the `ANTHROPIC_API_KEY` Supabase secret) with a prompt asking for slot assignments.
 4. Result is `upsert`ed into `weekly_plans` keyed on `(user_id, week_start)` — the unique constraint prevents race conditions from double-clicks.
 5. UI displays slots as dashed primary-colored ribbons over the week grid; clicking "Accept" inserts a corresponding `time_log` (also guarded with `useRef` against double-fires).
 
@@ -138,7 +138,7 @@ Cloud-only. Flow:
 
 ## 7. Authentication (`src/contexts/AuthContext.tsx`)
 
-Standard Supabase auth. Email + password, plus Google OAuth. Email confirmation is **auto-confirmed** — users are signed in immediately on signup so the guest→account transition feels instant.
+Standard Supabase auth. Email + password (Google OAuth can be enabled in the Supabase dashboard, but the UI currently only offers email/password). Email confirmation is **auto-confirmed** — users are signed in immediately on signup so the guest→account transition feels instant.
 
 The `AuthProvider` exposes `{ user, loading, signOut }`. **Crucial:** the provider sets up an `onAuthStateChange` listener *before* calling `getSession()` so it doesn't miss the initial event.
 
@@ -166,7 +166,7 @@ We deliberately avoid global stores (Redux, Zustand). State lives where it's use
 
 ## 10. Deployment
 
-The app builds to a static SPA (`bun run build` → `dist/`). Lovable handles hosting and the connected Cloud (Supabase) project. Edge functions auto-deploy on push — never instruct the user to deploy them manually.
+The app builds to a static SPA (`pnpm build` → `dist/`) and can be served from any static host. The Supabase project is self-managed; edge functions are deployed with the Supabase CLI (`supabase functions deploy <name>`). See `docs/MIGRATION_RUNBOOK.md` for the full setup.
 
 ---
 

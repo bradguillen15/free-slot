@@ -70,13 +70,15 @@ export default function CalendarPage() {
     return () => clearInterval(t);
   }, []);
 
-  // Auto-scroll to ~7am or "now"
+  // Auto-scroll to ~7am or "now" — only when the displayed day changes, not on
+  // every minute tick (that would yank the viewport away from the user's scroll).
   useEffect(() => {
     if (!scrollRef.current) return;
-    const minute = isToday ? now.getHours() * 60 + now.getMinutes() : 7 * 60;
+    const current = new Date();
+    const minute = isToday ? current.getHours() * 60 + current.getMinutes() : 7 * 60;
     const top = (minute / 60) * 56 - 120;
     scrollRef.current.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  }, [date, isToday, now]);
+  }, [date, isToday]);
 
   const currentMinute = isToday ? now.getHours() * 60 + now.getMinutes() : null;
 

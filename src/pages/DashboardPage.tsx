@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { addDaysISO, fmtDuration, toMin } from "@/lib/time";
+import { addDaysISO, durationMinutes as durMin, fmtDuration } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 
 type LogRow = {
@@ -26,11 +26,6 @@ type LogRow = {
 type Cat = { id: string; name: string; color: string; type: "productive" | "unproductive" };
 type AISlot = { day: string; start: string; end: string; activity_id: string; activity_name: string };
 type Activity = { id: string; name: string };
-
-function durMin(s: string, e: string) {
-  const a = toMin(s); const b = toMin(e);
-  return b > a ? b - a : (24 * 60 - a) + b;
-}
 
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
@@ -149,7 +144,7 @@ export default function DashboardPage() {
         const c = catMap[id];
         return c ? { name: c.name, value: mins, color: c.color, type: c.type } : null;
       })
-      .filter((x): x is { name: string; value: number; color: string; type: string } => x !== null)
+      .filter((x): x is { name: string; value: number; color: string; type: "productive" | "unproductive" } => x !== null)
       .sort((a, b) => b.value - a.value);
   }, [logs, catMap]);
 

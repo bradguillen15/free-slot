@@ -5,6 +5,34 @@
 
 ---
 
+## Status update — 2026-06-10 reconciliation
+
+A full follow-up review (see [`docs/code-review-plan.md`](./docs/code-review-plan.md) — the living tracker with all current findings) re-verified every item below against the code:
+
+| Item | Status 2026-06-10 |
+|---|---|
+| C-1 ActivitiesPage guest blank | ✅ Fixed — page now uses dataStore hooks |
+| C-2 build fails (`@tanstack/query-core`) | ✅ Fixed — `pnpm build` passes |
+| C-3 gaps.ts buffer clamp | ✅ Fixed — clamps to `w.end` (gaps.ts:115) |
+| H-1 AuthContext loading hang | ✅ Fixed — catch + finally present |
+| H-2 missing async cleanup | ✅ Fixed — `cancelled` guards in place |
+| H-3 pages bypass dataStore | ⚠️ Partially fixed — ActivitiesPage/ActivityEditor ported; DashboardPage, SettingsPage categories, PriorityRanker, AIPlanPanel still raw |
+| M-1 MonthPage unstable useMemo | ✅ Fixed |
+| M-2 AIPlanPanel toast import | ✅ Fixed — uses sonner |
+| M-3 Dashboard duplicate effects | ❌ Still open (DashboardPage.tsx:51 + :108) |
+| L-1 dead scaffold files | ✅ Fixed — all five deleted |
+| L-2 lovable-tagger | ✅ Fixed — removed |
+| L-3/L-4 unused deps (radix stubs, zod, react-hook-form) | ❌ Still open |
+| L-5 duplicate use-toast | ⚠️ ui/use-toast.ts deleted, but `src/hooks/use-toast.ts` + `<Toaster />` are now fully dead (zero consumers) |
+| L-6 i18n half-implemented | ❌ Still open — en/es parity is perfect (81/81 keys) but the app interior is hardcoded English |
+| T-1 `strict: false` | ❌ Still open; tsc currently FAILS on DashboardPage.tsx:152 |
+| T-2 WeekPage `any` casts | ⚠️ Replaced with `as unknown as` double-casts — lint-clean but still type-unsafe |
+| T-3 tailwind require() | ✅ Fixed |
+
+The 2026-06-10 review also found new Critical issues not in this report — most importantly guest-migration data loss (`migrateGuest.ts` swallows category errors then wipes localStorage) and silent error-swallowing across all dataStore read hooks. **`docs/code-review-plan.md` is the canonical, up-to-date findings list; treat this file as historical.**
+
+---
+
 ## Executive Summary
 
 The codebase is generally well-structured with a clean guest/cloud abstraction (`dataStore`). The recent Supabase self-managed migration and calendar improvements are solid. However, there are **3 critical bugs** (one causes a blank screen for guest users on Activities, one causes the production build to fail, one is a logic error in gap detection), **several pages that bypass the `dataStore` abstraction** (breaking guest parity), and a significant amount of dead code and unused dependencies accumulated from the Lovable scaffold.
