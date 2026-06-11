@@ -167,8 +167,6 @@ export default function Onboarding() {
     }
   };
 
-  const canNext = step === 0 ? true : step === 1 ? true : true;
-
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="absolute inset-0 -z-10 opacity-50" style={{ backgroundImage: "var(--gradient-glow)" }} />
@@ -463,7 +461,6 @@ export default function Onboarding() {
           {step < STEPS.length - 1 ? (
             <Button
               onClick={() => setStep(step + 1)}
-              disabled={!canNext}
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >
               {t("common.continue")} <ArrowRight className="h-4 w-4 ml-1" />

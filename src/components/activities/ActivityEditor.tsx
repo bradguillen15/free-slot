@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Target, Save } from "lucide-react";
+import { Plus, Trash2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ACTIVITY_PRESETS } from "@/lib/schedule";
+import { upsertActivity, deleteActivity } from "@/lib/dataStore";
 
 type Category = { id: string; name: string; color: string; type: "productive" | "unproductive" };
 type Activity = {
@@ -30,6 +30,7 @@ export function ActivityEditor({
   activities: Activity[];
   onChange: () => void;
 }) {
+  const mode = userId ? "cloud" : "guest";
   const [draft, setDraft] = useState({ name: "", category_id: "", target: 3 });
   const [local, setLocal] = useState<Activity[]>(activities);
 
@@ -39,32 +40,47 @@ export function ActivityEditor({
 
   const addActivity = async () => {
     if (!draft.name.trim()) return toast.error("Name required");
-    if (!userId) return toast.error("Sign in to save activities");
-    const { error } = await supabase.from("activities").insert({
-      user_id: userId,
-      name: draft.name.trim(),
-      category_id: draft.category_id || null,
-      target_hours_per_week: draft.target,
-      is_active: true,
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Activity added");
-    setDraft({ name: "", category_id: "", target: 3 });
-    onChange();
+    try {
+      await upsertActivity(mode, userId, {
+        name: draft.name.trim(),
+        category_id: draft.category_id || null,
+        target_hours_per_week: draft.target,
+        is_active: true,
+      });
+      toast.success("Activity added");
+      setDraft({ name: "", category_id: "", target: 3 });
+      onChange();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not add activity");
+    }
   };
 
   const updateActivity = async (a: Activity, patch: Partial<Activity>) => {
+    const prevLocal = local; // pre-update snapshot for the revert in catch
     setLocal((prev) => prev.map((x) => (x.id === a.id ? { ...x, ...patch } : x)));
-    const { error } = await supabase.from("activities").update(patch).eq("id", a.id);
-    if (error) toast.error(error.message);
-    else onChange();
+    try {
+      await upsertActivity(mode, userId, {
+        id: a.id,
+        name: patch.name ?? a.name,
+        category_id: patch.category_id !== undefined ? patch.category_id : a.category_id,
+        target_hours_per_week: patch.target_hours_per_week ?? a.target_hours_per_week,
+        is_active: patch.is_active ?? a.is_active,
+      });
+      onChange();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not update activity");
+      setLocal(prevLocal); // revert to the state before this specific edit
+    }
   };
 
   const removeActivity = async (id: string) => {
-    const { error } = await supabase.from("activities").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Removed");
-    onChange();
+    try {
+      await deleteActivity(mode, userId, id);
+      toast.success("Removed");
+      onChange();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not remove activity");
+    }
   };
 
   const catOf = (id: string | null) => categories.find((c) => c.id === id);
@@ -128,6 +144,10 @@ export function ActivityEditor({
                   onChange={(e) => setLocal((p) => p.map((x) => x.id === a.id ? { ...x, target_hours_per_week: Number(e.target.value) } : x))}
                   onBlur={(e) => {
                     const v = Number(e.target.value);
+                    if (!Number.isFinite(v) || v < 0) {
+                      setLocal((p) => p.map((x) => x.id === a.id ? { ...x, target_hours_per_week: a.target_hours_per_week } : x));
+                      return;
+                    }
                     if (v !== a.target_hours_per_week) updateActivity(a, { target_hours_per_week: v });
                   }}
                   className="h-8 w-16 text-center"

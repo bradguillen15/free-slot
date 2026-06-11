@@ -1,6 +1,6 @@
 // Unified data adapter — same shape whether the user is signed in (cloud) or in guest mode (localStorage).
 // Hooks read from this so pages don't care about auth state.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import * as L from "@/lib/localStore";
@@ -35,6 +35,7 @@ export function useCategories() {
   const mode: Mode = user ? "cloud" : "guest";
   const tick = useGuestRefresh(mode === "guest");
   const [data, setData] = useState<L.LocalCategory[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (mode === "guest") {
@@ -42,16 +43,23 @@ export function useCategories() {
       setData(L.listCategories());
       return;
     }
-    const { data: rows } = await supabase
+    const { data: rows, error: err } = await supabase
       .from("categories")
       .select("id,name,color,type,is_default,created_at")
       .eq("user_id", user!.id)
       .order("name");
+    if (err) {
+      // Keep last known data instead of clobbering it with [].
+      console.error("useCategories refresh failed:", err.message);
+      setError(err.message);
+      return;
+    }
+    setError(null);
     setData((rows ?? []) as unknown as L.LocalCategory[]);
   }, [mode, user]);
 
   useEffect(() => { refresh(); }, [refresh, tick]);
-  return { data, refresh, mode };
+  return { data, error, refresh, mode };
 }
 
 // ---------- Activities ----------
@@ -60,6 +68,7 @@ export function useActivities() {
   const mode: Mode = user ? "cloud" : "guest";
   const tick = useGuestRefresh(mode === "guest");
   const [data, setData] = useState<L.LocalActivity[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (mode === "guest") {
@@ -67,16 +76,22 @@ export function useActivities() {
       setData(L.listActivities());
       return;
     }
-    const { data: rows } = await supabase
+    const { data: rows, error: err } = await supabase
       .from("activities")
       .select("id,name,category_id,target_hours_per_week,is_active,created_at")
       .eq("user_id", user!.id)
       .order("created_at");
+    if (err) {
+      console.error("useActivities refresh failed:", err.message);
+      setError(err.message);
+      return;
+    }
+    setError(null);
     setData((rows ?? []) as unknown as L.LocalActivity[]);
   }, [mode, user]);
 
   useEffect(() => { refresh(); }, [refresh, tick]);
-  return { data, refresh, mode };
+  return { data, error, refresh, mode };
 }
 
 // ---------- Schedule blocks ----------
@@ -85,6 +100,7 @@ export function useScheduleBlocks() {
   const mode: Mode = user ? "cloud" : "guest";
   const tick = useGuestRefresh(mode === "guest");
   const [data, setData] = useState<L.LocalScheduleBlock[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (mode === "guest") {
@@ -92,15 +108,21 @@ export function useScheduleBlocks() {
       setData(L.listScheduleBlocks());
       return;
     }
-    const { data: rows } = await supabase
+    const { data: rows, error: err } = await supabase
       .from("schedule_blocks")
       .select("*")
       .eq("user_id", user!.id);
+    if (err) {
+      console.error("useScheduleBlocks refresh failed:", err.message);
+      setError(err.message);
+      return;
+    }
+    setError(null);
     setData((rows ?? []) as unknown as L.LocalScheduleBlock[]);
   }, [mode, user]);
 
   useEffect(() => { refresh(); }, [refresh, tick]);
-  return { data, refresh, mode };
+  return { data, error, refresh, mode };
 }
 
 // ---------- Time logs in date range ----------
@@ -109,25 +131,36 @@ export function useTimeLogsInRange(startISO: string, endISO: string) {
   const mode: Mode = user ? "cloud" : "guest";
   const tick = useGuestRefresh(mode === "guest");
   const [data, setData] = useState<L.LocalTimeLog[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  // Monotonic sequence so a slow stale response can't overwrite a newer range's data.
+  const reqSeq = useRef(0);
 
   const refresh = useCallback(async () => {
+    const seq = ++reqSeq.current;
     if (mode === "guest") {
       L.ensureBootstrap();
       setData(L.listLogsInRange(startISO, endISO));
       return;
     }
-    const { data: rows } = await supabase
+    const { data: rows, error: err } = await supabase
       .from("time_logs")
       .select("*")
       .eq("user_id", user!.id)
       .gte("date", startISO)
       .lte("date", endISO)
       .order("date");
+    if (seq !== reqSeq.current) return; // a newer refresh superseded this one
+    if (err) {
+      console.error("useTimeLogsInRange refresh failed:", err.message);
+      setError(err.message);
+      return;
+    }
+    setError(null);
     setData((rows ?? []) as unknown as L.LocalTimeLog[]);
   }, [mode, user, startISO, endISO]);
 
   useEffect(() => { refresh(); }, [refresh, tick]);
-  return { data, setData, refresh, mode };
+  return { data, setData, error, refresh, mode };
 }
 
 // ---------- Profile ----------
@@ -136,6 +169,7 @@ export function useProfile() {
   const mode: Mode = user ? "cloud" : "guest";
   const tick = useGuestRefresh(mode === "guest");
   const [data, setData] = useState<L.LocalProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (mode === "guest") {
@@ -143,16 +177,22 @@ export function useProfile() {
       setData(L.getProfile());
       return;
     }
-    const { data: row } = await supabase
+    const { data: row, error: err } = await supabase
       .from("profiles")
       .select("buffer_minutes,peak_hours,include_weekends,weekly_review_day,onboarding_completed")
       .eq("id", user!.id)
       .maybeSingle();
+    if (err) {
+      console.error("useProfile refresh failed:", err.message);
+      setError(err.message);
+      return;
+    }
+    setError(null);
     setData((row as unknown as L.LocalProfile) ?? null);
   }, [mode, user]);
 
   useEffect(() => { refresh(); }, [refresh, tick]);
-  return { data, refresh, mode };
+  return { data, error, refresh, mode };
 }
 
 // ---------- Mutations ----------

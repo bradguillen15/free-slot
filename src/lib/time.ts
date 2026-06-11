@@ -55,7 +55,16 @@ export function fmtDayHeading(iso: string): string {
 
 // Range overlap helpers; supports overnight blocks (end < start)
 export function expandRange(start: number, end: number): Array<[number, number]> {
+  if (end === start) return []; // zero-length, not a full-day wrap
   if (end > start) return [[start, end]];
   // overnight wrap (e.g. 23:00 → 07:00)
   return [[start, MIN_PER_DAY], [0, end]];
+}
+
+/** Duration in minutes between two HH:MM times; end <= start wraps past midnight. */
+export function durationMinutes(start: string, end: string): number {
+  const a = toMin(start);
+  const b = toMin(end);
+  if (b === a) return 0;
+  return b > a ? b - a : MIN_PER_DAY - a + b;
 }

@@ -8,8 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { fmtDuration, toMin } from "@/lib/time";
-import { addDaysISO } from "@/lib/time";
+import { addDaysISO, durationMinutes as durMin, fmtDuration } from "@/lib/time";
 import { fmtWeekRange } from "@/lib/week";
 
 type Props = {
@@ -21,11 +20,6 @@ type Props = {
 type Cat = { id: string; name: string; color: string };
 type LogRow = { date: string; start_time: string; end_time: string; category_id: string | null };
 type Slot = { activity_name: string; start: string; end: string };
-
-function durMin(s: string, e: string) {
-  const a = toMin(s); const b = toMin(e);
-  return b > a ? b - a : (24 * 60 - a) + b;
-}
 
 export function WeeklyReviewModal({ open, onOpenChange, weekStart }: Props) {
   const { user } = useAuth();

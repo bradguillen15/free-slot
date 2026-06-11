@@ -95,6 +95,12 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
+/** Like read(), but guards against valid-JSON-wrong-shape values (e.g. "{}" where an array is expected). */
+function readArray<T>(key: string): T[] {
+  const v = read<T[]>(key, []);
+  return Array.isArray(v) ? v : [];
+}
+
 function write<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
   try {
@@ -132,7 +138,14 @@ export function ensureBootstrap() {
 
 // ---------- Profile ----------
 export function getProfile(): LocalProfile {
-  return read<LocalProfile>(`${PREFIX}.profile`, DEFAULT_PROFILE);
+  const p = read<unknown>(`${PREFIX}.profile`, DEFAULT_PROFILE);
+  if (!p || typeof p !== "object" || Array.isArray(p)) return DEFAULT_PROFILE;
+  const obj = p as Partial<LocalProfile>;
+  const peak =
+    obj.peak_hours && typeof obj.peak_hours === "object" && !Array.isArray(obj.peak_hours)
+      ? { ...DEFAULT_PROFILE.peak_hours, ...obj.peak_hours }
+      : DEFAULT_PROFILE.peak_hours;
+  return { ...DEFAULT_PROFILE, ...obj, peak_hours: peak };
 }
 
 export function updateProfile(patch: Partial<LocalProfile>) {
@@ -143,12 +156,12 @@ export function updateProfile(patch: Partial<LocalProfile>) {
 
 // ---------- Categories ----------
 export function listCategories(): LocalCategory[] {
-  return read<LocalCategory[]>(`${PREFIX}.categories`, []);
+  return readArray<LocalCategory>(`${PREFIX}.categories`);
 }
 
 // ---------- Activities ----------
 export function listActivities(): LocalActivity[] {
-  return read<LocalActivity[]>(`${PREFIX}.activities`, []);
+  return readArray<LocalActivity>(`${PREFIX}.activities`);
 }
 
 export function upsertActivity(input: Partial<LocalActivity> & { id?: string }) {
@@ -176,7 +189,7 @@ export function deleteActivity(id: string) {
 
 // ---------- Schedule blocks ----------
 export function listScheduleBlocks(): LocalScheduleBlock[] {
-  return read<LocalScheduleBlock[]>(`${PREFIX}.schedule_blocks`, []);
+  return readArray<LocalScheduleBlock>(`${PREFIX}.schedule_blocks`);
 }
 
 export function upsertScheduleBlock(input: Partial<LocalScheduleBlock> & { id?: string }) {
@@ -207,18 +220,22 @@ export function deleteScheduleBlock(id: string) {
 
 // ---------- Time logs (monthly buckets) ----------
 export function listLogsForMonth(month: string): LocalTimeLog[] {
-  return read<LocalTimeLog[]>(logsKey(month), []);
+  return readArray<LocalTimeLog>(logsKey(month));
 }
 
 export function listLogsInRange(startISO: string, endISO: string): LocalTimeLog[] {
-  // Spans at most a few months
+  // Spans at most a few months. Iterate months as numbers — parsing the ISO
+  // strings with new Date() reads them as UTC midnight, which skips the final
+  // month in timezones west of UTC.
   const months = new Set<string>();
-  const start = new Date(startISO);
-  const end = new Date(endISO);
-  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
-  while (cur <= end) {
-    months.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
-    cur.setMonth(cur.getMonth() + 1);
+  const [sy, sm] = startISO.split("-").map(Number);
+  const [ey, em] = endISO.split("-").map(Number);
+  let y = sy;
+  let m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    months.add(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
   }
   const out: LocalTimeLog[] = [];
   for (const m of months) {
@@ -275,7 +292,7 @@ export function updateLog(id: string, patch: Partial<Omit<LocalTimeLog, "id" | "
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (!k || !k.startsWith(`${PREFIX}.time_logs.`)) continue;
-    const arr = read<LocalTimeLog[]>(k, []);
+    const arr = readArray<LocalTimeLog>(k);
     const idx = arr.findIndex((l) => l.id === id);
     if (idx !== -1) {
       const updated = [...arr];
@@ -284,6 +301,8 @@ export function updateLog(id: string, patch: Partial<Omit<LocalTimeLog, "id" | "
       return updated[idx];
     }
   }
+  // Parity with the cloud adapter (.single() rejects on zero rows).
+  throw new Error("Time log not found");
 }
 
 // ---------- Snapshot for migration ----------

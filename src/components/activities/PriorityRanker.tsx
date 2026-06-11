@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { weekStartISO, fmtWeekRange } from "@/lib/week";
 import { addDaysISO } from "@/lib/time";
+import { listPriorities, setPriorities } from "@/lib/localStore";
 
 type Category = { id: string; name: string; color: string; type: string };
 type Activity = {
@@ -79,11 +80,18 @@ export function PriorityRanker({
     (async () => {
       setLoading(true);
       const active = activities.filter((a) => a.is_active);
-      const prios = userId ? (await supabase
-        .from("weekly_priorities")
-        .select("activity_id, rank")
-        .eq("user_id", userId)
-        .eq("week_start", weekStart)).data : [];
+      let prios: { activity_id: string; rank: number }[] | null;
+      if (userId) {
+        const { data, error } = await supabase
+          .from("weekly_priorities")
+          .select("activity_id, rank")
+          .eq("user_id", userId)
+          .eq("week_start", weekStart);
+        if (error) console.error("weekly_priorities fetch failed:", error.message);
+        prios = data;
+      } else {
+        prios = listPriorities(weekStart);
+      }
       if (cancelled) return;
       const rankMap = new Map(prios?.map((p) => [p.activity_id, p.rank]) ?? []);
       const ordered = [...active].sort((a, b) => {
@@ -99,9 +107,10 @@ export function PriorityRanker({
   }, [userId, weekStart, activities]);
 
   const persist = async (next: RankItem[]) => {
-    if (!userId) return; // guest: rankings are display-only
-    // Replace this week's priorities atomically
-    await supabase.from("weekly_priorities").delete().eq("user_id", userId).eq("week_start", weekStart);
+    if (!userId) {
+      setPriorities(weekStart, next.map((it, i) => ({ activity_id: it.id, rank: i })));
+      return;
+    }
     if (next.length === 0) return;
     const rows = next.map((it, i) => ({
       user_id: userId,
@@ -109,7 +118,11 @@ export function PriorityRanker({
       activity_id: it.id,
       rank: i,
     }));
-    const { error } = await supabase.from("weekly_priorities").insert(rows);
+    // Single round trip; UNIQUE (user_id, week_start, activity_id) makes this
+    // race-safe where the previous delete-all-then-insert was not.
+    const { error } = await supabase
+      .from("weekly_priorities")
+      .upsert(rows, { onConflict: "user_id,week_start,activity_id" });
     if (error) toast.error(error.message);
   };
 

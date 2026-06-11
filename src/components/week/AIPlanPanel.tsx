@@ -123,7 +123,11 @@ export function AIPlanPanel({
 
   const clearPlan = async () => {
     if (!user || !plan) return;
-    await supabase.from("weekly_plans").delete().eq("id", plan.id);
+    const { error } = await supabase.from("weekly_plans").delete().eq("id", plan.id);
+    if (error) {
+      toast.error("Couldn't clear plan", { description: error.message });
+      return;
+    }
     setPlan(null);
     onPlanChange(null);
     setSummary("");
@@ -219,7 +223,7 @@ export function AIPlanPanel({
               <div className="text-xs text-muted-foreground">
                 {plan
                   ? `${plan.slots.length} slots · ${fmtDuration(totalMin)} planned${acceptedCount ? ` · ${acceptedCount} accepted` : ""}`
-                  : "Let Lovable AI fit your priorities into your free windows."}
+                  : "Let AI fit your priorities into your free windows."}
               </div>
             </div>
           </div>
@@ -266,7 +270,12 @@ export function AIPlanPanel({
                   className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-card/40 border border-border/40 text-sm"
                 >
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono-num w-12 shrink-0">
-                    {new Date(s.day).toLocaleDateString(undefined, { weekday: "short" })}
+                    {/* Parse as LOCAL date — new Date("YYYY-MM-DD") is UTC midnight and
+                        shows the previous weekday in timezones west of UTC. */}
+                    {(() => {
+                      const [y, m, d] = s.day.split("-").map(Number);
+                      return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short" });
+                    })()}
                   </div>
                   <div className="text-xs font-mono-num text-foreground/70 w-24 shrink-0">
                     {s.start}–{s.end}

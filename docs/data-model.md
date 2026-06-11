@@ -20,6 +20,10 @@ Canonical detail also lives in `docs/CLOUD.md`. Update this file when entities o
 
 `src/lib/localStore.ts` mirrors the same shapes in `localStorage`. Time logs are bucketed by month (`freeslot.guest.time_logs.YYYY-MM`).
 
+## Denormalization Note
+
+`time_logs.type` stores a copy of the category's `type` at logging time. Changing a category from productive→unproductive does **not** rewrite past logs. Aggregations must pick one convention: DashboardPage and DaySummary use the stored `time_logs.type` (historical), while MonthPage currently resolves the category's current type — see `docs/code-review-plan.md` (Unit 6) for the open inconsistency.
+
 ## Relationships
 
 - User → many Categories, Activities, ScheduleBlocks, TimeLogs
