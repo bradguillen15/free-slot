@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3, NotebookPen } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3, NotebookPen, CalendarDays, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/components/EmptyState";
 import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
 import { celebrateIfPersonalBest, getBestRatio } from "@/lib/celebrate";
@@ -13,30 +15,21 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCategories, useTimeLogsInRange } from "@/lib/dataStore";
 import { addDaysISO, durationMinutes as durMin, fmtDuration } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { toneClasses, type StatTone } from "@/lib/toneClasses";
 
-type LogRow = {
-  date: string;
-  start_time: string;
-  end_time: string;
-  type: "productive" | "unproductive";
-  category_id: string | null;
-};
-type Cat = { id: string; name: string; color: string; type: "productive" | "unproductive" };
 type AISlot = { day: string; start: string; end: string; activity_id: string; activity_name: string };
-type Activity = { id: string; name: string };
 
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+  const isGuest = !user;
   const [weekStart, setWeekStart] = useState(weekStartISO());
-  const [logs, setLogs] = useState<LogRow[]>([]);
-  const [cats, setCats] = useState<Cat[]>([]);
   const [planSlots, setPlanSlots] = useState<AISlot[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewWeek, setReviewWeek] = useState<string>(weekStart);
   const [autoPromptedFor, setAutoPromptedFor] = useState<string | null>(null);
@@ -44,29 +37,30 @@ export default function DashboardPage() {
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
 
+  const { data: logs } = useTimeLogsInRange(weekStart, weekEnd);
+  const { data: cats } = useCategories();
+
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setPlanSlots([]);
+      return;
+    }
     let cancelled = false;
     (async () => {
-      const [l, c, p, a] = await Promise.all([
-        supabase.from("time_logs").select("date,start_time,end_time,type,category_id")
-          .eq("user_id", user.id).gte("date", weekStart).lte("date", weekEnd),
-        supabase.from("categories").select("id,name,color,type").eq("user_id", user.id),
-        supabase.from("weekly_plans").select("slots").eq("user_id", user.id).eq("week_start", weekStart).maybeSingle(),
-        supabase.from("activities").select("id,name").eq("user_id", user.id),
-      ]);
+      const { data } = await supabase
+        .from("weekly_plans")
+        .select("slots")
+        .eq("user_id", user.id)
+        .eq("week_start", weekStart)
+        .maybeSingle();
       if (cancelled) return;
-      setLogs((l.data ?? []) as LogRow[]);
-      setCats((c.data ?? []) as Cat[]);
-      setPlanSlots(((p.data as { slots?: AISlot[] } | null)?.slots ?? []) as AISlot[]);
-      setActivities((a.data ?? []) as Activity[]);
+      setPlanSlots(((data as { slots?: AISlot[] } | null)?.slots ?? []) as AISlot[]);
     })();
     return () => { cancelled = true; };
-  }, [user, weekStart, weekEnd]);
+  }, [user, weekStart]);
 
   const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.id, c])), [cats]);
 
-  // Per-day stacked productive vs unproductive
   const perDay = useMemo(() => {
     return days.map((iso, i) => {
       const dayLogs = logs.filter((l) => l.date === iso);
@@ -86,21 +80,21 @@ export default function DashboardPage() {
     return { prod, unprod, total, ratio: total ? Math.round((prod / total) * 100) : 0 };
   }, [perDay]);
 
-  // Celebrate when productive ratio sets a new personal best (current week only)
+  const daysLogged = useMemo(() => new Set(logs.map((l) => l.date)).size, [logs]);
+
   const isCurrentWeek = weekStart === weekStartISO();
   useEffect(() => {
     if (!isCurrentWeek) return;
     if (totals.total < 60) return;
     const prevBest = getBestRatio();
     if (celebrateIfPersonalBest(totals.ratio, totals.total)) {
-      toast.success(`New personal best — ${totals.ratio}% productive!`, {
-        description: `Previous best: ${prevBest}%. Keep it up.`,
+      toast.success(t("dashboard.personalBest", { ratio: totals.ratio }), {
+        description: t("dashboard.personalBestDesc", { prev: prevBest }),
         icon: "🎉",
       });
     }
-  }, [totals.ratio, totals.total, isCurrentWeek]);
+  }, [totals.ratio, totals.total, isCurrentWeek, t]);
 
-  // Auto-prompt review for last week if it's the configured review day and not yet reviewed
   useEffect(() => {
     if (!user || !isCurrentWeek) return;
     const lastWeek = addDaysISO(weekStart, -7);
@@ -114,26 +108,25 @@ export default function DashboardPage() {
         supabase.from("weekly_reviews").select("id").eq("user_id", user.id).eq("week_start", lastWeek).maybeSingle(),
       ]);
       if (cancelled) return;
-      if (reviewRes.data) return; // already reviewed
-      const reviewDay = (profileRes.data?.weekly_review_day ?? 0) as number; // 0=Sun
+      if (reviewRes.data) return;
+      const reviewDay = (profileRes.data?.weekly_review_day ?? 0) as number;
       const today = new Date().getDay();
       if (today !== reviewDay) return;
       setAutoPromptedFor(lastWeek);
-      toast("Time for your weekly review", {
-        description: "Reflect on last week and let AI summarize it for you.",
+      toast(t("dashboard.reviewPrompt.title"), {
+        description: t("dashboard.reviewPrompt.description"),
         icon: "📝",
         duration: 8000,
         action: {
-          label: "Open",
+          label: t("dashboard.reviewPrompt.open"),
           onClick: () => { setReviewWeek(lastWeek); setReviewOpen(true); },
         },
         onDismiss: () => localStorage.setItem(dismissedKey, "1"),
       });
     })();
     return () => { cancelled = true; };
-  }, [user, isCurrentWeek, weekStart, autoPromptedFor]);
+  }, [user, isCurrentWeek, weekStart, autoPromptedFor, t]);
 
-  // Category breakdown (top categories by minutes)
   const catBreakdown = useMemo(() => {
     const map = new Map<string, number>();
     for (const log of logs) {
@@ -149,7 +142,6 @@ export default function DashboardPage() {
       .sort((a, b) => b.value - a.value);
   }, [logs, catMap]);
 
-  // Plan vs actual: AI-planned minutes per activity vs logged minutes (matched by activity name → category name fallback)
   const planVsActual = useMemo(() => {
     const planned = new Map<string, number>();
     for (const s of planSlots) {
@@ -169,56 +161,64 @@ export default function DashboardPage() {
     })).sort((a, b) => (b.planned + b.actual) - (a.planned + a.actual)).slice(0, 8);
   }, [planSlots, logs, catMap]);
 
+  const showEmptyState = isGuest
+    ? totals.total === 0
+    : totals.total === 0 && planSlots.length === 0;
+
   return (
     <div className="px-6 md:px-10 py-8 max-w-[1400px] mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Dashboard</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">{t("dashboard.title")}</div>
             <h1 className="font-display text-3xl font-semibold tracking-tight">{fmtWeekRange(weekStart)}</h1>
           </motion.div>
           <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 mr-1"
-              onClick={() => { setReviewWeek(weekStart); setReviewOpen(true); }}
-            >
-              <NotebookPen className="h-3.5 w-3.5" /> Review week
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
+            {!isGuest && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 mr-1"
+                onClick={() => { setReviewWeek(weekStart); setReviewOpen(true); }}
+              >
+                <NotebookPen className="h-3.5 w-3.5" /> {t("dashboard.reviewWeek")}
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label={t("dashboard.prevWeek")}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())}>This week</Button>
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
+            <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())}>{t("dashboard.thisWeek")}</Button>
+            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label={t("dashboard.nextWeek")}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {totals.total === 0 && planSlots.length === 0 && (
+        {showEmptyState && (
           <div className="mb-6">
             <EmptyState
               icon={<BarChart3 className="h-5 w-5" />}
-              title="Your dashboard is waiting for its first data point"
-              description="Log a few sessions on the Day view, or generate an AI weekly plan, and your charts will come alive here."
-              ctaLabel="Go to Day view"
+              title={t("dashboard.empty.title")}
+              description={isGuest ? t("dashboard.empty.descriptionGuest") : t("dashboard.empty.descriptionSignedIn")}
+              ctaLabel={t("dashboard.empty.cta")}
               ctaTo="/app"
             />
           </div>
         )}
 
-        {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Kpi icon={<Activity className="h-4 w-4" />} label="Total tracked" value={fmtDuration(totals.total)} tone="muted" />
-          <Kpi icon={<TrendingUp className="h-4 w-4" />} label="Productive" value={fmtDuration(totals.prod)} tone="primary" />
-          <Kpi icon={<Target className="h-4 w-4" />} label="Productive ratio" value={`${totals.ratio}%`} tone="accent" />
-          <Kpi icon={<Sparkles className="h-4 w-4" />} label="AI slots" value={String(planSlots.length)} tone="muted" />
+          <Kpi icon={<Activity className="h-4 w-4" />} label={t("dashboard.kpi.totalTracked")} value={fmtDuration(totals.total)} tone="muted" />
+          <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("dashboard.kpi.productive")} value={fmtDuration(totals.prod)} tone="primary" />
+          <Kpi icon={<Target className="h-4 w-4" />} label={t("dashboard.kpi.productiveRatio")} value={`${totals.ratio}%`} tone="accent" />
+          {isGuest ? (
+            <Kpi icon={<CalendarDays className="h-4 w-4" />} label={t("dashboard.kpi.daysLogged")} value={String(daysLogged)} tone="muted" />
+          ) : (
+            <Kpi icon={<Sparkles className="h-4 w-4" />} label={t("dashboard.kpi.aiSlots")} value={String(planSlots.length)} tone="muted" />
+          )}
         </div>
 
-        {/* Productive ratio bar */}
-        <Card title="Productive ratio">
+        <Card title={t("dashboard.cards.productiveRatio")}>
           <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
-            <span>{fmtDuration(totals.prod)} productive</span>
+            <span>{fmtDuration(totals.prod)} {t("dashboard.kpi.productive").toLowerCase()}</span>
             <span>·</span>
             <span>{fmtDuration(totals.unprod)} unproductive</span>
           </div>
@@ -226,8 +226,7 @@ export default function DashboardPage() {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          {/* Per day chart */}
-          <Card title="Productive vs unproductive per day">
+          <Card title={t("dashboard.cards.perDay")}>
             <div className="h-64">
               <ResponsiveContainer>
                 <BarChart data={perDay} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -245,10 +244,9 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* Category breakdown pie */}
-          <Card title="Time by category">
+          <Card title={t("dashboard.cards.byCategory")}>
             {catBreakdown.length === 0 ? (
-              <Empty message="No logged time yet this week." />
+              <Empty message={t("dashboard.cards.noLoggedTime")} />
             ) : (
               <div className="grid grid-cols-[1fr_1.2fr] gap-4 items-center">
                 <div className="h-56">
@@ -280,32 +278,48 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Plan vs actual */}
         <div className="mt-4">
-          <Card title="AI plan vs logged">
-            {planVsActual.length === 0 ? (
-              <Empty message="Generate a weekly AI plan and log time to compare." />
-            ) : (
-              <div className="h-72">
-                <ResponsiveContainer>
-                  <BarChart data={planVsActual} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} interval={0} angle={-15} textAnchor="end" height={50} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${Math.round(v / 60)}h`} />
-                    <Tooltip
-                      contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: number) => fmtDuration(v)}
-                    />
-                    <Bar dataKey="planned" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
-                    <Bar dataKey="actual" fill="hsl(var(--productive))" radius={[4,4,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+          {isGuest ? (
+            <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/[0.05] p-4 flex items-start gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                <Lock className="h-4 w-4" />
               </div>
-            )}
-          </Card>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm">{t("dashboard.aiUpsell.title")}</div>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("dashboard.aiUpsell.description")}</p>
+              </div>
+              <Button asChild size="sm" className="gradient-primary shadow-glow">
+                <Link to="/auth">{t("dashboard.aiUpsell.cta")}</Link>
+              </Button>
+            </div>
+          ) : (
+            <Card title={t("dashboard.cards.planVsLogged")}>
+              {planVsActual.length === 0 ? (
+                <Empty message={t("dashboard.cards.noPlanCompare")} />
+              ) : (
+                <div className="h-72">
+                  <ResponsiveContainer>
+                    <BarChart data={planVsActual} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} interval={0} angle={-15} textAnchor="end" height={50} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${Math.round(v / 60)}h`} />
+                      <Tooltip
+                        contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                        formatter={(v: number) => fmtDuration(v)}
+                      />
+                      <Bar dataKey="planned" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
+                      <Bar dataKey="actual" fill="hsl(var(--productive))" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </Card>
+          )}
         </div>
 
-        <WeeklyReviewModal open={reviewOpen} onOpenChange={setReviewOpen} weekStart={reviewWeek} />
+        {!isGuest && (
+          <WeeklyReviewModal open={reviewOpen} onOpenChange={setReviewOpen} weekStart={reviewWeek} />
+        )}
     </div>
   );
 }

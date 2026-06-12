@@ -19,7 +19,7 @@ const navItems = [
   { to: "/app/month", labelKey: "nav.month", icon: CalendarDays, requiresAuth: false },
   { to: "/app/schedule", labelKey: "nav.schedule", icon: Clock, requiresAuth: false },
   { to: "/app/labels", labelKey: "nav.labels", icon: Tag, requiresAuth: false },
-  { to: "/app/dashboard", labelKey: "nav.dashboard", icon: BarChart3, requiresAuth: true },
+  { to: "/app/dashboard", labelKey: "nav.dashboard", icon: BarChart3, requiresAuth: false },
   { to: "/app/activities", labelKey: "nav.activities", icon: Target, requiresAuth: false },
   { to: "/app/settings", labelKey: "nav.settings", icon: Settings, requiresAuth: true },
 ];
