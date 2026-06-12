@@ -185,7 +185,7 @@ export function useProfile() {
     }
     const { data: row, error: err } = await supabase
       .from("profiles")
-      .select("buffer_minutes,peak_hours,include_weekends,weekly_review_day,onboarding_completed")
+      .select("peak_hours,include_weekends,weekly_review_day,onboarding_completed")
       .eq("id", user!.id)
       .maybeSingle();
     if (err) {

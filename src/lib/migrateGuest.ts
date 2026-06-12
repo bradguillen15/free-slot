@@ -135,7 +135,6 @@ export async function migrateGuestToCloud(userId: string) {
   // 5. Profile preferences
   if (snap.profile.onboarding_completed) {
     const { error: profErr } = await supabase.from("profiles").update({
-      buffer_minutes: snap.profile.buffer_minutes,
       peak_hours: snap.profile.peak_hours,
       include_weekends: snap.profile.include_weekends,
       weekly_review_day: snap.profile.weekly_review_day,

@@ -53,7 +53,7 @@ export function seedGuestData(): GuestSeed {
     { activity_id: reading.id, rank: 1 },
   ]);
 
-  updateProfile({ onboarding_completed: true, buffer_minutes: 10 });
+  updateProfile({ onboarding_completed: true });
 
   return {
     categories: [...listCategories()],

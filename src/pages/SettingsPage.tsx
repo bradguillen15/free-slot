@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -43,7 +42,6 @@ export default function SettingsPage() {
   // Local editable copy of profile
   const [localProfile, setLocalProfile] = useState<{
     peak_hours: { start: string; end: string };
-    buffer_minutes: number;
     include_weekends: boolean;
     weekly_review_day: number;
   } | null>(null);
@@ -51,7 +49,6 @@ export default function SettingsPage() {
   // Sync local profile whenever the dataStore profile changes
   const profile = localProfile ?? (profileRaw ? {
     peak_hours: (profileRaw.peak_hours as { start: string; end: string } | null) ?? { start: "09:00", end: "12:00" },
-    buffer_minutes: profileRaw.buffer_minutes ?? 15,
     include_weekends: profileRaw.include_weekends ?? true,
     weekly_review_day: profileRaw.weekly_review_day ?? 0,
   } : null);
@@ -75,7 +72,6 @@ export default function SettingsPage() {
     try {
       await updateProfile(mode, user?.id ?? null, {
         peak_hours: profile.peak_hours,
-        buffer_minutes: profile.buffer_minutes,
         include_weekends: profile.include_weekends,
         weekly_review_day: profile.weekly_review_day,
       });
@@ -203,20 +199,6 @@ export default function SettingsPage() {
                 onChange={(e) => setProfile({ ...profile, peak_hours: { ...profile.peak_hours, end: e.target.value } })}
               />
             </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Buffer between blocks</Label>
-              <span className="text-sm font-mono text-muted-foreground">{profile.buffer_minutes} min</span>
-            </div>
-            <Slider
-              value={[profile.buffer_minutes]}
-              onValueChange={([v]) => setProfile({ ...profile, buffer_minutes: v })}
-              min={0}
-              max={60}
-              step={5}
-            />
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border p-4">

@@ -115,8 +115,6 @@ const es: Translations = {
     preferences: {
       title: "Algunas preferencias",
       subtitle: "Ajusta cómo FreeSlot encuentra huecos y cuándo te pide reflexionar.",
-      buffer: "Margen entre compromisos",
-      bufferHint: "minutos — protege tiempo para transiciones",
       peak: "Horas de máxima concentración",
       peakHint: "las actividades profundas prefieren esta franja",
       weekends: "Planificar en fines de semana",

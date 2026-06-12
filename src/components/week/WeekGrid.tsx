@@ -7,8 +7,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { GapWindow } from "@/lib/gaps";
 
 const PX_PER_HOUR = 32;
-const HOURS_START = 6;
-const HOURS_END = 23;
+const HOURS_START = 0;
+const HOURS_END = 24;
 const TOTAL_HOURS = HOURS_END - HOURS_START;
 const TOTAL_HEIGHT = TOTAL_HOURS * PX_PER_HOUR;
 
@@ -77,7 +77,7 @@ export function WeekGrid({
             to={`/app?date=${d.iso}`}
             className={cn(
               "px-2 py-3 text-center border-l border-border/40 transition-colors hover:bg-muted/30",
-              d.isToday && "bg-primary/[0.06]"
+              d.isToday && "bg-primary/[0.06] border border-primary ring-1 ring-primary/40 rounded-lg"
             )}
             aria-label={`Open day view for ${d.label}`}
           >
@@ -99,7 +99,7 @@ export function WeekGrid({
       >
         {/* Hour rail */}
         <div className="relative">
-          {hours.map((h) => (
+          {hours.filter((h) => h < HOURS_END).map((h) => (
             <div
               key={h}
               className="absolute left-0 right-0 pl-2 text-[9px] uppercase tracking-wider text-muted-foreground font-mono-num -mt-1.5"
@@ -116,7 +116,7 @@ export function WeekGrid({
             key={d.iso}
             className={cn(
               "relative border-l border-border/40",
-              d.isToday && "bg-primary/[0.03]"
+              d.isToday && "bg-primary/[0.06] border-l border-r border-primary"
             )}
           >
             {/* Hour grid lines */}

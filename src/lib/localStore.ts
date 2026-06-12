@@ -52,7 +52,6 @@ export type LocalTimeLog = {
 };
 
 export type LocalProfile = {
-  buffer_minutes: number;
   peak_hours: { start: string; end: string };
   include_weekends: boolean;
   weekly_review_day: number;
@@ -74,7 +73,6 @@ const DEFAULT_CATEGORIES: Omit<LocalCategory, "id" | "created_at">[] = [
 ];
 
 const DEFAULT_PROFILE: LocalProfile = {
-  buffer_minutes: 15,
   peak_hours: { start: "09:00", end: "12:00" },
   include_weekends: true,
   weekly_review_day: 0,

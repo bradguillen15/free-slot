@@ -52,7 +52,6 @@ export default function Onboarding() {
   // Step 2
   const [activities, setActivities] = useState<Activity[]>([]);
   // Step 3
-  const [bufferMinutes, setBufferMinutes] = useState(15);
   const [peakStart, setPeakStart] = useState("09:00");
   const [peakEnd, setPeakEnd] = useState("12:00");
   const [includeWeekends, setIncludeWeekends] = useState(true);
@@ -124,7 +123,6 @@ export default function Onboarding() {
           });
         }
         updateLocalProfile({
-          buffer_minutes: bufferMinutes,
           peak_hours: { start: peakStart, end: peakEnd },
           include_weekends: includeWeekends,
           weekly_review_day: reviewDay,
@@ -150,7 +148,6 @@ export default function Onboarding() {
       const { error: pErr } = await supabase
         .from("profiles")
         .update({
-          buffer_minutes: bufferMinutes,
           peak_hours: { start: peakStart, end: peakEnd },
           include_weekends: includeWeekends,
           weekly_review_day: reviewDay,
@@ -395,21 +392,6 @@ export default function Onboarding() {
                 </header>
 
                 <div className="glass rounded-xl border border-border p-5 space-y-5">
-                  <div>
-                    <Label className="mb-2 block">{t("onboarding.preferences.buffer")}</Label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={60}
-                        value={bufferMinutes}
-                        onChange={(e) => setBufferMinutes(Number(e.target.value))}
-                        className="bg-input border-border w-24 font-mono text-right"
-                      />
-                      <span className="text-sm text-muted-foreground">{t("onboarding.preferences.bufferHint")}</span>
-                    </div>
-                  </div>
-
                   <div>
                     <Label className="mb-2 block">{t("onboarding.preferences.peak")}</Label>
                     <div className="flex items-center gap-2">

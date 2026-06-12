@@ -3,13 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/lib/dataStore", () => ({ insertTimeLog: vi.fn(), updateTimeLog: vi.fn() }));
+vi.mock("@/lib/dataStore", () => ({ insertTimeLog: vi.fn(), updateTimeLog: vi.fn(), deleteTimeLog: vi.fn() }));
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));
 
 import { toast } from "sonner";
-import { insertTimeLog } from "@/lib/dataStore";
+import { insertTimeLog, deleteTimeLog } from "@/lib/dataStore";
 import { QuickLogDialog, type Category } from "./QuickLogDialog";
 
 const cat: Category = { id: "c1", name: "Deep work", color: "#00f", type: "productive" };
@@ -56,5 +56,35 @@ describe("QuickLogDialog", () => {
 
     resolveInsert({ id: "row" });
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Logged 1h"));
+  });
+
+  it("shows Delete when editing and calls deleteTimeLog with onDeleted", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteTimeLog).mockResolvedValue(undefined);
+    const onDeleted = vi.fn();
+    const onOpenChange = vi.fn();
+
+    render(
+      <QuickLogDialog
+        {...baseProps}
+        editId="log-42"
+        onDeleted={onDeleted}
+        onOpenChange={onOpenChange}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() =>
+      expect(deleteTimeLog).toHaveBeenCalledWith("guest", null, "log-42")
+    );
+    expect(toast.success).toHaveBeenCalledWith("Log deleted");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onDeleted).toHaveBeenCalled();
+  });
+
+  it("hides Delete when creating a new log", () => {
+    render(<QuickLogDialog {...baseProps} />);
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 });
