@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, Calendar, Target, Brain, Activity } from "lucide-react";
+import { ArrowRight, Calendar, Target, Brain, Activity } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -20,9 +21,7 @@ export default function Landing() {
 
       <header className="shrink-0 w-full px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </div>
+          <BrandLogo size={32} className="rounded-lg shadow-glow" />
           <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
         </div>
         <div className="flex items-center gap-2">

@@ -73,6 +73,7 @@ Defined in `src/App.tsx`.
 /app                    → Day view              (guest OK)
 /app/week               → Week view             (guest OK)
 /app/month              → Month view            (guest OK)
+/app/schedule           → Schedule management   (guest OK)
 /app/activities         → Activities            (guest OK)
 /app/dashboard          → Dashboard             (account required)
 /app/settings           → Settings              (account required)
@@ -83,7 +84,7 @@ Two wrapper components:
 - **`OnboardingGate`** — if onboarding isn't done (in cloud or guest profile), redirects to `/onboarding`.
 - **`ProtectedRoute`** — redirects unauthenticated users to `/auth`. Used only on truly account-only pages.
 
-The mobile bottom nav and sidebar show 🔒 next to gated entries for guests, and clicking them routes to `/auth` instead of the locked page.
+The mobile hamburger menu (top-right sheet, replaced the old bottom bar) and desktop sidebar show 🔒 next to gated entries for guests, and clicking them routes to `/auth` instead of the locked page.
 
 ---
 
@@ -96,8 +97,8 @@ The single source of truth is the Supabase schema (replicated by `localStore.ts`
 | `profiles` | Per-user prefs: `buffer_minutes`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`. Auto-created by `handle_new_user` trigger on signup. |
 | `categories` | Productive / unproductive labels (Deep work, Reading, Gaming…). 9 defaults seeded per user. |
 | `activities` | What the user wants to spend time on. Has `target_hours_per_week` and links to a category. |
-| `schedule_blocks` | Recurring fixed time (work, sleep, commute). Has `days_of_week` (0=Sun..6=Sat), `start_time`/`end_time` (supports overnight), and `type: fixed | waste_expected`. |
-| `time_logs` | What the user actually did. `date + start_time + end_time + category_id`. |
+| `schedule_blocks` | Recurring fixed time (work, sleep, commute). Has `days_of_week` (0=Sun..6=Sat), `start_time`/`end_time` (supports overnight), `type: fixed | waste_expected`, and `sort_order` (user-defined order on the Schedule page). |
+| `time_logs` | What the user actually did. `title + date + start_time + end_time + category_id`. |
 | `weekly_priorities` | Per-week ranked list of activity ids — drives AI planning. |
 | `weekly_plans` | Cached AI output per `(user_id, week_start)` — uniqueness enforced. `slots: jsonb` is the array of suggested time slots. |
 | `weekly_reviews` | One per completed week; stores planned-vs-actual + AI insights. |

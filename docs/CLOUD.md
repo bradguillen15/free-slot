@@ -31,8 +31,8 @@ Environment variables (`.env` — copy from `.env.example`):
 | `profiles` | `id (= auth.uid)`, `buffer_minutes`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed` | Per-user preferences. Created by trigger on signup. |
 | `categories` | `id`, `user_id`, `name`, `type` (productive/unproductive), `color`, `is_default` | Tags for activities and logs. 9 defaults seeded per user. |
 | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | What the user wants to spend time on. |
-| `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week int[]`, `type`, `color`, `category_id` | Recurring fixed time. |
-| `time_logs` | `id`, `user_id`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes` | What actually happened. |
+| `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week int[]`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time. |
+| `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes` | What actually happened. |
 | `weekly_priorities` | `user_id`, `week_start`, `activity_id`, `rank` | Drag-ranked focus per week — drives AI planning. |
 | `weekly_plans` | `user_id`, `week_start`, `slots jsonb`, `raw_prompt`, `raw_response` | AI-generated week plan. **`UNIQUE(user_id, week_start)`** to prevent duplicates. |
 | `weekly_reviews` | `user_id`, `week_start`, `planned_vs_actual jsonb`, `insights` | One per completed week. |

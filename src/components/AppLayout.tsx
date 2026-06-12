@@ -1,7 +1,8 @@
 import { Link, useLocation, useOutlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, CalendarDays, Clock, LogIn, Lock, Menu } from "lucide-react";
+import { Calendar, BarChart3, Target, Settings, LogOut, CalendarRange, CalendarDays, Clock, LogIn, Lock, Menu } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
 import { CALENDAR_PAGE_SHELL, CALENDAR_PAGE_SHELL_FILL, isCalendarRoute } from "@/components/calendar/calendarLayout";
@@ -78,9 +79,7 @@ export function AppLayout({
       <aside className="hidden md:flex w-60 flex-col border-r border-sidebar-border bg-sidebar">
         <div className="px-6 py-7">
           <Link to="/app" className="flex items-center gap-2 group">
-            <div className="relative h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
-              <Sparkles className="h-4 w-4 text-primary-foreground" />
-            </div>
+            <BrandLogo size={32} className="rounded-lg shadow-glow" />
             <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
           </Link>
         </div>
@@ -145,9 +144,7 @@ export function AppLayout({
         {/* Mobile header: logo + hamburger (top-right), replaces the old bottom bar */}
         <header className="md:hidden shrink-0 z-40 flex items-center justify-between px-4 py-3 border-b border-sidebar-border bg-background/95 backdrop-blur-md">
           <Link to="/app" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
-              <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
-            </div>
+            <BrandLogo size={28} className="rounded-lg shadow-glow" />
             <span className="font-display text-base font-semibold tracking-tight">FreeSlot</span>
           </Link>
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
