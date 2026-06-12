@@ -1,6 +1,6 @@
 // Unified data adapter — same shape whether the user is signed in (cloud) or in guest mode (localStorage).
 // Hooks read from this so pages don't care about auth state.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import * as L from "@/lib/localStore";
@@ -30,6 +30,10 @@ function useGuestRefresh(active: boolean) {
 }
 
 // ---------- Categories ----------
+export function filterVisibleCategories(categories: L.LocalCategory[]): L.LocalCategory[] {
+  return categories.filter((c) => !c.hidden);
+}
+
 export function useCategories() {
   const { user } = useAuth();
   const mode: Mode = user ? "cloud" : "guest";
@@ -45,7 +49,7 @@ export function useCategories() {
     }
     const { data: rows, error: err } = await supabase
       .from("categories")
-      .select("id,name,color,type,is_default,created_at")
+      .select("id,name,color,type,is_default,hidden,created_at")
       .eq("user_id", user!.id)
       .order("name");
     if (err) {
@@ -55,11 +59,30 @@ export function useCategories() {
       return;
     }
     setError(null);
-    setData((rows ?? []) as unknown as L.LocalCategory[]);
+    setData((rows ?? []).map((r) => ({ ...r, hidden: (r as { hidden?: boolean }).hidden ?? false })) as unknown as L.LocalCategory[]);
   }, [mode, user]);
 
   useEffect(() => { refresh(); }, [refresh, tick]);
   return { data, error, refresh, mode };
+}
+
+/** Visible labels only — use in pickers so hidden defaults stay out of comboboxes. */
+export function useVisibleCategories() {
+  const { data, error, refresh, mode } = useCategories();
+  const visible = useMemo(() => filterVisibleCategories(data), [data]);
+  return { data: visible, all: data, error, refresh, mode };
+}
+
+/** Include a hidden selected label so edit dialogs still resolve the current value. */
+export function pickerCategories<T extends { id: string }>(
+  visible: T[],
+  all: T[],
+  selectedId?: string | null,
+): T[] {
+  if (!selectedId) return visible;
+  if (visible.some((c) => c.id === selectedId)) return visible;
+  const selected = all.find((c) => c.id === selectedId);
+  return selected ? [...visible, selected] : visible;
 }
 
 // ---------- Activities ----------
@@ -367,14 +390,15 @@ export async function reorderScheduleBlocks(mode: Mode, userId: string | null, o
 export async function upsertCategory(
   mode: Mode,
   userId: string | null,
-  input: { id?: string; name?: string; color?: string; type?: "productive" | "unproductive" }
+  input: { id?: string; name?: string; color?: string; type?: "productive" | "unproductive"; hidden?: boolean }
 ) {
   if (mode === "guest") return L.upsertCategory(input);
   if (input.id) {
-    const patch: { name?: string; color?: string; type?: "productive" | "unproductive" } = {};
+    const patch: { name?: string; color?: string; type?: "productive" | "unproductive"; hidden?: boolean } = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.color !== undefined) patch.color = input.color;
     if (input.type !== undefined) patch.type = input.type;
+    if (input.hidden !== undefined) patch.hidden = input.hidden;
     const { data, error } = await supabase
       .from("categories")
       .update(patch)
@@ -392,6 +416,7 @@ export async function upsertCategory(
       name: input.name ?? "Untitled",
       color: input.color ?? "#3b82f6",
       type: input.type ?? "productive",
+      hidden: input.hidden ?? false,
     })
     .select()
     .single();
@@ -401,6 +426,14 @@ export async function upsertCategory(
 
 export async function deleteCategory(mode: Mode, userId: string | null, id: string) {
   if (mode === "guest") return L.deleteCategory(id);
+  const { data: cat, error: selErr } = await supabase
+    .from("categories")
+    .select("is_default")
+    .eq("id", id)
+    .eq("user_id", userId!)
+    .single();
+  if (selErr) throw selErr;
+  if (cat?.is_default) throw new Error("Default labels cannot be deleted");
   const { error } = await supabase.from("categories").delete().eq("id", id).eq("user_id", userId!);
   if (error) throw error;
 }

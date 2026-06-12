@@ -4,9 +4,10 @@ import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
-import { useCategories, useTimeLogsInRange } from "@/lib/dataStore";
+import { useVisibleCategories, pickerCategories, useTimeLogsInRange } from "@/lib/dataStore";
 import { durationMinutes, fmtDuration, fromMin, todayISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { toneClasses, type StatTone } from "@/lib/toneClasses";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -52,10 +53,14 @@ export default function MonthPage() {
   const lastISO = isoDate(year, month0, lastDay);
 
   const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(firstISO, lastISO);
-  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
-  const categories = useMemo(
-    () => (categoriesRaw ?? []) as unknown as Category[],
-    [categoriesRaw]
+  const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
+  const logPickerCategories = useMemo(
+    () => pickerCategories(
+      (visibleCategoriesRaw ?? []) as unknown as Category[],
+      (allCategoriesRaw ?? []) as unknown as Category[],
+      undefined
+    ),
+    [visibleCategoriesRaw, allCategoriesRaw]
   );
   const openQuickLogForQuarter = useCallback((iso: string, quarterStartMin: number) => {
     const quarterEndMin = quarterStartMin + SIX_HOUR_MIN;
@@ -218,7 +223,7 @@ export default function MonthPage() {
         open={logOpen}
         onOpenChange={setLogOpen}
         date={logDate}
-        categories={categories}
+        categories={logPickerCategories}
         defaultStart={logDefaults.start}
         defaultEnd={logDefaults.end}
         onOptimisticInsert={() => {}}
@@ -229,8 +234,8 @@ export default function MonthPage() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone: "primary" | "accent" | "muted" }) {
-  const ring = tone === "primary" ? "ring-primary/30" : tone === "accent" ? "ring-accent/30" : "ring-border";
+function Stat({ label, value, tone }: { label: string; value: string; tone: StatTone }) {
+  const { ring } = toneClasses(tone);
   return (
     <div className={`rounded-2xl border border-border bg-surface px-4 py-3 ring-1 ${ring}`}>
       <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</div>

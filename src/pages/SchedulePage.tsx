@@ -16,11 +16,12 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarRange, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, Copy, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -28,7 +29,8 @@ import {
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import type { ScheduleBlock } from "@/components/day/DayTimeline";
 import {
-  useCategories,
+  useVisibleCategories,
+  pickerCategories,
   useScheduleBlocks,
   upsertScheduleBlock,
   deleteScheduleBlock,
@@ -66,20 +68,47 @@ type SortableScheduleRowProps = {
   block: ScheduleBlock;
   onUpdate: (block: ScheduleBlock, patch: Partial<ScheduleBlock>) => void;
   onToggleDay: (block: ScheduleBlock, day: number) => void;
+  onEdit: (block: ScheduleBlock) => void;
   onDuplicate: (block: ScheduleBlock) => void;
   onDelete: (block: ScheduleBlock) => void;
   duplicateLabel: string;
+  editLabel: string;
   deleteLabel: string;
   dragLabel: string;
 };
+
+function IconTooltipButton({
+  label,
+  onClick,
+  className,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon" className={cn("h-8 w-8", className)} onClick={onClick} aria-label={label}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 function SortableScheduleRow({
   block: b,
   onUpdate,
   onToggleDay,
+  onEdit,
   onDuplicate,
   onDelete,
   duplicateLabel,
+  editLabel,
   deleteLabel,
   dragLabel,
 }: SortableScheduleRowProps) {
@@ -97,21 +126,24 @@ function SortableScheduleRow({
       className="flex flex-col lg:flex-row lg:items-center gap-3 rounded-xl border border-border bg-card/40 p-3"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
-          aria-label={dragLabel}
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-        <input
-          type="color"
-          value={b.color}
-          onChange={(e) => onUpdate(b, { color: e.target.value })}
-          className="h-8 w-9 rounded cursor-pointer bg-transparent border border-border shrink-0"
-          aria-label={`Color for ${b.name}`}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
+              aria-label={dragLabel}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">{dragLabel}</TooltipContent>
+        </Tooltip>
+        <span
+          className="h-8 w-2 rounded-full shrink-0 border border-border/50"
+          style={{ backgroundColor: b.color }}
+          aria-hidden
         />
         <Input
           key={`${b.id}-${b.name}`}
@@ -161,12 +193,15 @@ function SortableScheduleRow({
         })}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDuplicate(b)} aria-label={duplicateLabel}>
+        <IconTooltipButton label={editLabel} onClick={() => onEdit(b)}>
+          <Pencil className="h-3.5 w-3.5" />
+        </IconTooltipButton>
+        <IconTooltipButton label={duplicateLabel} onClick={() => onDuplicate(b)}>
           <Copy className="h-3.5 w-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(b)} aria-label={deleteLabel}>
+        </IconTooltipButton>
+        <IconTooltipButton label={deleteLabel} onClick={() => onDelete(b)}>
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
-        </Button>
+        </IconTooltipButton>
       </div>
     </div>
   );
@@ -177,13 +212,22 @@ export default function SchedulePage() {
   const { user } = useAuth();
   const mode = user ? "cloud" : "guest";
   const { data: blocksRaw, refresh } = useScheduleBlocks();
-  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
+  const { data: categoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
   const blocks = blocksRaw as unknown as ScheduleBlock[];
-  const categories = categoriesRaw as unknown as PickerCategory[];
 
-  const [addOpen, setAddOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogBlock, setDialogBlock] = useState<ScheduleBlock | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<ScheduleBlock | null>(null);
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
+
+  const dialogPickerCategories = useMemo(
+    () => pickerCategories(
+      categoriesRaw as PickerCategory[],
+      allCategoriesRaw as PickerCategory[],
+      dialogBlock?.category_id
+    ),
+    [categoriesRaw, allCategoriesRaw, dialogBlock?.category_id]
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -246,15 +290,25 @@ export default function SchedulePage() {
 
   const duplicate = async (block: ScheduleBlock) => {
     try {
-      await upsertScheduleBlock(mode, user?.id ?? null, {
+      const created = await upsertScheduleBlock(mode, user?.id ?? null, {
         name: `${block.name} (copy)`,
         start_time: block.start_time,
         end_time: block.end_time,
         days_of_week: [...block.days_of_week],
         color: block.color,
         type: block.type ?? "fixed",
+        category_id: block.category_id ?? null,
       });
+      const copyId = (created as { id: string }).id;
+      const idx = orderedIds.indexOf(block.id);
+      const nextIds =
+        idx >= 0
+          ? [...orderedIds.slice(0, idx + 1), copyId, ...orderedIds.slice(idx + 1)]
+          : [...orderedIds, copyId];
+      await reorderScheduleBlocks(mode, user?.id ?? null, nextIds);
+      setOrderedIds(nextIds);
       refresh();
+      toast.success(t("schedule.duplicated"));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
     }
@@ -316,7 +370,7 @@ export default function SchedulePage() {
           </h1>
           <p className="text-muted-foreground mt-1 text-sm max-w-xl">{t("schedule.subtitle")}</p>
         </div>
-        <Button onClick={() => setAddOpen(true)} className="gap-1.5">
+        <Button onClick={() => { setDialogBlock(undefined); setDialogOpen(true); }} className="gap-1.5">
           <Plus className="h-4 w-4" /> {t("schedule.addBlock")}
         </Button>
       </header>
@@ -353,9 +407,11 @@ export default function SchedulePage() {
                   block={b}
                   onUpdate={update}
                   onToggleDay={toggleDay}
+                  onEdit={(block) => { setDialogBlock(block); setDialogOpen(true); }}
                   onDuplicate={duplicate}
                   onDelete={setDeleteTarget}
                   duplicateLabel={t("schedule.duplicate")}
+                  editLabel={t("schedule.edit")}
                   deleteLabel={t("schedule.delete")}
                   dragLabel={t("schedule.dragToReorder")}
                 />
@@ -391,10 +447,14 @@ export default function SchedulePage() {
       )}
 
       <ScheduleBlockDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setDialogBlock(undefined);
+        }}
+        block={dialogBlock}
         onSaved={refresh}
-        categories={categories}
+        categories={dialogPickerCategories}
         onCategoriesRefresh={refreshCats}
       />
 

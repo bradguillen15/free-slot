@@ -69,10 +69,26 @@ describe("updateLog", () => {
 });
 
 describe("ensureBootstrap", () => {
-  it("seeds the 11 default categories once and is idempotent", () => {
+  it("seeds the 14 default categories once and is idempotent", () => {
     ensureBootstrap();
     ensureBootstrap();
-    expect(listCategories()).toHaveLength(11);
+    expect(listCategories()).toHaveLength(14);
+  });
+
+  it("top-ups missing defaults for guests bootstrapped with an older set", () => {
+    const now = new Date().toISOString();
+    const legacy = [
+      { id: "c1", name: "Deep work", type: "productive" as const, color: "#3b82f6", is_default: true, created_at: now },
+      { id: "c2", name: "Reading", type: "productive" as const, color: "#8b5cf6", is_default: true, created_at: now },
+    ];
+    localStorage.setItem("freeslot.guest.categories", JSON.stringify(legacy));
+    localStorage.setItem("freeslot.guest.bootstrapped", "1");
+    ensureBootstrap();
+    const names = listCategories().map((c) => c.name);
+    expect(names).toContain("Sleep");
+    expect(names).toContain("Movies & series");
+    expect(names).toContain("Anime");
+    expect(listCategories()).toHaveLength(14);
   });
 });
 

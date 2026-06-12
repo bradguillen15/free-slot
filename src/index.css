@@ -23,9 +23,9 @@
     --primary-foreground: 222 30% 6%;
     --primary-glow: 212 100% 70%;
 
-    /* Secondary accent — amber for productive emphasis */
-    --accent: 38 95% 60%;
-    --accent-foreground: 222 30% 6%;
+    /* Interactive hover/selected state — neutral gray (amber emphasis lives in --warning) */
+    --accent: 222 16% 17%;
+    --accent-foreground: 210 30% 96%;
 
     --secondary: 222 18% 14%;
     --secondary-foreground: 210 30% 92%;

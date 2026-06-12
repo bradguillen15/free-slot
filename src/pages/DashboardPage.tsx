@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, durationMinutes as durMin, fmtDuration } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
+import { toneClasses, type StatTone } from "@/lib/toneClasses";
 
 type LogRow = {
   date: string;
@@ -309,8 +310,8 @@ export default function DashboardPage() {
   );
 }
 
-function Kpi({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: "primary" | "accent" | "muted" }) {
-  const bg = tone === "primary" ? "bg-primary/10 text-primary" : tone === "accent" ? "bg-accent/15 text-accent-foreground" : "bg-muted/50 text-muted-foreground";
+function Kpi({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: StatTone }) {
+  const { bg } = toneClasses(tone);
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border bg-surface px-4 py-3">
       <div className="flex items-center gap-2 mb-1">

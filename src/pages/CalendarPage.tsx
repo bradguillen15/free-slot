@@ -17,7 +17,7 @@ import {
 import { NotebookPen, CalendarRange } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
+import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -63,7 +63,7 @@ export default function CalendarPage() {
   const isToday = date === todayISO();
 
   const { data: allBlocks, refresh: refreshBlocks } = useScheduleBlocks();
-  const { data: categories, refresh: refreshCats } = useCategories();
+  const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(date, date);
 
   const blocks = useMemo(
@@ -71,7 +71,15 @@ export default function CalendarPage() {
     [allBlocks, weekday]
   );
   const logs = dayLogs as unknown as TimeLog[];
-  const cats = categories as unknown as Category[];
+  const cats = allCategories as unknown as Category[];
+  const logPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories as Category[], cats, logDefaults.defaultCategoryId),
+    [visibleCategories, cats, logDefaults.defaultCategoryId]
+  );
+  const blockPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories as Category[], cats, blockDialogTarget.block?.category_id),
+    [visibleCategories, cats, blockDialogTarget.block?.category_id]
+  );
 
   // Tick "now" line
   useEffect(() => {
@@ -277,7 +285,7 @@ export default function CalendarPage() {
             if (!v) setLogDefaults({ start: "09:00", end: "10:00" });
           }}
           date={date}
-          categories={cats}
+          categories={logPickerCategories}
           defaultStart={logDefaults.start}
           defaultEnd={logDefaults.end}
           editId={logDefaults.editId}
@@ -300,7 +308,7 @@ export default function CalendarPage() {
           defaultWeekday={blockDialogTarget.defaultWeekday}
           onSaved={refreshBlocks}
           onDeleted={refreshBlocks}
-          categories={cats}
+          categories={blockPickerCategories}
           onCategoriesRefresh={refreshCats}
         />
       </div>

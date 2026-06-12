@@ -18,11 +18,13 @@ import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
 import { AIPlanPanel, type WeeklyPlan, type ActivityLite } from "@/components/week/AIPlanPanel";
 import {
   useActivities,
-  useCategories,
+  useVisibleCategories,
+  pickerCategories,
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
 } from "@/lib/dataStore";
+import { toneClasses, type StatTone } from "@/lib/toneClasses";
 
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -67,13 +69,22 @@ export default function WeekPage() {
 
   const { data: blocksRaw, refresh: refreshBlocks } = useScheduleBlocks();
   const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(weekStart, weekEnd);
-  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
+  const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw } = useActivities();
   const { data: profileRaw } = useProfile();
 
   const blocks = blocksRaw as unknown as ScheduleBlock[];
   const logs = logsRaw as unknown as TimeLog[];
-  const categories = categoriesRaw as unknown as Category[];
+  const allCategories = allCategoriesRaw as unknown as Category[];
+  const visibleCategories = visibleCategoriesRaw as unknown as Category[];
+  const logPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories, allCategories, logCtx.defaultCategoryId),
+    [visibleCategories, allCategories, logCtx.defaultCategoryId]
+  );
+  const blockPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories, allCategories, blockDialogTarget.block?.category_id),
+    [visibleCategories, allCategories, blockDialogTarget.block?.category_id]
+  );
   const activities = useMemo(
     () => (activitiesRaw ?? []).filter((a) => (a as { is_active?: boolean }).is_active),
     [activitiesRaw]
@@ -81,8 +92,8 @@ export default function WeekPage() {
   const profile = profileRaw as unknown as { peak_hours: { start: string; end: string } | null } | null;
 
   const catMap = useMemo(
-    () => Object.fromEntries(categories.map((c) => [c.id, c])),
-    [categories]
+    () => Object.fromEntries(allCategories.map((c) => [c.id, c])),
+    [allCategories]
   );
 
   // Map from block id to full ScheduleBlock for click-to-edit
@@ -280,7 +291,7 @@ export default function WeekPage() {
           weekStart={weekStart}
           gaps={flatGaps}
           activities={activities as ActivityLite[]}
-          categories={categories}
+          categories={allCategories}
           onPlanChange={setAiPlan}
           onSlotAccepted={refreshLogs}
         />
@@ -315,7 +326,7 @@ export default function WeekPage() {
           if (!v) setLogCtx({ date: todayISO(), start: "09:00", end: "10:00" });
         }}
         date={logCtx.date}
-        categories={categories}
+        categories={logPickerCategories}
         defaultStart={logCtx.start}
         defaultEnd={logCtx.end}
         editId={logCtx.editId}
@@ -336,7 +347,7 @@ export default function WeekPage() {
         defaultWeekday={blockDialogTarget.defaultWeekday}
         onSaved={refreshBlocks}
         onDeleted={refreshBlocks}
-        categories={categories}
+        categories={blockPickerCategories}
         onCategoriesRefresh={refreshCats}
       />
 
@@ -355,9 +366,8 @@ export default function WeekPage() {
   );
 }
 
-function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: "primary" | "accent" | "muted" }) {
-  const ring = tone === "primary" ? "ring-primary/30" : tone === "accent" ? "ring-accent/30" : "ring-border";
-  const bg = tone === "primary" ? "bg-primary/10 text-primary" : tone === "accent" ? "bg-accent/15 text-accent-foreground" : "bg-muted/50 text-muted-foreground";
+function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: StatTone }) {
+  const { ring, bg } = toneClasses(tone);
   return (
     <div className={`rounded-2xl border border-border bg-surface px-4 py-3 ring-1 ${ring}`}>
       <div className="flex items-center gap-2 mb-1">

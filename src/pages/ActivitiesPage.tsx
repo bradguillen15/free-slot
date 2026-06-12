@@ -2,7 +2,7 @@ import { Target } from "lucide-react";
 import { ActivityEditor } from "@/components/activities/ActivityEditor";
 import { PriorityRanker } from "@/components/activities/PriorityRanker";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActivities, useCategories } from "@/lib/dataStore";
+import { useActivities, useVisibleCategories } from "@/lib/dataStore";
 import type { Category } from "@/components/day/QuickLogDialog";
 
 type Activity = {
@@ -15,10 +15,10 @@ type Activity = {
 
 export default function ActivitiesPage() {
   const { user } = useAuth();
-  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
+  const { data: visibleRaw, all: allRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw, refresh: refreshActs } = useActivities();
 
-  const categories = (categoriesRaw ?? []) as unknown as Category[];
+  const categories = (allRaw ?? []) as unknown as Category[];
   const activities = (activitiesRaw ?? []) as unknown as Activity[];
 
   const reload = () => { refreshCats(); refreshActs(); };

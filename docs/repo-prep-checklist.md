@@ -14,7 +14,7 @@
 | Local `.env` on disk | **Yes** (gitignored) |
 | `git log --all -- .env` | **Empty** |
 | Force-push rewritten history | **You** — §1 below |
-| Rename repo to `free-slot` | **You** — §3 |
+| Rename repo to `free-slot` | **Done** (GitHub + local folder + origin) |
 | Make repo public | **Not planned** — §4 when ready |
 
 ---
@@ -44,7 +44,7 @@ Completed with:
 
 ```bash
 git filter-repo --path .env --invert-paths --force
-git remote add origin git@github.com:bradguillen15/plan-grow.git
+git remote add origin git@github.com:bradguillen15/free-slot.git
 ```
 
 - [x] `git log --all --oneline -- .env` prints nothing
@@ -72,7 +72,7 @@ Do this whenever you want; it does not require a fresh repo.
 ### Locally
 
 ```bash
-git remote set-url origin git@github.com:<YOUR_USER>/free-slot.git
+git remote set-url origin git@github.com:bradguillen15/free-slot.git
 git remote -v   # verify
 ```
 

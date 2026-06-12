@@ -28,7 +28,7 @@ export async function migrateGuestToCloud(userId: string) {
     const { data: inserted, error: catInsErr } = await supabase
       .from("categories")
       .insert(newCats.map((c) => ({
-        user_id: userId, name: c.name, type: c.type, color: c.color, is_default: false,
+        user_id: userId, name: c.name, type: c.type, color: c.color, is_default: false, hidden: c.hidden ?? false,
       })))
       .select("id,name");
     if (catInsErr) throw catInsErr;
@@ -39,6 +39,20 @@ export async function migrateGuestToCloud(userId: string) {
     const cloudId = cloudCatByName.get(c.name);
     if (cloudId) catIdMap.set(c.id, cloudId);
   });
+
+  // Sync hidden flag for categories that already exist in the cloud (matched by name).
+  const hiddenSync = snap.categories.filter((c) => c.hidden && cloudCatByName.has(c.name));
+  if (hiddenSync.length) {
+    await Promise.all(
+      hiddenSync.map((c) =>
+        supabase
+          .from("categories")
+          .update({ hidden: true })
+          .eq("id", cloudCatByName.get(c.name)!)
+          .eq("user_id", userId)
+      )
+    );
+  }
 
   // 2. Activities — skip names that already exist in the cloud (retry safety).
   let activitiesCount = 0;

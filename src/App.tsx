@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import CalendarPage from "./pages/CalendarPage";
 import SchedulePage from "./pages/SchedulePage";
+import LabelsPage from "./pages/LabelsPage";
 import WeekPage from "./pages/WeekPage";
 import MonthPage from "./pages/MonthPage";
 import ActivitiesPage from "./pages/ActivitiesPage";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="week" element={<WeekPage />} />
               <Route path="month" element={<MonthPage />} />
               <Route path="schedule" element={<SchedulePage />} />
+              <Route path="labels" element={<LabelsPage />} />
               <Route path="activities" element={<ActivitiesPage />} />
               <Route path="dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
               <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

@@ -10,14 +10,9 @@ vi.mock("@/integrations/supabase/client", async () => {
 import { callsFor, fromCalls, queueTableResult, resetSupabaseMock } from "../test/supabaseMock";
 import { seedGuestData } from "../test/factories";
 import { migrateGuestToCloud } from "./migrateGuest";
-import { hasGuestData } from "./localStore";
+import { hasGuestData, DEFAULT_CATEGORY_SEED } from "./localStore";
 
-// The default category names the signup trigger creates in the cloud
-// (must mirror DEFAULT_CATEGORIES in src/lib/localStore.ts).
-const DEFAULT_NAMES = [
-  "Deep work", "Reading", "Exercise", "Study", "Creative work",
-  "Side project", "Social media", "Gaming", "Idle", "Meals", "Chores & errands",
-];
+const DEFAULT_NAMES = DEFAULT_CATEGORY_SEED.map((c) => c.name);
 const cloudDefaults = DEFAULT_NAMES.map((name, i) => ({ id: `cloud-cat-${i}`, name }));
 
 /** Queue the full happy-path response sequence. Individual tests override pieces by queueing BEFORE calling this. */

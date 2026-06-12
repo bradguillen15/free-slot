@@ -1,7 +1,7 @@
 import { Link, useLocation, useOutlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { Calendar, BarChart3, Target, Settings, LogOut, CalendarRange, CalendarDays, Clock, LogIn, Lock, Menu } from "lucide-react";
+import { Calendar, BarChart3, Target, Settings, LogOut, CalendarRange, CalendarDays, Clock, LogIn, Lock, Menu, Tag } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
@@ -18,6 +18,7 @@ const navItems = [
   { to: "/app/week", labelKey: "nav.week", icon: CalendarRange, requiresAuth: false },
   { to: "/app/month", labelKey: "nav.month", icon: CalendarDays, requiresAuth: false },
   { to: "/app/schedule", labelKey: "nav.schedule", icon: Clock, requiresAuth: false },
+  { to: "/app/labels", labelKey: "nav.labels", icon: Tag, requiresAuth: false },
   { to: "/app/dashboard", labelKey: "nav.dashboard", icon: BarChart3, requiresAuth: true },
   { to: "/app/activities", labelKey: "nav.activities", icon: Target, requiresAuth: false },
   { to: "/app/settings", labelKey: "nav.settings", icon: Settings, requiresAuth: true },

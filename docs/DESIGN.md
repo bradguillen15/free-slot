@@ -45,7 +45,8 @@ Defined in `src/index.css` as HSL CSS variables under `:root` and `.dark`. Mappe
 | Token | Use |
 |---|---|
 | `--primary` / `bg-primary`, `text-primary`, `text-primary-foreground` | Brand color, active state, CTAs |
-| `--accent` / `bg-accent`, `text-accent-foreground` | Secondary accent (peak time, emphasis) |
+| `--accent` / `bg-accent`, `text-accent-foreground` | Neutral gray hover/selected state for interactive elements (buttons, menu items) |
+| `--warning` / `bg-warning`, `text-warning` | Amber emphasis (peak time, productive stats) |
 | `--productive` / `bg-productive` | Productive logs / bars |
 | `--unproductive` / `bg-unproductive` | Unproductive logs / bars |
 | `--destructive` / `bg-destructive`, `text-destructive-foreground` | Destructive actions, errors |

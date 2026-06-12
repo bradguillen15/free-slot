@@ -8,7 +8,7 @@
 ## Setup
 
 ```bash
-cd plan-grow
+cd free-slot
 bun install    # or: npm install / pnpm install
 ```
 
