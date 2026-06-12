@@ -52,7 +52,7 @@ export default function MonthPage() {
   const lastISO = isoDate(year, month0, lastDay);
 
   const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(firstISO, lastISO);
-  const { data: categoriesRaw } = useCategories();
+  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
   const categories = useMemo(
     () => (categoriesRaw ?? []) as unknown as Category[],
     [categoriesRaw]
@@ -223,6 +223,7 @@ export default function MonthPage() {
         defaultEnd={logDefaults.end}
         onOptimisticInsert={() => {}}
         onSaved={refreshLogs}
+        onCategoriesRefresh={refreshCats}
       />
     </>
   );

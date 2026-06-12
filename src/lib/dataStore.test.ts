@@ -17,8 +17,10 @@ vi.mock("@/integrations/supabase/client", async () => {
 import { queueTableResult, resetSupabaseMock } from "../test/supabaseMock";
 import {
   deleteActivity,
+  deleteCategory,
   deleteScheduleBlock,
   deleteTimeLog,
+  upsertCategory,
   insertTimeLog,
   updateProfile,
   updateTimeLog,
@@ -174,6 +176,23 @@ describe("mutations — remaining happy paths (both modes)", () => {
     await deleteTimeLog("cloud", "u1", "l1");
     queueTableResult("time_logs", { data: { id: "l1" } });
     await updateTimeLog("cloud", "u1", "l1", { start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" });
+  });
+
+  it("category mutations work in both modes (Phase 4b labels)", async () => {
+    // Guest: create on the fly, then delete.
+    const created = await upsertCategory("guest", null, { name: "Breakfast", type: "productive" });
+    expect(L.listCategories().some((c) => c.name === "Breakfast")).toBe(true);
+    await deleteCategory("guest", null, (created as { id: string }).id);
+    expect(L.listCategories().some((c) => c.name === "Breakfast")).toBe(false);
+
+    // Cloud: insert + update branches resolve; errors propagate.
+    queueTableResult("categories", { data: { id: "c9", name: "Snacks" } });
+    const cloud = await upsertCategory("cloud", "u1", { name: "Snacks", type: "unproductive" });
+    expect((cloud as { id: string }).id).toBe("c9");
+    queueTableResult("categories", { data: { id: "c9", name: "Snacks!" } });
+    await upsertCategory("cloud", "u1", { id: "c9", name: "Snacks!" });
+    queueTableResult("categories", { error: { message: "denied" } });
+    await expect(deleteCategory("cloud", "u1", "c9")).rejects.toMatchObject({ message: "denied" });
   });
 
   it("guest mutations route to localStore", async () => {

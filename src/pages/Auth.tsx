@@ -87,6 +87,7 @@ export default function Auth() {
         c.activities && `${c.activities} activit${c.activities > 1 ? "ies" : "y"}`,
         c.schedule_blocks && `${c.schedule_blocks} block${c.schedule_blocks > 1 ? "s" : ""}`,
         c.categories && `${c.categories} categor${c.categories > 1 ? "ies" : "y"}`,
+        c.priorities && `${c.priorities} priorit${c.priorities > 1 ? "ies" : "y"}`,
       ].filter(Boolean).join(" · ");
       toast.success(t("auth.migrate.done"), { description: parts || undefined });
       setMigrateOpen(false);
@@ -180,7 +181,9 @@ export default function Auth() {
       </div>
 
       <AlertDialog open={migrateOpen} onOpenChange={setMigrateOpen}>
-        <AlertDialogContent>
+        {/* Force an explicit choice — Escape-dismissing leaves guest data in limbo
+            (re-prompts on every /auth visit and resurfaces after sign-out). */}
+        <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("auth.migrate.title")}</AlertDialogTitle>
             <AlertDialogDescription>

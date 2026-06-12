@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { upsertScheduleBlock, deleteScheduleBlock } from "@/lib/dataStore";
+import { upsertScheduleBlock, deleteScheduleBlock, upsertCategory } from "@/lib/dataStore";
+import { CategoryPicker, nextCreateColor, type PickerCategory } from "@/components/CategoryPicker";
 import type { ScheduleBlock } from "./DayTimeline";
 
 const COLORS = [
@@ -30,12 +31,16 @@ type Props = {
   defaultWeekday?: number;
   onSaved?: () => void;
   onDeleted?: () => void;
+  /** Optional label assignment; omit to hide the picker. */
+  categories?: PickerCategory[];
+  onCategoriesRefresh?: () => void | Promise<void>;
 };
 
 export function ScheduleBlockDialog({
   open, onOpenChange, block,
   defaultStartTime, defaultWeekday,
   onSaved, onDeleted,
+  categories, onCategoriesRefresh,
 }: Props) {
   const { user } = useAuth();
   const mode = user ? "cloud" : "guest";
@@ -47,6 +52,7 @@ export function ScheduleBlockDialog({
   const [days, setDays] = useState<number[]>(
     block?.days_of_week ?? (defaultWeekday != null ? [defaultWeekday] : WEEKDAYS)
   );
+  const [categoryId, setCategoryId] = useState<string>(block?.category_id ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -58,6 +64,7 @@ export function ScheduleBlockDialog({
       setEndTime(block?.end_time ?? "10:00");
       setColor(block?.color ?? COLORS[0]);
       setDays(block?.days_of_week ?? (defaultWeekday != null ? [defaultWeekday] : WEEKDAYS));
+      setCategoryId(block?.category_id ?? "");
     }
   }, [open, block, defaultStartTime, defaultWeekday]);
 
@@ -87,6 +94,7 @@ export function ScheduleBlockDialog({
         days_of_week: days,
         color,
         type: "fixed",
+        category_id: categoryId || null,
       });
       toast.success(block ? "Block updated" : "Block created");
       onOpenChange(false);
@@ -174,6 +182,33 @@ export function ScheduleBlockDialog({
               ))}
             </div>
           </div>
+
+          {/* Optional label */}
+          {categories && (
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Label (optional)</Label>
+              <CategoryPicker
+                categories={categories}
+                value={categoryId || undefined}
+                onChange={setCategoryId}
+                allowNone
+                onCreate={async (catName, type) => {
+                  try {
+                    const created = await upsertCategory(mode, user?.id ?? null, {
+                      name: catName,
+                      type,
+                      color: nextCreateColor(categories.length),
+                    });
+                    await onCategoriesRefresh?.();
+                    return created as PickerCategory;
+                  } catch (err: unknown) {
+                    toast.error(err instanceof Error ? err.message : "Could not create label");
+                    return null;
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {/* Recurrence day-picker */}
           <div className="space-y-2">

@@ -144,13 +144,15 @@ export function WeekGrid({
             {d.gaps.map((g, i) => {
               const c = clamp({ startMin: g.start, endMin: g.end });
               if (!c) return null;
+              const compact = heightFor(c) < 30;
               return (
                 <button
                   type="button"
-                  key={`gap-${i}`}
+                  key={`gap-${g.start}-${i}`}
                   onClick={() => onGapClick(d.iso, g)}
                   className={cn(
-                    "absolute left-0.5 right-0.5 rounded-md border border-dashed text-left px-1.5 transition-colors z-[6]",
+                    "absolute left-0.5 right-0.5 rounded-md border border-dashed text-left px-1.5 transition-colors z-[6] overflow-hidden",
+                    compact && "flex items-center",
                     g.isPeak
                       ? "border-primary/60 bg-primary/[0.08] hover:bg-primary/[0.14]"
                       : "border-border/60 bg-muted/30 hover:bg-muted/50"
@@ -158,12 +160,20 @@ export function WeekGrid({
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
                   title={`${fromMin(g.start)}–${fromMin(g.end)} · ${fmtDuration(g.durationMin)}`}
                 >
-                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                    {g.isPeak ? "Peak" : "Free"}
-                  </div>
-                  <div className="text-[10px] font-mono-num text-foreground/80">
-                    {fmtDuration(g.durationMin)}
-                  </div>
+                  {compact ? (
+                    <div className="truncate text-[9px] font-mono-num text-muted-foreground leading-none">
+                      {g.isPeak ? "Peak" : "Free"} · {fmtDuration(g.durationMin)}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                        {g.isPeak ? "Peak" : "Free"}
+                      </div>
+                      <div className="text-[10px] font-mono-num text-foreground/80">
+                        {fmtDuration(g.durationMin)}
+                      </div>
+                    </>
+                  )}
                 </button>
               );
             })}
@@ -174,7 +184,7 @@ export function WeekGrid({
               if (!c) return null;
               return (
                 <motion.div
-                  key={`b-${i}`}
+                  key={`${b.id ?? "b"}-${i}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.01 }}
@@ -201,7 +211,7 @@ export function WeekGrid({
               if (!c) return null;
               return (
                 <motion.div
-                  key={`l-${i}`}
+                  key={`${l.id ?? "l"}-${i}`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className={cn(
@@ -224,16 +234,26 @@ export function WeekGrid({
             {(d.aiSlots ?? []).map((s, i) => {
               const c = clamp(s.seg);
               if (!c) return null;
+              const aiCompact = heightFor(c) < 30;
               const block = (
                 <motion.div
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.02 }}
-                  className="absolute left-[18%] right-[18%] rounded-md px-1.5 py-0.5 border border-primary/70 bg-primary/[0.18] backdrop-blur-sm shadow-glow cursor-help z-[25]"
+                  className={cn(
+                    "absolute left-[18%] right-[18%] rounded-md px-1.5 border border-primary/70 bg-primary/[0.18] backdrop-blur-sm shadow-glow cursor-help z-[25] overflow-hidden",
+                    aiCompact ? "py-0 flex items-center" : "py-0.5"
+                  )}
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
                 >
-                  <div className="text-[9px] uppercase tracking-wider text-primary/90">AI</div>
-                  <div className="text-[10px] font-semibold truncate text-foreground">{s.name}</div>
+                  {aiCompact ? (
+                    <div className="truncate text-[9px] font-semibold text-foreground leading-none">AI · {s.name}</div>
+                  ) : (
+                    <>
+                      <div className="text-[9px] uppercase tracking-wider text-primary/90">AI</div>
+                      <div className="text-[10px] font-semibold truncate text-foreground">{s.name}</div>
+                    </>
+                  )}
                 </motion.div>
               );
               return s.rationale ? (
