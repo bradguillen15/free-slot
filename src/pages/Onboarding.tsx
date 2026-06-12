@@ -168,15 +168,18 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="h-dvh flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 -z-10 opacity-50" style={{ backgroundImage: "var(--gradient-glow)" }} />
 
-      <PublicHeader showAppLink={false} />
+      <div className="shrink-0">
+        <PublicHeader showAppLink={false} />
+      </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto w-full">
       <div className="max-w-3xl mx-auto px-6 py-6">
 
         {/* Progress */}
-        <div className="flex items-center gap-3 mb-10">
+        <div className="flex items-center gap-3 mb-6">
           {STEPS.map((label, i) => (
             <div key={label} className="flex-1">
               <div className="flex items-center gap-3">
@@ -475,6 +478,7 @@ export default function Onboarding() {
             </Button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

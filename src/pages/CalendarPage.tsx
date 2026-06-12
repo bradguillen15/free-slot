@@ -176,7 +176,7 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className="px-6 md:px-10 pt-4 pb-8 max-w-6xl mx-auto">
+      <div className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
         <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
@@ -196,8 +196,8 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-          <div className="relative">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:flex-1 lg:min-h-0">
+          <div className="relative lg:flex lg:flex-col lg:min-h-0">
             <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
@@ -206,7 +206,7 @@ export default function CalendarPage() {
             <div
               id="day-timeline-root"
               ref={scrollRef}
-              className="max-h-[calc(100vh-220px)] overflow-y-auto rounded-2xl"
+              className="overflow-y-auto rounded-2xl max-h-[60dvh] lg:max-h-none lg:flex-1 lg:min-h-0"
             >
               <DayTimeline
                 blocks={blocks}
@@ -232,7 +232,7 @@ export default function CalendarPage() {
             )}
           </div>
 
-          <div>
+          <div className="lg:min-h-0 lg:overflow-y-auto">
             <DaySummary logs={logs} categories={cats} />
           </div>
         </div>

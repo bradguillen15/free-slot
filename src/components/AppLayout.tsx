@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, CalendarDays, Clock, LogIn, Lock, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
-import { CALENDAR_PAGE_SHELL, isCalendarRoute } from "@/components/calendar/calendarLayout";
+import { CALENDAR_PAGE_SHELL, CALENDAR_PAGE_SHELL_FILL, isCalendarRoute } from "@/components/calendar/calendarLayout";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function AppLayoutOutlet() {
   const location = useLocation();
   const outlet = useOutlet();
   const isCalendar = isCalendarRoute(location.pathname);
+  const isDayRoute = location.pathname === "/app";
 
   const animatedOutlet = (
     <AnimatePresence initial={false}>
@@ -36,6 +37,7 @@ export function AppLayoutOutlet() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
+        className={isDayRoute ? CALENDAR_PAGE_SHELL_FILL : undefined}
       >
         {outlet}
       </motion.div>
@@ -43,9 +45,9 @@ export function AppLayoutOutlet() {
   );
 
   return (
-    <AppLayout>
+    <AppLayout fillViewport={isDayRoute}>
       {isCalendar ? (
-        <div className={CALENDAR_PAGE_SHELL}>
+        <div className={cn(CALENDAR_PAGE_SHELL, isDayRoute && CALENDAR_PAGE_SHELL_FILL)}>
           <div className="pt-5 pb-3">
             <ViewSwitcher />
           </div>
@@ -58,7 +60,13 @@ export function AppLayoutOutlet() {
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({
+  children,
+  fillViewport = false,
+}: {
+  children: React.ReactNode;
+  fillViewport?: boolean;
+}) {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { t } = useTranslation();
@@ -66,7 +74,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-dvh overflow-hidden bg-background">
       <aside className="hidden md:flex w-60 flex-col border-r border-sidebar-border bg-sidebar">
         <div className="px-6 py-7">
           <Link to="/app" className="flex items-center gap-2 group">
@@ -76,7 +84,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
           </Link>
         </div>
-        <nav className="flex-1 px-3 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 space-y-1">
           {navItems.map(({ to, labelKey, icon: Icon, requiresAuth }) => {
             const active = to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to);
             const locked = isGuest && requiresAuth;
@@ -133,9 +141,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-x-hidden">
+      <main className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
         {/* Mobile header: logo + hamburger (top-right), replaces the old bottom bar */}
-        <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 border-b border-sidebar-border bg-background/95 backdrop-blur-md">
+        <header className="md:hidden shrink-0 z-40 flex items-center justify-between px-4 py-3 border-b border-sidebar-border bg-background/95 backdrop-blur-md">
           <Link to="/app" className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
               <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
@@ -209,8 +217,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </Sheet>
         </header>
 
-        <GuestBanner />
-        {children}
+        <div className="shrink-0">
+          <GuestBanner />
+        </div>
+        <div
+          className={cn(
+            "flex-1 min-h-0 overflow-y-auto",
+            fillViewport && "lg:overflow-hidden lg:flex lg:flex-col"
+          )}
+          data-testid="app-scroll-region"
+        >
+          {children}
+        </div>
       </main>
     </div>
   );
