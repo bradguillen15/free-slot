@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCategories, useTimeLogsInRange } from "@/lib/dataStore";
+import { useCategories, useTimeLogsInRange, useWeeklyPlan } from "@/lib/dataStore";
 import { addDaysISO, durationMinutes as durMin, fmtDuration } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { toneClasses, type StatTone } from "@/lib/toneClasses";
@@ -29,7 +29,6 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const isGuest = !user;
   const [weekStart, setWeekStart] = useState(weekStartISO());
-  const [planSlots, setPlanSlots] = useState<AISlot[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewWeek, setReviewWeek] = useState<string>(weekStart);
   const [autoPromptedFor, setAutoPromptedFor] = useState<string | null>(null);
@@ -39,25 +38,7 @@ export default function DashboardPage() {
 
   const { data: logs } = useTimeLogsInRange(weekStart, weekEnd);
   const { data: cats } = useCategories();
-
-  useEffect(() => {
-    if (!user) {
-      setPlanSlots([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("weekly_plans")
-        .select("slots")
-        .eq("user_id", user.id)
-        .eq("week_start", weekStart)
-        .maybeSingle();
-      if (cancelled) return;
-      setPlanSlots(((data as { slots?: AISlot[] } | null)?.slots ?? []) as AISlot[]);
-    })();
-    return () => { cancelled = true; };
-  }, [user, weekStart]);
+  const { slots: planSlots } = useWeeklyPlan(weekStart);
 
   const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.id, c])), [cats]);
 

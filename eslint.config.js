@@ -23,4 +23,30 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    files: ["src/pages/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+    ignores: ["src/pages/Auth.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        paths: [{
+          name: "@/integrations/supabase/client",
+          message: "Use dataStore React Query hooks for reads and dataStore mutations for writes. Direct Supabase is reserved for lib/, AuthContext, and integrations/.",
+        }],
+      }],
+    },
+  },
+  {
+    files: [
+      "src/pages/DashboardPage.tsx",
+      "src/pages/SettingsPage.tsx",
+      "src/pages/Onboarding.tsx",
+      "src/components/OnboardingGate.tsx",
+      "src/components/dashboard/WeeklyReviewModal.tsx",
+      "src/components/week/AIPlanPanel.tsx",
+      "src/components/activities/PriorityRanker.tsx",
+    ],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
 );

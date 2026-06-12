@@ -165,7 +165,7 @@ export default function LabelsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const mode = user ? "cloud" : "guest";
-  const { data: categoriesRaw, refresh } = useCategories();
+  const { data: categoriesRaw } = useCategories();
   const categories = categoriesRaw as LocalCategory[];
 
   const [addDialogType, setAddDialogType] = useState<LabelType | null>(null);
@@ -205,7 +205,6 @@ export default function LabelsPage() {
   const updateLabel = async (id: string, patch: Partial<LocalCategory>) => {
     try {
       await upsertCategory(mode, user?.id ?? null, { id, ...patch });
-      await refresh();
       toast.success(t("labels.updated"));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
@@ -215,7 +214,6 @@ export default function LabelsPage() {
   const toggleHidden = async (cat: LocalCategory) => {
     try {
       await upsertCategory(mode, user?.id ?? null, { id: cat.id, hidden: !cat.hidden });
-      await refresh();
       toast.success(cat.hidden ? t("labels.shown") : t("labels.hidden"));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
@@ -225,7 +223,6 @@ export default function LabelsPage() {
   const removeLabel = async (cat: LocalCategory) => {
     try {
       await deleteCategory(mode, user?.id ?? null, cat.id);
-      await refresh();
       setDeleteTarget(null);
       toast.success(t("labels.deleted"));
     } catch (err: unknown) {
@@ -256,7 +253,6 @@ export default function LabelsPage() {
         color: draftColor,
         type: addDialogType,
       });
-      await refresh();
       toast.success(t("labels.created"));
       setAddDialogType(null);
       setDraftName("");

@@ -14,7 +14,9 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: m.mockSupabaseClient() };
 });
 
-import { queueTableResult, resetSupabaseMock } from "../test/supabaseMock";
+import { queueTableResult, resetSupabaseMock, setTableResult } from "../test/supabaseMock";
+import { createTestQueryClient, setQueryClientForTests, setupGuestQueryInvalidation } from "./queryClient";
+import { createHookWrapper } from "../test/renderWithProviders";
 import {
   deleteActivity,
   deleteCategory,
@@ -44,30 +46,48 @@ beforeEach(() => {
   resetSupabaseMock();
   authState.user = { id: "u1" };
   authState.loading = false;
+  setQueryClientForTests(createTestQueryClient());
 });
+
+function renderDataHook<T, P = void>(
+  hook: (props: P) => T,
+  initialProps?: P,
+  options?: { guestBridge?: boolean },
+) {
+  const queryClient = createTestQueryClient();
+  if (options?.guestBridge) setupGuestQueryInvalidation(queryClient);
+  setQueryClientForTests(queryClient);
+  return renderHook(hook, {
+    initialProps,
+    wrapper: createHookWrapper(queryClient),
+  });
+}
 
 describe("read hooks — error contract", () => {
   it("keeps the last known data when a refresh fails, and exposes the error", async () => {
-    queueTableResult("categories", { data: [CAT] });
-    const { result } = renderHook(() => useCategories());
+    setTableResult("categories", { data: [CAT] });
+    const { result } = renderDataHook(() => useCategories());
     await waitFor(() => expect(result.current.data).toHaveLength(1));
 
     queueTableResult("categories", { error: { message: "boom" } });
-    await act(() => result.current.refresh());
+    await act(async () => {
+      await result.current.refresh();
+    });
+    await waitFor(() => expect(result.current.error).toBe("boom"));
 
     expect(result.current.data).toHaveLength(1); // NOT clobbered to []
-    expect(result.current.error).toBe("boom");
   });
 
   it("clears the error once a refresh succeeds again", async () => {
-    queueTableResult("categories", { error: { message: "boom" } });
-    const { result } = renderHook(() => useCategories());
+    setTableResult("categories", { error: { message: "boom" } });
+    const { result } = renderDataHook(() => useCategories());
     await waitFor(() => expect(result.current.error).toBe("boom"));
 
-    queueTableResult("categories", { data: [CAT] });
-    await act(() => result.current.refresh());
-
-    expect(result.current.error).toBeNull();
+    setTableResult("categories", { data: [CAT] });
+    await act(async () => {
+      await result.current.refresh();
+    });
+    await waitFor(() => expect(result.current.error).toBeNull());
     expect(result.current.data).toHaveLength(1);
   });
 });
@@ -80,9 +100,9 @@ describe("useTimeLogsInRange — stale-response guard", () => {
     queueTableResult("time_logs", { data: weekA, delayMs: 60 });
     queueTableResult("time_logs", { data: weekB });
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = renderDataHook(
       ({ s, e }: { s: string; e: string }) => useTimeLogsInRange(s, e),
-      { initialProps: { s: "2026-06-01", e: "2026-06-07" } }
+      { s: "2026-06-01", e: "2026-06-07" },
     );
     rerender({ s: "2026-06-08", e: "2026-06-14" });
 
@@ -98,7 +118,7 @@ describe("guest mode — change events", () => {
     authState.user = null;
     L.ensureBootstrap(); // before seeding — bootstrap re-seeds empty arrays otherwise
     L.upsertActivity({ name: "Guitar" });
-    const { result } = renderHook(() => useActivities());
+    const { result } = renderDataHook(() => useActivities(), undefined, { guestBridge: true });
     await waitFor(() => expect(result.current.data).toHaveLength(1));
 
     act(() => {
@@ -136,23 +156,25 @@ describe("mutations — guest/cloud parity", () => {
 describe("remaining hooks — same error contract", () => {
   it("useScheduleBlocks keeps data on a failed refresh", async () => {
     const block = { id: "b1", name: "Work", start_time: "09:00", end_time: "17:00", days_of_week: [1], color: "#fff", type: "fixed", category_id: null, created_at: "" };
-    queueTableResult("schedule_blocks", { data: [block] });
-    const { result } = renderHook(() => useScheduleBlocks());
+    setTableResult("schedule_blocks", { data: [block] });
+    const { result } = renderDataHook(() => useScheduleBlocks());
     await waitFor(() => expect(result.current.data).toHaveLength(1));
 
     queueTableResult("schedule_blocks", { error: { message: "down" } });
-    await act(() => result.current.refresh());
+    await act(async () => {
+      await result.current.refresh();
+    });
+    await waitFor(() => expect(result.current.error).toBe("down"));
     expect(result.current.data).toHaveLength(1);
-    expect(result.current.error).toBe("down");
   });
 
   it("useProfile surfaces errors and serves guest defaults", async () => {
     queueTableResult("profiles", { error: { message: "nope" } });
-    const { result } = renderHook(() => useProfile());
+    const { result } = renderDataHook(() => useProfile());
     await waitFor(() => expect(result.current.error).toBe("nope"));
 
     authState.user = null;
-    const { result: guest } = renderHook(() => useProfile());
+    const { result: guest } = renderDataHook(() => useProfile());
     await waitFor(() => expect(guest.current.data?.peak_hours).toEqual({ start: "09:00", end: "12:00" }));
   });
 });
@@ -210,9 +232,10 @@ describe("mutations — remaining happy paths (both modes)", () => {
     L.ensureBootstrap();
     const cat = L.listCategories()[0];
     L.upsertCategory({ id: cat.id, hidden: true });
-    const { result } = renderHook(() => useVisibleCategories());
+    const { result } = renderDataHook(() => useVisibleCategories());
+    await waitFor(() => expect(result.current.all.length).toBeGreaterThan(0));
     await waitFor(() => expect(result.current.data.some((c) => c.id === cat.id)).toBe(false));
-    expect(result.current.all.some((c) => c.id === cat.id)).toBe(true);
+    await waitFor(() => expect(result.current.all.some((c) => c.id === cat.id)).toBe(true));
   });
 
   it("pickerCategories keeps a hidden selected label for edit dialogs", () => {
