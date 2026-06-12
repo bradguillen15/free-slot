@@ -244,6 +244,24 @@ export function deleteScheduleBlock(id: string) {
   write(`${PREFIX}.schedule_blocks`, listScheduleBlocks().filter((b) => b.id !== id));
 }
 
+/** Reorder blocks to match `orderedIds` (unknown ids are ignored; missing ids trail). */
+export function reorderScheduleBlocks(orderedIds: string[]) {
+  const byId = new Map(listScheduleBlocks().map((b) => [b.id, b]));
+  const seen = new Set<string>();
+  const next: LocalScheduleBlock[] = [];
+  for (const id of orderedIds) {
+    const block = byId.get(id);
+    if (block) {
+      next.push(block);
+      seen.add(id);
+    }
+  }
+  for (const block of byId.values()) {
+    if (!seen.has(block.id)) next.push(block);
+  }
+  write(`${PREFIX}.schedule_blocks`, next);
+}
+
 // ---------- Time logs (monthly buckets) ----------
 export function listLogsForMonth(month: string): LocalTimeLog[] {
   return readArray<LocalTimeLog>(logsKey(month));

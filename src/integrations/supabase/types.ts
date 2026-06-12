@@ -151,6 +151,7 @@ export type Database = {
           end_time: string
           id: string
           name: string
+          sort_order: number
           start_time: string
           type: Database["public"]["Enums"]["block_type"]
           user_id: string
@@ -163,6 +164,7 @@ export type Database = {
           end_time: string
           id?: string
           name: string
+          sort_order?: number
           start_time: string
           type?: Database["public"]["Enums"]["block_type"]
           user_id: string
@@ -175,6 +177,7 @@ export type Database = {
           end_time?: string
           id?: string
           name?: string
+          sort_order?: number
           start_time?: string
           type?: Database["public"]["Enums"]["block_type"]
           user_id?: string

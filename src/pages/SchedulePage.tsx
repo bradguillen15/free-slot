@@ -1,5 +1,22 @@
-import { useMemo, useState } from "react";
-import { CalendarRange, Copy, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { CalendarRange, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,7 +27,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import type { ScheduleBlock } from "@/components/day/DayTimeline";
-import { useCategories, useScheduleBlocks, upsertScheduleBlock, deleteScheduleBlock } from "@/lib/dataStore";
+import {
+  useCategories,
+  useScheduleBlocks,
+  upsertScheduleBlock,
+  deleteScheduleBlock,
+  reorderScheduleBlocks,
+} from "@/lib/dataStore";
 import type { PickerCategory } from "@/components/CategoryPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { BLOCK_PRESETS, DAYS } from "@/lib/schedule";
@@ -39,6 +62,116 @@ function previewSegs(blocks: ScheduleBlock[], weekday: number): PreviewSeg[] {
   return out;
 }
 
+type SortableScheduleRowProps = {
+  block: ScheduleBlock;
+  onUpdate: (block: ScheduleBlock, patch: Partial<ScheduleBlock>) => void;
+  onToggleDay: (block: ScheduleBlock, day: number) => void;
+  onDuplicate: (block: ScheduleBlock) => void;
+  onDelete: (block: ScheduleBlock) => void;
+  duplicateLabel: string;
+  deleteLabel: string;
+  dragLabel: string;
+};
+
+function SortableScheduleRow({
+  block: b,
+  onUpdate,
+  onToggleDay,
+  onDuplicate,
+  onDelete,
+  duplicateLabel,
+  deleteLabel,
+  dragLabel,
+}: SortableScheduleRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: b.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex flex-col lg:flex-row lg:items-center gap-3 rounded-xl border border-border bg-card/40 p-3"
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
+          aria-label={dragLabel}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <input
+          type="color"
+          value={b.color}
+          onChange={(e) => onUpdate(b, { color: e.target.value })}
+          className="h-8 w-9 rounded cursor-pointer bg-transparent border border-border shrink-0"
+          aria-label={`Color for ${b.name}`}
+        />
+        <Input
+          key={`${b.id}-${b.name}`}
+          defaultValue={b.name}
+          onBlur={(e) => {
+            const name = e.target.value.trim();
+            if (name && name !== b.name) onUpdate(b, { name });
+          }}
+          className="h-9 flex-1 min-w-[120px]"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          key={`${b.id}-start-${b.start_time}`}
+          type="time"
+          defaultValue={b.start_time.slice(0, 5)}
+          onBlur={(e) => e.target.value !== b.start_time.slice(0, 5) && onUpdate(b, { start_time: e.target.value })}
+          className="h-9 w-28 font-mono-num"
+        />
+        <span className="text-muted-foreground text-xs">→</span>
+        <Input
+          key={`${b.id}-end-${b.end_time}`}
+          type="time"
+          defaultValue={b.end_time.slice(0, 5)}
+          onBlur={(e) => e.target.value !== b.end_time.slice(0, 5) && onUpdate(b, { end_time: e.target.value })}
+          className="h-9 w-28 font-mono-num"
+        />
+      </div>
+      <div className="flex items-center gap-1 flex-wrap">
+        {DAY_ORDER.map((idx) => {
+          const day = DAYS[idx];
+          const active = b.days_of_week.includes(idx);
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onToggleDay(b, idx)}
+              className={cn(
+                "h-8 w-9 rounded-md text-[10px] font-semibold border transition-colors",
+                active ? "text-primary-foreground border-transparent" : "border-border text-foreground/60 hover:border-primary/40"
+              )}
+              style={active ? { backgroundColor: b.color } : undefined}
+            >
+              {day.short}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDuplicate(b)} aria-label={duplicateLabel}>
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(b)} aria-label={deleteLabel}>
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function SchedulePage() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -50,6 +183,21 @@ export default function SchedulePage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ScheduleBlock | null>(null);
+  const [orderedIds, setOrderedIds] = useState<string[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  useEffect(() => {
+    setOrderedIds(blocks.map((b) => b.id));
+  }, [blocks]);
+
+  const orderedBlocks = useMemo(() => {
+    const byId = new Map(blocks.map((b) => [b.id, b]));
+    return orderedIds.map((id) => byId.get(id)).filter((b): b is ScheduleBlock => !!b);
+  }, [blocks, orderedIds]);
 
   const update = async (block: ScheduleBlock, patch: Partial<ScheduleBlock>) => {
     const next = { ...block, ...patch };
@@ -141,6 +289,23 @@ export default function SchedulePage() {
 
   const usedNames = useMemo(() => new Set(blocks.map((b) => b.name)), [blocks]);
 
+  const onDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIdx = orderedIds.indexOf(String(active.id));
+    const newIdx = orderedIds.indexOf(String(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+    const nextIds = arrayMove(orderedIds, oldIdx, newIdx);
+    setOrderedIds(nextIds);
+    try {
+      await reorderScheduleBlocks(mode, user?.id ?? null, nextIds);
+      refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      setOrderedIds(blocks.map((b) => b.id));
+    }
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -176,76 +341,28 @@ export default function SchedulePage() {
             {t("schedule.empty")}
           </div>
         )}
-        {blocks.map((b) => (
-          <div
-            key={b.id}
-            className="flex flex-col lg:flex-row lg:items-center gap-3 rounded-xl border border-border bg-card/40 p-3"
-          >
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <input
-                type="color"
-                value={b.color}
-                onChange={(e) => update(b, { color: e.target.value })}
-                className="h-8 w-9 rounded cursor-pointer bg-transparent border border-border shrink-0"
-                aria-label={`Color for ${b.name}`}
-              />
-              <Input
-                key={`${b.id}-${b.name}`}
-                defaultValue={b.name}
-                onBlur={(e) => {
-                  const name = e.target.value.trim();
-                  if (name && name !== b.name) update(b, { name });
-                }}
-                className="h-9 flex-1 min-w-[120px]"
-              />
+        {blocks.length > 1 && (
+          <p className="text-xs text-muted-foreground">{t("schedule.dragHint")}</p>
+        )}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {orderedBlocks.map((b) => (
+                <SortableScheduleRow
+                  key={b.id}
+                  block={b}
+                  onUpdate={update}
+                  onToggleDay={toggleDay}
+                  onDuplicate={duplicate}
+                  onDelete={setDeleteTarget}
+                  duplicateLabel={t("schedule.duplicate")}
+                  deleteLabel={t("schedule.delete")}
+                  dragLabel={t("schedule.dragToReorder")}
+                />
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <Input
-                key={`${b.id}-start-${b.start_time}`}
-                type="time"
-                defaultValue={b.start_time.slice(0, 5)}
-                onBlur={(e) => e.target.value !== b.start_time.slice(0, 5) && update(b, { start_time: e.target.value })}
-                className="h-9 w-28 font-mono-num"
-              />
-              <span className="text-muted-foreground text-xs">→</span>
-              <Input
-                key={`${b.id}-end-${b.end_time}`}
-                type="time"
-                defaultValue={b.end_time.slice(0, 5)}
-                onBlur={(e) => e.target.value !== b.end_time.slice(0, 5) && update(b, { end_time: e.target.value })}
-                className="h-9 w-28 font-mono-num"
-              />
-            </div>
-            <div className="flex items-center gap-1 flex-wrap">
-              {DAY_ORDER.map((idx) => {
-                const day = DAYS[idx];
-                const active = b.days_of_week.includes(idx);
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => toggleDay(b, idx)}
-                    className={cn(
-                      "h-8 w-9 rounded-md text-[10px] font-semibold border transition-colors",
-                      active ? "text-primary-foreground border-transparent" : "border-border text-foreground/60 hover:border-primary/40"
-                    )}
-                    style={active ? { backgroundColor: b.color } : undefined}
-                  >
-                    {day.short}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicate(b)} aria-label={t("schedule.duplicate")}>
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteTarget(b)} aria-label={t("schedule.delete")}>
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-              </Button>
-            </div>
-          </div>
-        ))}
+          </SortableContext>
+        </DndContext>
       </div>
 
       {/* Mini week preview */}
@@ -259,7 +376,7 @@ export default function SchedulePage() {
                   {DAYS[idx].short}
                 </div>
                 <div className="relative h-36 rounded-lg bg-muted/20 overflow-hidden">
-                  {previewSegs(blocks, idx).map((s) => (
+                  {previewSegs(orderedBlocks, idx).map((s) => (
                     <div
                       key={s.key}
                       className="absolute left-0.5 right-0.5 rounded-sm"

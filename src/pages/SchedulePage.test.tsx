@@ -13,7 +13,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));
 
-import { ensureBootstrap, listScheduleBlocks, upsertScheduleBlock } from "@/lib/localStore";
+import { ensureBootstrap, listScheduleBlocks, reorderScheduleBlocks, upsertScheduleBlock } from "@/lib/localStore";
 import SchedulePage from "./SchedulePage";
 
 beforeEach(() => {
@@ -49,6 +49,20 @@ describe("SchedulePage — guest mode", () => {
     await waitFor(() => {
       expect(listScheduleBlocks().some((b) => b.name === "Sleep")).toBe(true);
     });
+  });
+
+  it("shows drag hint when multiple blocks exist", async () => {
+    upsertScheduleBlock({ name: "Work", start_time: "09:00", end_time: "17:00", days_of_week: [1, 2, 3, 4, 5] });
+    upsertScheduleBlock({ name: "Gym", start_time: "18:00", end_time: "19:00", days_of_week: [1, 3, 5] });
+    render(<SchedulePage />);
+    await waitFor(() => expect(screen.getByText(/Drag blocks to reorder|Arrastra los bloques/)).toBeInTheDocument());
+  });
+
+  it("persists block order via reorderScheduleBlocks", () => {
+    const a = upsertScheduleBlock({ name: "First", start_time: "08:00", end_time: "09:00", days_of_week: [1] });
+    const b = upsertScheduleBlock({ name: "Second", start_time: "09:00", end_time: "10:00", days_of_week: [1] });
+    reorderScheduleBlocks([b.id, a.id]);
+    expect(listScheduleBlocks().map((x) => x.name)).toEqual(["Second", "First"]);
   });
 
   it("guards the last remaining day from being toggled off", async () => {

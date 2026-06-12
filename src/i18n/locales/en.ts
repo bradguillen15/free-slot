@@ -37,6 +37,8 @@ const en = {
     cancel: "Cancel",
     confirmDelete: "Delete block",
     preview: "Week preview",
+    dragToReorder: "Drag to reorder",
+    dragHint: "Drag blocks to reorder your list.",
     manageCard: "Manage schedule",
     manageCardDesc: "View and edit all your recurring blocks in one place.",
     logHere: "Log time here",

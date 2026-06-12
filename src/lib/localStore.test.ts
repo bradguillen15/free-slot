@@ -15,6 +15,7 @@ import {
   listLogsInRange,
   listPriorities,
   listScheduleBlocks,
+  reorderScheduleBlocks,
   setPriorities,
   updateLog,
   updateProfile,
@@ -91,6 +92,14 @@ describe("activity / block upserts", () => {
     const updated = upsertScheduleBlock({ id: b.id, end_time: "18:00" });
     expect(updated.end_time).toBe("18:00");
     expect(listScheduleBlocks()).toHaveLength(1);
+  });
+
+  it("reorders schedule blocks by id list", () => {
+    const a = upsertScheduleBlock({ name: "A", start_time: "09:00", end_time: "10:00", days_of_week: [1] });
+    const b = upsertScheduleBlock({ name: "B", start_time: "10:00", end_time: "11:00", days_of_week: [1] });
+    const c = upsertScheduleBlock({ name: "C", start_time: "11:00", end_time: "12:00", days_of_week: [1] });
+    reorderScheduleBlocks([c.id, a.id, b.id]);
+    expect(listScheduleBlocks().map((x) => x.name)).toEqual(["C", "A", "B"]);
   });
 });
 
