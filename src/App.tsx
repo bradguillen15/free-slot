@@ -49,7 +49,7 @@ const App = () => (
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="labels" element={<LabelsPage />} />
               <Route path="activities" element={<ActivitiesPage />} />
-              <Route path="dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="dashboard" element={<DashboardPage />} />
               <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />

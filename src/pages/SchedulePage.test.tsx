@@ -98,6 +98,16 @@ describe("SchedulePage — guest mode", () => {
     expect(listScheduleBlocks().map((x) => x.name)).toEqual(["Second", "First"]);
   });
 
+  it("shows an overlap warning when blocks collide on the same day", async () => {
+    upsertScheduleBlock({ name: "Work", start_time: "09:00", end_time: "17:00", days_of_week: [1, 2, 3, 4, 5] });
+    upsertScheduleBlock({ name: "Lunch", start_time: "12:30", end_time: "13:00", days_of_week: [1, 2, 3, 4, 5] });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/Overlapping blocks|Bloques superpuestos/)).toBeInTheDocument();
+      expect(screen.getByText(/Work.*Lunch|Lunch.*Work/)).toBeInTheDocument();
+    });
+  });
+
   it("guards the last remaining day from being toggled off", async () => {
     const user = userEvent.setup();
     upsertScheduleBlock({ name: "Solo", start_time: "08:00", end_time: "09:00", days_of_week: [3] });

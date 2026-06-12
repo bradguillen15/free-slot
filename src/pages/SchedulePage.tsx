@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarRange, Copy, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, Copy, GripVertical, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import type { ScheduleBlock } from "@/components/day/DayTimeline";
 import {
@@ -39,6 +40,7 @@ import {
 import type { PickerCategory } from "@/components/CategoryPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { BLOCK_PRESETS, DAYS } from "@/lib/schedule";
+import { findScheduleCollisions, groupScheduleCollisions } from "@/lib/scheduleCollisions";
 import { toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -343,6 +345,26 @@ export default function SchedulePage() {
 
   const usedNames = useMemo(() => new Set(blocks.map((b) => b.name)), [blocks]);
 
+  const overlapGroups = useMemo(() => {
+    return groupScheduleCollisions(
+      findScheduleCollisions(
+        orderedBlocks.map((b) => ({
+          id: b.id,
+          name: b.name,
+          start_time: b.start_time,
+          end_time: b.end_time,
+          days_of_week: b.days_of_week,
+        }))
+      )
+    );
+  }, [orderedBlocks]);
+
+  const formatOverlapDays = (weekdays: number[]) =>
+    weekdays
+      .map((w) => DAYS.find((d) => d.idx === w)?.short)
+      .filter(Boolean)
+      .join(", ");
+
   const onDragEnd = async (e: DragEndEvent) => {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
@@ -419,6 +441,25 @@ export default function SchedulePage() {
             </div>
           </SortableContext>
         </DndContext>
+        {overlapGroups.length > 0 && (
+          <Alert className="border-warning/40 bg-warning/10 text-warning [&>svg]:text-warning">
+            <TriangleAlert className="h-4 w-4" />
+            <AlertTitle>{t("schedule.overlapTitle")}</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-4 space-y-1 mt-1">
+                {overlapGroups.map((g) => (
+                  <li key={`${g.blockA.id}-${g.blockB.id}`}>
+                    {t("schedule.overlapLine", {
+                      a: g.blockA.name,
+                      b: g.blockB.name,
+                      days: formatOverlapDays(g.weekdays),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {/* Mini week preview */}
