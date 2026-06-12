@@ -78,7 +78,7 @@ export async function migrateGuestToCloud(userId: string) {
     const existingBlockKeys = new Set((existingBlocks ?? []).map(blockKey));
     const rows = snap.schedule_blocks
       .filter((b) => !existingBlockKeys.has(blockKey(b)))
-      .map((b) => ({
+      .map((b, i) => ({
         user_id: userId,
         name: b.name,
         start_time: b.start_time,
@@ -87,6 +87,7 @@ export async function migrateGuestToCloud(userId: string) {
         color: b.color,
         type: b.type,
         category_id: b.category_id ? catIdMap.get(b.category_id) ?? null : null,
+        sort_order: i,
       }));
     if (rows.length) {
       const { data, error } = await supabase.from("schedule_blocks").insert(rows).select("id");

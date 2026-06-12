@@ -118,7 +118,13 @@ export function useScheduleBlocks() {
       return;
     }
     setError(null);
-    setData((rows ?? []) as unknown as L.LocalScheduleBlock[]);
+    const sorted = [...(rows ?? [])].sort((a, b) => {
+      const ao = (a as { sort_order?: number }).sort_order ?? 0;
+      const bo = (b as { sort_order?: number }).sort_order ?? 0;
+      if (ao !== bo) return ao - bo;
+      return a.created_at.localeCompare(b.created_at);
+    });
+    setData(sorted as unknown as L.LocalScheduleBlock[]);
   }, [mode, user]);
 
   useEffect(() => { refresh(); }, [refresh, tick]);
@@ -323,11 +329,19 @@ export async function upsertScheduleBlock(
     if (error) throw error;
     return data;
   }
+  const { data: existing } = await supabase
+    .from("schedule_blocks")
+    .select("sort_order")
+    .eq("user_id", userId!)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const nextSort = ((existing?.[0] as { sort_order?: number } | undefined)?.sort_order ?? -1) + 1;
   const { data, error } = await supabase.from("schedule_blocks").insert({
     user_id: userId!,
     name: input.name, start_time: input.start_time, end_time: input.end_time,
     days_of_week: input.days_of_week, color: input.color, type: input.type,
     category_id: input.category_id ?? null,
+    sort_order: nextSort,
   }).select().single();
   if (error) throw error;
   return data;
@@ -337,6 +351,17 @@ export async function deleteScheduleBlock(mode: Mode, userId: string | null, id:
   if (mode === "guest") return L.deleteScheduleBlock(id);
   const { error } = await supabase.from("schedule_blocks").delete().eq("id", id).eq("user_id", userId!);
   if (error) throw error;
+}
+
+export async function reorderScheduleBlocks(mode: Mode, userId: string | null, orderedIds: string[]) {
+  if (mode === "guest") return L.reorderScheduleBlocks(orderedIds);
+  const results = await Promise.all(
+    orderedIds.map((id, i) =>
+      supabase.from("schedule_blocks").update({ sort_order: i }).eq("id", id).eq("user_id", userId!)
+    )
+  );
+  const err = results.find((r) => r.error)?.error;
+  if (err) throw err;
 }
 
 export async function upsertCategory(

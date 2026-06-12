@@ -39,6 +39,8 @@ const es: Translations = {
     cancel: "Cancelar",
     confirmDelete: "Eliminar bloque",
     preview: "Vista de la semana",
+    dragToReorder: "Arrastrar para reordenar",
+    dragHint: "Arrastra los bloques para reordenar tu lista.",
     manageCard: "Gestionar horario",
     manageCardDesc: "Ve y edita todos tus bloques recurrentes en un solo lugar.",
     logHere: "Registrar tiempo aquí",
