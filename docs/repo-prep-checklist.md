@@ -5,71 +5,50 @@
 
 ---
 
-## Already done locally (2026-06-12)
+## Status (updated 2026-06-12)
 
-These changes exist in your working tree but may not be committed yet:
-
-- [x] `.env` added to `.gitignore`; file untracked from git (local `.env` kept)
-- [x] `bun.lockb` and `package-lock.json` removed; standardised on **pnpm**
-- [x] `delete-account` edge function uses `auth.admin.deleteUser()` only (`ON DELETE CASCADE` on all tables)
-- [x] `package.json` `name` set to `free-slot`
-
-**You still need to:** commit the above and add `pnpm-lock.yaml` (see §1).
-
----
-
-## 1. Commit the hygiene fixes (do this soon)
-
-From the repo root:
-
-```bash
-git add .gitignore package.json pnpm-lock.yaml supabase/functions/delete-account/index.ts
-git add -u   # stages deletions: .env, bun.lockb, package-lock.json
-git status   # confirm .env is NOT in the index
-pnpm install --frozen-lockfile
-pnpm test
-git commit -m "Harden repo hygiene: gitignore .env, pnpm lockfile, fix delete-account"
-git push
-```
-
-Verify CI passes on GitHub after push.
+| Step | Status |
+|------|--------|
+| Hygiene fixes committed | **Done** (`cb7aa90`) |
+| `.env` purged from git history | **Done** (`git filter-repo`) |
+| Local `.env` on disk | **Yes** (gitignored) |
+| `git log --all -- .env` | **Empty** |
+| Force-push rewritten history | **You** — §1 below |
+| Rename repo to `free-slot` | **You** — §3 |
+| Make repo public | **Not planned** — §4 when ready |
 
 ---
 
-## 2. Purge `.env` from git history
+## 1. Push rewritten history (you)
 
-Even while the repo is private, commit `e74d293` still contains your Supabase URL, project ref, and anon key. Purge before sharing the repo with anyone or making it public.
-
-### Prerequisites
-
-- Install [git-filter-repo](https://github.com/newren/git-filter-repo): `brew install git-filter-repo`
-- **Back up** the repo or ensure everything is pushed
-- Coordinate with anyone else who has cloned the repo — they must re-clone after this
-
-### Steps
+History was rewritten locally to remove `.env` from every commit. GitHub still has the old history until you force-push.
 
 ```bash
-# 1. Ensure working tree is clean (commit or stash first)
-git status
+# Confirm .env is gone from history
+git log --all --oneline -- .env   # should print nothing
 
-# 2. Remove .env from all commits
-git filter-repo --path .env --invert-paths --force
-
-# 3. Re-add your remote (filter-repo removes remotes)
-git remote add origin git@github.com:<YOUR_USER>/<REPO_NAME>.git
-
-# 4. Force-push rewritten history (private repo only — double-check remote)
+# Push (private repo — you are 11+ commits ahead with rewritten history)
 git push --force-with-lease origin main
 ```
 
-### After purge
+Then verify CI passes on GitHub.
 
-- [ ] Confirm `.env` never appears in history:
-  ```bash
-  git log --all --oneline -- .env   # should print nothing
-  ```
-- [ ] Local `.env` still exists on disk (gitignored) — if not, copy from `.env.example`
-- [ ] Tell collaborators to **delete their old clone and clone fresh**
+> **Note:** Anyone else with a clone must delete it and clone fresh after this push.
+
+---
+
+## 2. Purge `.env` from git history — done locally
+
+Completed with:
+
+```bash
+git filter-repo --path .env --invert-paths --force
+git remote add origin git@github.com:bradguillen15/plan-grow.git
+```
+
+- [x] `git log --all --oneline -- .env` prints nothing
+- [x] Local `.env` still on disk (gitignored)
+- [ ] **You:** force-push (§1) so GitHub matches local history
 
 ### Optional: rotate Supabase keys
 
