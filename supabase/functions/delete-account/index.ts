@@ -1,5 +1,7 @@
-// Deletes the authenticated user and all their data.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// Deletes the authenticated user. All app tables reference auth.users with
+// ON DELETE CASCADE (see migration 20260427044211), so a single admin delete
+// removes profiles, categories, logs, plans, etc. atomically.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,39 +23,26 @@ Deno.serve(async (req) => {
     });
     const { data: { user }, error: userErr } = await userClient.auth.getUser();
     if (userErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE);
-    const uid = user.id;
-
-    // Cascade delete owned data
-    const tables = [
-      "weekly_reviews", "weekly_priorities", "weekly_plans",
-      "time_logs", "schedule_blocks", "daily_nudges",
-      "activities", "categories", "profiles",
-    ] as const;
-    for (const t of tables) {
-      const col = t === "profiles" ? "id" : "user_id";
-      const { error } = await admin.from(t).delete().eq(col, uid);
-      if (error) console.error(`delete ${t} failed:`, error.message);
-    }
-
-    const { error: delErr } = await admin.auth.admin.deleteUser(uid);
+    const { error: delErr } = await admin.auth.admin.deleteUser(user.id);
     if (delErr) {
-      return new Response(JSON.stringify({ error: delErr.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("deleteUser failed:", delErr.message);
+      return json({ error: "Account deletion failed" }, 500);
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ ok: true });
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("delete-account error:", e);
+    return json({ error: "Account deletion failed" }, 500);
   }
 });
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
