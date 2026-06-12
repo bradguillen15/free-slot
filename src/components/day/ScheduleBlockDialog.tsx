@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { upsertScheduleBlock, deleteScheduleBlock, upsertCategory } from "@/lib/dataStore";
+import { ColorInput } from "@/components/ColorInput";
 import { CategoryPicker, nextCreateColor, type PickerCategory } from "@/components/CategoryPicker";
 import type { ScheduleBlock } from "./DayTimeline";
 
@@ -181,6 +182,13 @@ export function ScheduleBlockDialog({
                 />
               ))}
             </div>
+            <ColorInput
+              value={color}
+              onChange={setColor}
+              ariaLabel="Custom color"
+              placeholder="#6366f1"
+              className="pt-1"
+            />
           </div>
 
           {/* Optional label */}

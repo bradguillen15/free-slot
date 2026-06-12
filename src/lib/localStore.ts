@@ -15,6 +15,7 @@ export type LocalCategory = {
   type: "productive" | "unproductive";
   color: string;
   is_default: boolean;
+  hidden: boolean;
   created_at: string;
 };
 
@@ -58,18 +59,22 @@ export type LocalProfile = {
   onboarding_completed: boolean;
 };
 
-const DEFAULT_CATEGORIES: Omit<LocalCategory, "id" | "created_at">[] = [
+/** Seeded defaults for guests and referenced by migrateGuest name mapping. Keep in sync with handle_new_user() migration. */
+export const DEFAULT_CATEGORY_SEED: Omit<LocalCategory, "id" | "created_at" | "hidden">[] = [
   { name: "Deep work",     type: "productive",   color: "#3b82f6", is_default: true },
   { name: "Reading",       type: "productive",   color: "#8b5cf6", is_default: true },
   { name: "Exercise",      type: "productive",   color: "#10b981", is_default: true },
   { name: "Study",         type: "productive",   color: "#f59e0b", is_default: true },
   { name: "Creative work", type: "productive",   color: "#ec4899", is_default: true },
   { name: "Side project",  type: "productive",   color: "#06b6d4", is_default: true },
+  { name: "Sleep",         type: "productive",   color: "#6366f1", is_default: true },
+  { name: "Meals",         type: "productive",   color: "#84cc16", is_default: true },
+  { name: "Chores & errands", type: "productive", color: "#14b8a6", is_default: true },
   { name: "Social media",  type: "unproductive", color: "#ef4444", is_default: true },
   { name: "Gaming",        type: "unproductive", color: "#f97316", is_default: true },
+  { name: "Movies & series", type: "unproductive", color: "#a855f7", is_default: true },
+  { name: "Anime",         type: "unproductive", color: "#d946ef", is_default: true },
   { name: "Idle",          type: "unproductive", color: "#6b7280", is_default: true },
-  { name: "Meals",          type: "productive",  color: "#84cc16", is_default: true },
-  { name: "Chores & errands", type: "productive", color: "#14b8a6", is_default: true },
 ];
 
 const DEFAULT_PROFILE: LocalProfile = {
@@ -121,20 +126,43 @@ function logsKey(month: string) {
   return `${PREFIX}.time_logs.${month}`;
 }
 
-export function ensureBootstrap() {
-  if (typeof window === "undefined") return;
-  if (localStorage.getItem(`${PREFIX}.bootstrapped`)) return;
+function normalizeCategory(raw: LocalCategory): LocalCategory {
+  return { ...raw, hidden: raw.hidden ?? false };
+}
+
+/** Insert any default labels missing by name (idempotent top-up for existing guests). */
+function topUpDefaultCategories() {
+  const all = listCategories().map(normalizeCategory);
+  const existingNames = new Set(all.map((c) => c.name));
+  const missing = DEFAULT_CATEGORY_SEED.filter((c) => !existingNames.has(c.name));
+  if (missing.length === 0) return;
   const now = new Date().toISOString();
-  const cats: LocalCategory[] = DEFAULT_CATEGORIES.map((c) => ({
+  const additions: LocalCategory[] = missing.map((c) => ({
     ...c,
     id: rid(),
+    hidden: false,
     created_at: now,
   }));
-  write(`${PREFIX}.categories`, cats);
-  write(`${PREFIX}.activities`, [] as LocalActivity[]);
-  write(`${PREFIX}.schedule_blocks`, [] as LocalScheduleBlock[]);
-  write(`${PREFIX}.profile`, DEFAULT_PROFILE);
-  localStorage.setItem(`${PREFIX}.bootstrapped`, "1");
+  write(`${PREFIX}.categories`, [...all, ...additions]);
+}
+
+export function ensureBootstrap() {
+  if (typeof window === "undefined") return;
+  if (!localStorage.getItem(`${PREFIX}.bootstrapped`)) {
+    const now = new Date().toISOString();
+    const cats: LocalCategory[] = DEFAULT_CATEGORY_SEED.map((c) => ({
+      ...c,
+      id: rid(),
+      hidden: false,
+      created_at: now,
+    }));
+    write(`${PREFIX}.categories`, cats);
+    write(`${PREFIX}.activities`, [] as LocalActivity[]);
+    write(`${PREFIX}.schedule_blocks`, [] as LocalScheduleBlock[]);
+    write(`${PREFIX}.profile`, DEFAULT_PROFILE);
+    localStorage.setItem(`${PREFIX}.bootstrapped`, "1");
+  }
+  topUpDefaultCategories();
 }
 
 // ---------- Profile ----------
@@ -157,13 +185,13 @@ export function updateProfile(patch: Partial<LocalProfile>) {
 
 // ---------- Categories ----------
 export function listCategories(): LocalCategory[] {
-  return readArray<LocalCategory>(`${PREFIX}.categories`);
+  return readArray<LocalCategory>(`${PREFIX}.categories`).map(normalizeCategory);
 }
 
 export function upsertCategory(input: Partial<LocalCategory> & { id?: string }) {
   const all = listCategories();
   if (input.id && all.some((c) => c.id === input.id)) {
-    const next = all.map((c) => (c.id === input.id ? { ...c, ...input } : c));
+    const next = all.map((c) => (c.id === input.id ? normalizeCategory({ ...c, ...input }) : c));
     write(`${PREFIX}.categories`, next);
     return next.find((c) => c.id === input.id)!;
   }
@@ -173,6 +201,7 @@ export function upsertCategory(input: Partial<LocalCategory> & { id?: string }) 
     type: input.type ?? "productive",
     color: input.color ?? "#3b82f6",
     is_default: false,
+    hidden: input.hidden ?? false,
     created_at: new Date().toISOString(),
   };
   write(`${PREFIX}.categories`, [...all, created]);
@@ -180,6 +209,8 @@ export function upsertCategory(input: Partial<LocalCategory> & { id?: string }) 
 }
 
 export function deleteCategory(id: string) {
+  const cat = listCategories().find((c) => c.id === id);
+  if (cat?.is_default) throw new Error("Default labels cannot be deleted");
   write(`${PREFIX}.categories`, listCategories().filter((c) => c.id !== id));
 }
 

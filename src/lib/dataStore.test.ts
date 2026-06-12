@@ -28,13 +28,16 @@ import {
   upsertScheduleBlock,
   useActivities,
   useCategories,
+  useVisibleCategories,
+  filterVisibleCategories,
+  pickerCategories,
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
 } from "./dataStore";
 import * as L from "./localStore";
 
-const CAT = { id: "c1", name: "Deep work", color: "#000", type: "productive", is_default: true, created_at: "" };
+const CAT = { id: "c1", name: "Deep work", color: "#000", type: "productive" as const, is_default: true, hidden: false, created_at: "" };
 
 beforeEach(() => {
   localStorage.clear();
@@ -185,14 +188,49 @@ describe("mutations — remaining happy paths (both modes)", () => {
     await deleteCategory("guest", null, (created as { id: string }).id);
     expect(L.listCategories().some((c) => c.name === "Breakfast")).toBe(false);
 
+    // Guest: hide flag persists.
+    L.ensureBootstrap();
+    const deep = L.listCategories().find((c) => c.name === "Deep work")!;
+    await upsertCategory("guest", null, { id: deep.id, hidden: true });
+    expect(L.listCategories().find((c) => c.id === deep.id)?.hidden).toBe(true);
+    expect(filterVisibleCategories(L.listCategories()).some((c) => c.id === deep.id)).toBe(false);
+
     // Cloud: insert + update branches resolve; errors propagate.
     queueTableResult("categories", { data: { id: "c9", name: "Snacks" } });
     const cloud = await upsertCategory("cloud", "u1", { name: "Snacks", type: "unproductive" });
     expect((cloud as { id: string }).id).toBe("c9");
-    queueTableResult("categories", { data: { id: "c9", name: "Snacks!" } });
-    await upsertCategory("cloud", "u1", { id: "c9", name: "Snacks!" });
+    queueTableResult("categories", { data: { id: "c9", name: "Snacks!", hidden: true } });
+    await upsertCategory("cloud", "u1", { id: "c9", hidden: true });
     queueTableResult("categories", { error: { message: "denied" } });
     await expect(deleteCategory("cloud", "u1", "c9")).rejects.toMatchObject({ message: "denied" });
+  });
+
+  it("useVisibleCategories omits hidden labels", async () => {
+    authState.user = null;
+    L.ensureBootstrap();
+    const cat = L.listCategories()[0];
+    L.upsertCategory({ id: cat.id, hidden: true });
+    const { result } = renderHook(() => useVisibleCategories());
+    await waitFor(() => expect(result.current.data.some((c) => c.id === cat.id)).toBe(false));
+    expect(result.current.all.some((c) => c.id === cat.id)).toBe(true);
+  });
+
+  it("pickerCategories keeps a hidden selected label for edit dialogs", () => {
+    L.ensureBootstrap();
+    const all = L.listCategories();
+    const hidden = all[0];
+    L.upsertCategory({ id: hidden.id, hidden: true });
+    const visible = L.listCategories().filter((c) => !c.hidden);
+    const picker = pickerCategories(visible, L.listCategories(), hidden.id);
+    expect(picker.some((c) => c.id === hidden.id)).toBe(true);
+    expect(picker).toHaveLength(visible.length + 1);
+  });
+
+  it("cloud deleteCategory rejects default labels like guest mode", async () => {
+    queueTableResult("categories", { data: { is_default: true } });
+    await expect(deleteCategory("cloud", "u1", "default-id")).rejects.toThrow(
+      "Default labels cannot be deleted"
+    );
   });
 
   it("guest mutations route to localStore", async () => {

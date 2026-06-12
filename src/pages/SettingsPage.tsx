@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Settings as SettingsIcon, Plus, Trash2, Save, Tag, AlertTriangle, CalendarRange, ArrowRight } from "lucide-react";
+import { Settings as SettingsIcon, Trash2, Save, Tag, AlertTriangle, CalendarRange, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  useProfile, useCategories, updateProfile,
-  upsertCategory as upsertCategoryStore, deleteCategory as deleteCategoryStore,
-} from "@/lib/dataStore";
+import { useProfile, updateProfile } from "@/lib/dataStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,14 +17,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
-type Category = {
-  id: string;
-  name: string;
-  color: string;
-  type: "productive" | "unproductive";
-  is_default: boolean;
-};
-
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function SettingsPage() {
@@ -37,37 +26,28 @@ export default function SettingsPage() {
   const mode = user ? "cloud" : "guest";
 
   const { data: profileRaw, refresh: refreshProfile } = useProfile();
-  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
 
-  // Local editable copy of profile
   const [localProfile, setLocalProfile] = useState<{
     peak_hours: { start: string; end: string };
     include_weekends: boolean;
     weekly_review_day: number;
   } | null>(null);
 
-  // Sync local profile whenever the dataStore profile changes
   const profile = localProfile ?? (profileRaw ? {
     peak_hours: (profileRaw.peak_hours as { start: string; end: string } | null) ?? { start: "09:00", end: "12:00" },
     include_weekends: profileRaw.include_weekends ?? true,
     weekly_review_day: profileRaw.weekly_review_day ?? 0,
   } : null);
 
-  // Optimistic overlay for category mutations so the list updates instantly
-  // without waiting for refreshCats() to resolve.
-  const [localCats, setLocalCats] = useState<Category[] | null>(null);
-  const categories = localCats ?? ((categoriesRaw ?? []) as unknown as Category[]);
-
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState("");
-  const [newCat, setNewCat] = useState({ name: "", color: "#3b82f6", type: "productive" as "productive" | "unproductive" });
 
   const setProfile = (patch: typeof profile) => setLocalProfile(patch);
 
   const saveProfile = async () => {
     if (!profile) return;
-    if (mode === "cloud" && !user) return; // cloud write requires an authenticated user
+    if (mode === "cloud" && !user) return;
     setSaving(true);
     try {
       await updateProfile(mode, user?.id ?? null, {
@@ -75,57 +55,13 @@ export default function SettingsPage() {
         include_weekends: profile.include_weekends,
         weekly_review_day: profile.weekly_review_day,
       });
-      setLocalProfile(null); // let dataStore be the source of truth
+      setLocalProfile(null);
       await refreshProfile();
       toast.success("Preferences saved");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Could not save preferences");
     } finally {
       setSaving(false);
-    }
-  };
-
-  // Category mutations go through the dataStore adapter (mode-aware, user-scoped).
-  const addCategory = async () => {
-    if (!user || !newCat.name.trim()) return;
-    try {
-      const data = await upsertCategoryStore("cloud", user.id, {
-        name: newCat.name.trim(), color: newCat.color, type: newCat.type,
-      });
-      // Optimistically append so the list updates instantly
-      setLocalCats((prev) => [...(prev ?? categories), data as Category]);
-      setNewCat({ name: "", color: "#3b82f6", type: "productive" });
-      toast.success("Category added");
-      // Sync authoritative data in the background; clear override once done
-      refreshCats().then(() => setLocalCats(null));
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not add category");
-    }
-  };
-
-  const updateCategory = async (id: string, patch: Partial<Category>) => {
-    if (!user) return;
-    // Optimistically update local state so the UI reflects the change instantly
-    setLocalCats((prev) => (prev ?? categories).map((c) => c.id === id ? { ...c, ...patch } : c));
-    try {
-      await upsertCategoryStore("cloud", user.id, { id, ...patch });
-      refreshCats().then(() => setLocalCats(null));
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not update category");
-      setLocalCats(null); // revert to authoritative data on failure
-    }
-  };
-
-  const deleteCategory = async (id: string) => {
-    if (!user) return;
-    if (!confirm("Delete this category? Logs and activities using it will keep working but lose color.")) return;
-    setLocalCats((prev) => (prev ?? categories).filter((c) => c.id !== id));
-    try {
-      await deleteCategoryStore("cloud", user.id, id);
-      refreshCats().then(() => setLocalCats(null));
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not delete category");
-      setLocalCats(null); // revert on failure
     }
   };
 
@@ -157,7 +93,7 @@ export default function SettingsPage() {
           <SettingsIcon className="h-6 w-6 text-primary" />
           Settings
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">Tune the planner and curate your categories.</p>
+        <p className="text-muted-foreground mt-1 text-sm">Tune the planner and manage your labels.</p>
       </header>
 
       <Card>
@@ -171,6 +107,22 @@ export default function SettingsPage() {
           <Button asChild variant="outline" size="sm" className="gap-1.5 shrink-0">
             <Link to="/app/schedule">
               {t("schedule.title")} <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 gap-4">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Tag className="h-4 w-4" /> {t("labels.manageCard")}
+            </CardTitle>
+            <CardDescription className="mt-1.5">{t("labels.manageCardDesc")}</CardDescription>
+          </div>
+          <Button asChild variant="outline" size="sm" className="gap-1.5 shrink-0">
+            <Link to="/app/labels">
+              {t("labels.title")} <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
         </CardHeader>
@@ -231,79 +183,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Categories — cloud-only */}
-      {user && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2"><Tag className="h-4 w-4" /> Categories</CardTitle>
-            <CardDescription>Color-coded buckets for time logs and activities.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              {categories.map((cat) => (
-                <div key={cat.id} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-card/40">
-                  <input
-                    type="color"
-                    value={cat.color}
-                    onChange={(e) => updateCategory(cat.id, { color: e.target.value })}
-                    className="h-8 w-10 rounded cursor-pointer bg-transparent border border-border"
-                  />
-                  <Input
-                    key={`${cat.id}-${cat.name}`}
-                    defaultValue={cat.name}
-                    onBlur={(e) => {
-                      const name = e.target.value.trim();
-                      if (name && name !== cat.name) updateCategory(cat.id, { name });
-                    }}
-                    className="flex-1 h-9"
-                  />
-                  <Select
-                    value={cat.type}
-                    onValueChange={(v) => updateCategory(cat.id, { type: v as "productive" | "unproductive" })}
-                  >
-                    <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="productive">Productive</SelectItem>
-                      <SelectItem value="unproductive">Unproductive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="ghost" size="icon" onClick={() => deleteCategory(cat.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2 pt-2 border-t border-border">
-              <input
-                type="color"
-                value={newCat.color}
-                onChange={(e) => setNewCat({ ...newCat, color: e.target.value })}
-                className="h-8 w-10 rounded cursor-pointer bg-transparent border border-border"
-              />
-              <Input
-                placeholder="New category name"
-                value={newCat.name}
-                onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && addCategory()}
-                className="flex-1 h-9"
-              />
-              <Select value={newCat.type} onValueChange={(v) => setNewCat({ ...newCat, type: v as "productive" | "unproductive" })}>
-                <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="productive">Productive</SelectItem>
-                  <SelectItem value="unproductive">Unproductive</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={addCategory} className="gap-1">
-                <Plus className="h-4 w-4" /> Add
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Danger zone — cloud-only */}
       {user && (
         <Card className="border-destructive/40">
           <CardHeader>
