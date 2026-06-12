@@ -3,6 +3,8 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient, setQueryClientForTests } from "@/lib/queryClient";
 import "@/i18n";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -18,16 +20,21 @@ import { ensureBootstrap, listScheduleBlocks, reorderScheduleBlocks, upsertSched
 import SchedulePage from "./SchedulePage";
 
 function renderPage() {
+  const queryClient = createTestQueryClient();
+  setQueryClientForTests(queryClient);
   return render(
-    <TooltipProvider>
-      <SchedulePage />
-    </TooltipProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <SchedulePage />
+      </TooltipProvider>
+    </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
   localStorage.clear();
   ensureBootstrap();
+  setQueryClientForTests(createTestQueryClient());
 });
 
 describe("SchedulePage — guest mode", () => {

@@ -1,6 +1,8 @@
 // Guest dashboard — local-data analytics (see docs/guest-dashboard-plan.md).
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient, setQueryClientForTests } from "@/lib/queryClient";
 import { MemoryRouter } from "react-router-dom";
 import "@/i18n";
 
@@ -79,10 +81,14 @@ function seedGuestDashboardLogs() {
 }
 
 function renderPage() {
+  const queryClient = createTestQueryClient();
+  setQueryClientForTests(queryClient);
   return render(
-    <MemoryRouter>
-      <DashboardPage />
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -102,8 +108,8 @@ describe("DashboardPage — guest mode", () => {
     await waitFor(() => {
       expect(screen.getByText(/Total tracked|Tiempo registrado/i)).toBeInTheDocument();
       expect(screen.getByText(/Days logged|Días registrados/i)).toBeInTheDocument();
+      expect(screen.getAllByText("2h 30m").length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getAllByText("2h 30m").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.queryByText(/AI slots|Slots de IA/i)).not.toBeInTheDocument();
   });

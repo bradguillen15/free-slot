@@ -40,10 +40,26 @@ src/
 
 ## Data Access Rules
 
-1. **Pages and feature components** must use `dataStore` hooks (`useCategories`, `useActivities`, `useTimeLogsInRange`, etc.).
-2. **Never** call `supabase.from(...)` directly from a page that should work in guest mode.
-3. Account-only features (AI planner, dashboard, settings) may call Supabase or edge functions directly.
-4. New client-accessible tables need `localStore.ts` parity and a `dataStore` hook.
+1. **Pages and feature components** must use `dataStore` React Query hooks for reads (`useCategories`, `useActivities`, `useTimeLogsInRange`, `useProfile`, `useWeeklyPlan`, etc.).
+2. **Never** fetch data in `useEffect` — no hand-rolled `useState` + Supabase/localStorage reads in components.
+3. **Writes** go through `dataStore` async mutation functions or `use*Mutation` hooks; they invalidate query keys automatically — do not thread manual `refresh()` / `onSaved` callbacks.
+4. **Never** call `supabase.from(...)` from pages or components (ESLint enforced). Allowed locations: `src/lib/**`, `src/contexts/AuthContext.tsx`, `src/integrations/**`, and temporary overrides listed in `eslint.config.js` until Phase 3 stragglers migrate.
+5. Account-only features (AI planner, weekly reviews, settings) may use cloud-only hooks or edge functions via `dataStore` — not raw component fetches.
+6. New client-accessible tables need `localStore.ts` parity, a fetcher in `dataFetchers.ts`, query keys in `queryKeys.ts`, and a hook in `dataStore.ts`.
+
+### React Query cheat sheet
+
+| Task | Pattern |
+|---|---|
+| Read guest/cloud data | `useCategories()`, `useTimeLogsInRange(start, end)`, … |
+| Cloud-only read | `useWeeklyPlan(weekStart)` with `enabled: !!user` inside the hook |
+| Write + cache update | `await upsertCategory(mode, userId, input)` or `useUpsertCategoryMutation()` |
+| Manual refetch | `const { refresh } = useCategories(); await refresh()` (prefer mutation invalidation) |
+| Optimistic log insert | `setData` from `useTimeLogsInRange` → backed by `queryClient.setQueryData` |
+| Query keys | Always use `queryKeys.*` from `@/lib/queryKeys` — never string literals |
+| Tests | Wrap with `renderWithProviders()` or `createHookWrapper()` from `src/test/renderWithProviders.tsx` |
+
+Query client defaults live in `src/lib/queryClient.ts` (`staleTime: 30s`, `retry: 1`, `refetchOnWindowFocus: false`). Guest localStorage writes invalidate guest query keys via a global bridge — do not add per-hook storage listeners.
 
 ## UI / UX Standards
 
@@ -65,6 +81,7 @@ src/
 - Run `bun run test` before completing a task.
 - Test pure logic in `src/lib/` (gaps, schedule, time) with focused unit tests.
 - Mock `dataStore` or `localStore` when testing pages — do not hit Supabase in unit tests.
+- Component tests that render `dataStore` consumers must wrap with `QueryClientProvider` via `renderWithProviders()` (`src/test/renderWithProviders.tsx`).
 
 ## Scripts
 
