@@ -27,7 +27,8 @@ History was rewritten locally to remove `.env` from every commit. GitHub still h
 # Confirm .env is gone from history
 git log --all --oneline -- .env   # should print nothing
 
-# Push (private repo — you are 11+ commits ahead with rewritten history)
+# After filter-repo, fetch first — otherwise --force-with-lease fails with "stale info"
+git fetch origin
 git push --force-with-lease origin main
 ```
 
