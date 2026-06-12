@@ -78,7 +78,7 @@ export default function WeekPage() {
     () => (activitiesRaw ?? []).filter((a) => (a as { is_active?: boolean }).is_active),
     [activitiesRaw]
   );
-  const profile = profileRaw as unknown as { buffer_minutes: number; peak_hours: { start: string; end: string } | null } | null;
+  const profile = profileRaw as unknown as { peak_hours: { start: string; end: string } | null } | null;
 
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
@@ -98,7 +98,6 @@ export default function WeekPage() {
   );
 
   const dayCells: DayCellData[] = useMemo(() => {
-    const buffer = profile?.buffer_minutes ?? 15;
     const peak = profile?.peak_hours ?? null;
 
     return days.map((iso) => {
@@ -113,7 +112,6 @@ export default function WeekPage() {
         blocks,
         logs: dayLogs,
         weekday,
-        bufferMinutes: buffer,
         minWindowMinutes: 30,
         peakStart: peak?.start,
         peakEnd: peak?.end,
@@ -326,6 +324,7 @@ export default function WeekPage() {
         defaultNotes={logCtx.defaultNotes}
         onOptimisticInsert={() => { /* refresh below covers it */ }}
         onSaved={refreshLogs}
+        onDeleted={refreshLogs}
         onCategoriesRefresh={refreshCats}
       />
 

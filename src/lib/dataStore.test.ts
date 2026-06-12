@@ -150,7 +150,7 @@ describe("remaining hooks — same error contract", () => {
 
     authState.user = null;
     const { result: guest } = renderHook(() => useProfile());
-    await waitFor(() => expect(guest.current.data?.buffer_minutes).toBe(15));
+    await waitFor(() => expect(guest.current.data?.peak_hours).toEqual({ start: "09:00", end: "12:00" }));
   });
 });
 
@@ -171,7 +171,7 @@ describe("mutations — remaining happy paths (both modes)", () => {
     await upsertScheduleBlock("cloud", "u1", { id: "b1", ...block });
 
     queueTableResult("profiles", {});
-    await updateProfile("cloud", "u1", { buffer_minutes: 10 });
+    await updateProfile("cloud", "u1", { include_weekends: false });
     queueTableResult("time_logs", {});
     await deleteTimeLog("cloud", "u1", "l1");
     queueTableResult("time_logs", { data: { id: "l1" } });
@@ -201,8 +201,8 @@ describe("mutations — remaining happy paths (both modes)", () => {
     await deleteActivity("guest", null, (a as { id: string }).id);
     const b = await upsertScheduleBlock("guest", null, { name: "B", start_time: "09:00", end_time: "10:00", days_of_week: [1], type: "fixed", color: "#fff" });
     await deleteScheduleBlock("guest", null, (b as { id: string }).id);
-    await updateProfile("guest", null, { buffer_minutes: 5 });
-    expect(L.getProfile().buffer_minutes).toBe(5);
+    await updateProfile("guest", null, { include_weekends: false });
+    expect(L.getProfile().include_weekends).toBe(false);
     const log = await insertTimeLog("guest", null, { date: "2026-06-10", start_time: "09:00", end_time: "10:00", category_id: "c", type: "productive" });
     await deleteTimeLog("guest", null, (log as { id: string }).id);
     expect(L.listLogsForMonth("2026-06")).toHaveLength(0);

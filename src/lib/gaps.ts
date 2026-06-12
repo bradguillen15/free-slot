@@ -1,5 +1,5 @@
 // Pure-logic gap detection: compute free time windows from schedule blocks + logs.
-// All times in minutes since 00:00. Buffer minutes are subtracted from gap edges.
+// All times in minutes since 00:00.
 
 import { MIN_PER_DAY, expandRange, toMin } from "./time";
 
@@ -21,8 +21,8 @@ export type GapWindow = Interval & {
   isPeak: boolean;
 };
 
-const DAY_START = 6 * 60;   // exclude pre-6am from "free time"
-const DAY_END = 23 * 60;    // and past 11pm
+const DAY_START = 0;
+const DAY_END = MIN_PER_DAY;
 
 function mergeIntervals(items: Interval[]): Interval[] {
   if (items.length === 0) return [];
@@ -79,13 +79,12 @@ export function logsToIntervals(logs: DayLogInput[]): Interval[] {
 
 /**
  * Find free windows for a single day given recurring blocks (already filtered or full set
- * with weekday), logs for that day, buffer minutes, and optional peak-hour window.
+ * with weekday), logs for that day, and optional peak-hour window.
  */
 export function findFreeWindows({
   blocks,
   logs,
   weekday,
-  bufferMinutes = 15,
   minWindowMinutes = 30,
   peakStart,
   peakEnd,
@@ -95,7 +94,6 @@ export function findFreeWindows({
   blocks: DayBlockInput[];
   logs: DayLogInput[];
   weekday: number;
-  bufferMinutes?: number;
   minWindowMinutes?: number;
   peakStart?: string;
   peakEnd?: string;
@@ -123,11 +121,6 @@ export function findFreeWindows({
   const peakB = peakEnd ? toMin(peakEnd) : null;
 
   return free
-    .map((w) => {
-      const start = Math.min(w.end, w.start + bufferMinutes);
-      const end = Math.max(0, w.end - bufferMinutes);
-      return { start, end };
-    })
     .filter((w) => w.end - w.start >= minWindowMinutes)
     .map((w) => {
       const isPeak =

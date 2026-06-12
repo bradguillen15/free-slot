@@ -47,7 +47,7 @@ describe("corrupt localStorage shapes", () => {
     localStorage.setItem("freeslot.guest.profile", "null");
     const p = getProfile();
     expect(p.peak_hours).toEqual({ start: "09:00", end: "12:00" });
-    expect(p.buffer_minutes).toBe(15);
+    expect(p.onboarding_completed).toBe(false);
   });
 
   it("list functions return [] when the stored value is not an array", () => {

@@ -288,6 +288,7 @@ export default function CalendarPage() {
             if (log.date === date) setDayLogs((prev) => [...prev, log as typeof prev[0]].sort((a, b) => a.start_time.localeCompare(b.start_time)));
           }}
           onSaved={refreshLogs}
+          onDeleted={refreshLogs}
           onCategoriesRefresh={refreshCats}
         />
 

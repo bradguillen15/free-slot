@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { fmtDuration, toMin } from "@/lib/time";
-import { insertTimeLog, updateTimeLog, upsertCategory } from "@/lib/dataStore";
+import { deleteTimeLog, insertTimeLog, updateTimeLog, upsertCategory } from "@/lib/dataStore";
 import { CategoryPicker, nextCreateColor, type PickerCategory } from "@/components/CategoryPicker";
 
 export type Category = {
@@ -29,6 +29,7 @@ type Props = {
   defaultNotes?: string;
   editId?: string;
   onSaved?: () => void;
+  onDeleted?: () => void;
   /** Called after a label is created on the fly so the parent refreshes its category list. */
   onCategoriesRefresh?: () => void | Promise<void>;
   onOptimisticInsert?: (log: {
@@ -47,7 +48,7 @@ export function QuickLogDialog({
   open, onOpenChange, date, categories,
   defaultStart = "09:00", defaultEnd = "10:00",
   defaultCategoryId, defaultTitle, defaultNotes, editId,
-  onSaved, onOptimisticInsert, onCategoriesRefresh,
+  onSaved, onDeleted, onOptimisticInsert, onCategoriesRefresh,
 }: Props) {
   const { user } = useAuth();
   const [title, setTitle] = useState(defaultTitle ?? "");
@@ -56,6 +57,7 @@ export function QuickLogDialog({
   const [categoryId, setCategoryId] = useState<string | undefined>(defaultCategoryId);
   const [notes, setNotes] = useState(defaultNotes ?? "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -128,6 +130,21 @@ export function QuickLogDialog({
     }
   };
 
+  const remove = async () => {
+    if (!editId) return;
+    setDeleting(true);
+    try {
+      await deleteTimeLog(user ? "cloud" : "guest", user?.id ?? null, editId);
+      toast.success("Log deleted");
+      onOpenChange(false);
+      onDeleted?.();
+    } catch (err: unknown) {
+      toast.error(`Delete failed: ${err instanceof Error ? err.message : "unknown"}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const createLabel = async (name: string, type: "productive" | "unproductive"): Promise<PickerCategory | null> => {
     try {
       const created = await upsertCategory(user ? "cloud" : "guest", user?.id ?? null, {
@@ -190,9 +207,25 @@ export function QuickLogDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !categoryId}>{saving ? "Saving…" : "Save log"}</Button>
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div>
+            {editId && (
+              <Button
+                variant="destructive"
+                onClick={remove}
+                disabled={deleting || saving}
+                size="sm"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={save} disabled={saving || deleting || !categoryId}>
+              {saving ? "Saving…" : "Save log"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

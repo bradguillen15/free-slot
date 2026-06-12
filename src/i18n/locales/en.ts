@@ -113,8 +113,6 @@ const en = {
     preferences: {
       title: "A few preferences",
       subtitle: "Tune how FreeSlot finds gaps and when it asks you to reflect.",
-      buffer: "Buffer between commitments",
-      bufferHint: "minutes — protects time for transitions",
       peak: "Peak focus hours",
       peakHint: "deep activities prefer this window",
       weekends: "Schedule on weekends",
