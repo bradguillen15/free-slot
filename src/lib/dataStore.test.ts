@@ -1,0 +1,191 @@
+process.env.TZ = "America/New_York";
+
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+
+const authState = vi.hoisted(() => ({ user: null as { id: string } | null, loading: false }));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: authState.user, session: null, loading: authState.loading, signOut: vi.fn() }),
+}));
+
+vi.mock("@/integrations/supabase/client", async () => {
+  const m = await import("../test/supabaseMock");
+  return { supabase: m.mockSupabaseClient() };
+});
+
+import { queueTableResult, resetSupabaseMock } from "../test/supabaseMock";
+import {
+  deleteActivity,
+  deleteScheduleBlock,
+  deleteTimeLog,
+  insertTimeLog,
+  updateProfile,
+  updateTimeLog,
+  upsertActivity,
+  upsertScheduleBlock,
+  useActivities,
+  useCategories,
+  useProfile,
+  useScheduleBlocks,
+  useTimeLogsInRange,
+} from "./dataStore";
+import * as L from "./localStore";
+
+const CAT = { id: "c1", name: "Deep work", color: "#000", type: "productive", is_default: true, created_at: "" };
+
+beforeEach(() => {
+  localStorage.clear();
+  resetSupabaseMock();
+  authState.user = { id: "u1" };
+  authState.loading = false;
+});
+
+describe("read hooks — error contract", () => {
+  it("keeps the last known data when a refresh fails, and exposes the error", async () => {
+    queueTableResult("categories", { data: [CAT] });
+    const { result } = renderHook(() => useCategories());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+
+    queueTableResult("categories", { error: { message: "boom" } });
+    await act(() => result.current.refresh());
+
+    expect(result.current.data).toHaveLength(1); // NOT clobbered to []
+    expect(result.current.error).toBe("boom");
+  });
+
+  it("clears the error once a refresh succeeds again", async () => {
+    queueTableResult("categories", { error: { message: "boom" } });
+    const { result } = renderHook(() => useCategories());
+    await waitFor(() => expect(result.current.error).toBe("boom"));
+
+    queueTableResult("categories", { data: [CAT] });
+    await act(() => result.current.refresh());
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toHaveLength(1);
+  });
+});
+
+describe("useTimeLogsInRange — stale-response guard", () => {
+  it("discards a slow response from a superseded range", async () => {
+    const weekA = [{ id: "a", date: "2026-06-01", start_time: "09:00", end_time: "10:00", category_id: null, type: "productive", notes: null }];
+    const weekB = [{ id: "b", date: "2026-06-08", start_time: "09:00", end_time: "10:00", category_id: null, type: "productive", notes: null }];
+    // Week A's response arrives AFTER week B's.
+    queueTableResult("time_logs", { data: weekA, delayMs: 60 });
+    queueTableResult("time_logs", { data: weekB });
+
+    const { result, rerender } = renderHook(
+      ({ s, e }: { s: string; e: string }) => useTimeLogsInRange(s, e),
+      { initialProps: { s: "2026-06-01", e: "2026-06-07" } }
+    );
+    rerender({ s: "2026-06-08", e: "2026-06-14" });
+
+    await waitFor(() => expect(result.current.data.map((l) => l.id)).toEqual(["b"]));
+    // Let week A's slow response land — it must be ignored.
+    await act(() => new Promise((r) => setTimeout(r, 80)));
+    expect(result.current.data.map((l) => l.id)).toEqual(["b"]);
+  });
+});
+
+describe("guest mode — change events", () => {
+  it("re-reads localStorage when a guest write fires the change event", async () => {
+    authState.user = null;
+    L.ensureBootstrap(); // before seeding — bootstrap re-seeds empty arrays otherwise
+    L.upsertActivity({ name: "Guitar" });
+    const { result } = renderHook(() => useActivities());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+
+    act(() => {
+      L.upsertActivity({ name: "Reading" }); // write() dispatches freeslot:guest-change
+    });
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+  });
+});
+
+describe("mutations — guest/cloud parity", () => {
+  it("updateTimeLog rejects on a missing id in BOTH modes", async () => {
+    const patch = { start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" as const };
+    await expect(updateTimeLog("guest", null, "missing", patch)).rejects.toThrow();
+
+    queueTableResult("time_logs", { error: { message: "0 rows" } });
+    await expect(updateTimeLog("cloud", "u1", "missing", patch)).rejects.toThrow();
+  });
+
+  it("insertTimeLog returns the created row in both modes", async () => {
+    const input = { date: "2026-06-10", start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" as const };
+    const guestRow = await insertTimeLog("guest", null, input);
+    expect(guestRow.id).toBeTruthy();
+
+    queueTableResult("time_logs", { data: { id: "cloud-1", ...input } });
+    const cloudRow = await insertTimeLog("cloud", "u1", input);
+    expect((cloudRow as { id: string }).id).toBe("cloud-1");
+  });
+
+  it("mutations propagate errors instead of silently succeeding", async () => {
+    queueTableResult("schedule_blocks", { error: { message: "denied" } });
+    await expect(deleteScheduleBlock("cloud", "u1", "b1")).rejects.toMatchObject({ message: "denied" });
+  });
+});
+
+describe("remaining hooks — same error contract", () => {
+  it("useScheduleBlocks keeps data on a failed refresh", async () => {
+    const block = { id: "b1", name: "Work", start_time: "09:00", end_time: "17:00", days_of_week: [1], color: "#fff", type: "fixed", category_id: null, created_at: "" };
+    queueTableResult("schedule_blocks", { data: [block] });
+    const { result } = renderHook(() => useScheduleBlocks());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+
+    queueTableResult("schedule_blocks", { error: { message: "down" } });
+    await act(() => result.current.refresh());
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.error).toBe("down");
+  });
+
+  it("useProfile surfaces errors and serves guest defaults", async () => {
+    queueTableResult("profiles", { error: { message: "nope" } });
+    const { result } = renderHook(() => useProfile());
+    await waitFor(() => expect(result.current.error).toBe("nope"));
+
+    authState.user = null;
+    const { result: guest } = renderHook(() => useProfile());
+    await waitFor(() => expect(guest.current.data?.buffer_minutes).toBe(15));
+  });
+});
+
+describe("mutations — remaining happy paths (both modes)", () => {
+  it("cloud mutations resolve and hit the right branches", async () => {
+    const activity = { name: "X", category_id: null, target_hours_per_week: 1, is_active: true };
+    queueTableResult("activities", { data: { id: "a1" } });
+    await upsertActivity("cloud", "u1", activity); // insert branch
+    queueTableResult("activities", { data: { id: "a1" } });
+    await upsertActivity("cloud", "u1", { id: "a1", ...activity }); // update branch
+    queueTableResult("activities", {});
+    await deleteActivity("cloud", "u1", "a1");
+
+    const block = { name: "B", start_time: "09:00", end_time: "10:00", days_of_week: [1], type: "fixed" as const, color: "#fff" };
+    queueTableResult("schedule_blocks", { data: { id: "b1" } });
+    await upsertScheduleBlock("cloud", "u1", block);
+    queueTableResult("schedule_blocks", { data: { id: "b1" } });
+    await upsertScheduleBlock("cloud", "u1", { id: "b1", ...block });
+
+    queueTableResult("profiles", {});
+    await updateProfile("cloud", "u1", { buffer_minutes: 10 });
+    queueTableResult("time_logs", {});
+    await deleteTimeLog("cloud", "u1", "l1");
+    queueTableResult("time_logs", { data: { id: "l1" } });
+    await updateTimeLog("cloud", "u1", "l1", { start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" });
+  });
+
+  it("guest mutations route to localStore", async () => {
+    L.ensureBootstrap();
+    const a = await upsertActivity("guest", null, { name: "G", category_id: null, target_hours_per_week: 1, is_active: true });
+    await deleteActivity("guest", null, (a as { id: string }).id);
+    const b = await upsertScheduleBlock("guest", null, { name: "B", start_time: "09:00", end_time: "10:00", days_of_week: [1], type: "fixed", color: "#fff" });
+    await deleteScheduleBlock("guest", null, (b as { id: string }).id);
+    await updateProfile("guest", null, { buffer_minutes: 5 });
+    expect(L.getProfile().buffer_minutes).toBe(5);
+    const log = await insertTimeLog("guest", null, { date: "2026-06-10", start_time: "09:00", end_time: "10:00", category_id: "c", type: "productive" });
+    await deleteTimeLog("guest", null, (log as { id: string }).id);
+    expect(L.listLogsForMonth("2026-06")).toHaveLength(0);
+  });
+});

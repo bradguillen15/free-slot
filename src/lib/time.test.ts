@@ -1,5 +1,7 @@
+process.env.TZ = "America/New_York";
+
 import { describe, it, expect } from "vitest";
-import { expandRange, durationMinutes } from "./time";
+import { addDaysISO, durationMinutes, expandRange, fmtDayHeading, fmtDuration, fmtTimeLabel, fromMin, isoToWeekday, toMin } from "./time";
 
 describe("expandRange", () => {
   it("returns a single segment for a normal range", () => {
@@ -27,5 +29,64 @@ describe("durationMinutes", () => {
 
   it("returns 0 for equal start and end", () => {
     expect(durationMinutes("09:00", "09:00")).toBe(0);
+  });
+});
+
+describe("toMin / fromMin", () => {
+  it("round-trips HH:MM values", () => {
+    expect(toMin("09:30")).toBe(570);
+    expect(fromMin(570)).toBe("09:30");
+    expect(toMin("00:00")).toBe(0);
+  });
+
+  it("fromMin wraps values outside a day", () => {
+    expect(fromMin(1440)).toBe("00:00");
+    expect(fromMin(-30)).toBe("23:30");
+  });
+});
+
+describe("addDaysISO", () => {
+  it("crosses month and year boundaries", () => {
+    expect(addDaysISO("2026-01-31", 1)).toBe("2026-02-01");
+    expect(addDaysISO("2025-12-31", 1)).toBe("2026-01-01");
+    expect(addDaysISO("2026-03-01", -1)).toBe("2026-02-28");
+  });
+
+  it("is stable across the US DST spring-forward (2026-03-08)", () => {
+    expect(addDaysISO("2026-03-07", 1)).toBe("2026-03-08");
+    expect(addDaysISO("2026-03-08", 1)).toBe("2026-03-09");
+  });
+});
+
+describe("isoToWeekday", () => {
+  it("returns the local weekday (0=Sun)", () => {
+    expect(isoToWeekday("2026-06-10")).toBe(3); // Wednesday
+    expect(isoToWeekday("2026-06-14")).toBe(0); // Sunday
+  });
+});
+
+describe("fmtTimeLabel", () => {
+  it("renders 12-hour labels with AM/PM", () => {
+    expect(fmtTimeLabel("09:00")).toBe("9 AM");
+    expect(fmtTimeLabel("13:30")).toBe("1:30 PM");
+    expect(fmtTimeLabel("00:00")).toBe("12 AM");
+    expect(fmtTimeLabel("12:00")).toBe("12 PM");
+  });
+});
+
+describe("fmtDayHeading", () => {
+  it("renders the local weekday and day number", () => {
+    const heading = fmtDayHeading("2026-06-10");
+    expect(heading).toContain("Wednesday");
+    expect(heading).toContain("10");
+  });
+});
+
+describe("fmtDuration", () => {
+  it("formats minutes, whole hours, and mixed durations", () => {
+    expect(fmtDuration(59)).toBe("59m");
+    expect(fmtDuration(60)).toBe("1h");
+    expect(fmtDuration(90)).toBe("1h 30m");
+    expect(fmtDuration(0)).toBe("0m");
   });
 });

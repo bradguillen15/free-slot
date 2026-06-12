@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { buildReviewPrompts } from "../_shared/planning.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,26 +34,13 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) return json({ error: "AI not configured" }, 500);
 
-    const fmt = (m: number) => `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`;
-    const plannedTxt = planned.length
-      ? planned.map((p) => `- ${p.name}: ${fmt(p.minutes)}`).join("\n")
-      : "(no plan)";
-    const actualTxt = actual.length
-      ? actual.map((p) => `- ${p.name}: ${fmt(p.minutes)}`).join("\n")
-      : "(no logs)";
-
-    const systemPrompt = `You are a thoughtful weekly review coach. You analyze a user's planned vs actual time use and write a SHORT, warm, specific reflection (3-5 sentences). Celebrate wins, name one clear gap honestly, and suggest one concrete experiment for next week. No emojis, no bullet points, no headings. Talk to the user directly ("you").`;
-
-    const userPrompt = `Week of ${week_start}.
-Productive ratio: ${productiveRatio}% (${fmt(totalTracked)} tracked).
-
-PLANNED:
-${plannedTxt}
-
-ACTUAL:
-${actualTxt}
-
-Write the reflection now.`;
+    const { system: systemPrompt, user: userPrompt } = buildReviewPrompts({
+      weekStart: week_start,
+      planned,
+      actual,
+      productiveRatio,
+      totalTracked,
+    });
 
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -82,10 +70,14 @@ Write the reflection now.`;
 
     const planned_vs_actual = { planned, actual, productive_ratio: productiveRatio, total_tracked: totalTracked };
 
-    await supabase.from("weekly_reviews").delete().eq("user_id", user.id).eq("week_start", week_start);
+    // Atomic upsert against UNIQUE (user_id, week_start) — the previous
+    // delete-then-insert raced with concurrent regenerations.
     const { data: saved, error: insErr } = await supabase
       .from("weekly_reviews")
-      .insert({ user_id: user.id, week_start, insights, planned_vs_actual })
+      .upsert(
+        { user_id: user.id, week_start, insights, planned_vs_actual },
+        { onConflict: "user_id,week_start" }
+      )
       .select()
       .single();
 
