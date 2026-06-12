@@ -1,14 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import {
+  buildPlanPrompts,
+  validateSlots,
+  type GapWindow,
+  type PlanActivity as Activity,
+  type Priority,
+} from "../_shared/planning.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-type GapWindow = { day: string; start: string; end: string; durationMin: number; isPeak: boolean };
-type Activity = { id: string; name: string; target_hours_per_week: number; category_id: string | null };
-type Priority = { activity_id: string; rank: number };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -37,33 +40,9 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) return json({ error: "AI not configured" }, 500);
 
-    // If no explicit priorities, fall back to all activities ranked by target hours desc
-    const ordered = priorities.length
-      ? priorities
-          .sort((a, b) => a.rank - b.rank)
-          .map((p) => activities.find((x) => x.id === p.activity_id))
-          .filter(Boolean) as Activity[]
-      : [...activities].sort((a, b) => (b.target_hours_per_week ?? 0) - (a.target_hours_per_week ?? 0));
-
-    const ranked = ordered
-      .map((a, i) => `${i + 1}. ${a.name} (target ${a.target_hours_per_week}h/wk, id=${a.id})`)
-      .join("\n");
-
-    const gapText = gaps
-      .map((g) => `- ${g.day} ${g.start}-${g.end} (${g.durationMin}m${g.isPeak ? ", PEAK" : ""})`)
-      .join("\n");
-
-    const systemPrompt = `You are a focused weekly time-planning assistant. Given a list of free time windows and ranked activity priorities, you assign activities to specific windows to best meet weekly hour targets. Prefer peak windows for top-ranked activities. Never exceed a window's duration. Leave space if there isn't enough free time. Return tool call only.`;
-
-    const userPrompt = `Week starting ${week_start}.
-
-RANKED PRIORITIES (top first):
-${ranked || "(none)"}
-
-FREE WINDOWS:
-${gapText || "(none)"}
-
-Plan activities into these windows. Each slot must use start/end inside one window on the same day. Slot duration in minutes <= window duration. Total minutes per activity should approximate target_hours_per_week*60 if possible.`;
+    const { system: systemPrompt, user: userPrompt } = buildPlanPrompts(
+      week_start, gaps, activities, priorities
+    );
 
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -123,6 +102,9 @@ Plan activities into these windows. Each slot must use start/end inside one wind
     if (!toolBlock) return json({ error: "No plan returned" }, 500);
 
     const parsed: { slots: unknown[]; summary: string } = toolBlock.input;
+    // The model's output is untrusted — drop slots with bad formats or that
+    // fall outside the submitted free windows before persisting.
+    const slots = validateSlots(parsed.slots, gaps);
 
     // Atomic upsert by (user_id, week_start) — relies on unique constraint
     const { data: saved, error: insErr } = await supabase
@@ -131,7 +113,7 @@ Plan activities into these windows. Each slot must use start/end inside one wind
         {
           user_id: user.id,
           week_start,
-          slots: parsed.slots,
+          slots,
           generated_at: new Date().toISOString(),
           raw_prompt: { system: systemPrompt, user: userPrompt },
           raw_response: aiJson,
