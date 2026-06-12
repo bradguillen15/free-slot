@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Sparkles, Home, LayoutGrid } from "lucide-react";
+import { Home, LayoutGrid } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -9,9 +10,7 @@ export function PublicHeader({ showAppLink = true }: { showAppLink?: boolean }) 
   return (
     <header className="w-full px-5 sm:px-8 py-4 flex items-center justify-between max-w-6xl mx-auto">
       <Link to="/" className="flex items-center gap-2 group">
-        <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
-          <Sparkles className="h-4 w-4 text-primary-foreground" />
-        </div>
+        <BrandLogo size={32} className="rounded-lg shadow-glow" />
         <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
       </Link>
       <div className="flex items-center gap-1.5">

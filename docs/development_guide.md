@@ -12,7 +12,7 @@ cd plan-grow
 bun install    # or: npm install / pnpm install
 ```
 
-Environment variables (`.env`) are auto-managed by Lovable Cloud when signed in. For local dev, ensure `VITE_SUPABASE_*` keys are present.
+Copy `.env.example` to `.env` and fill in your Supabase project values (`VITE_SUPABASE_*`). See `docs/MIGRATION_RUNBOOK.md` for the full backend setup.
 
 ## Run Locally
 

@@ -11,7 +11,7 @@ paths:
   /functions/v1/generate-weekly-plan:
     post:
       summary: Generate AI weekly plan
-      description: Calls Lovable AI Gateway with gaps, activities, and priorities; upserts weekly_plans.
+      description: Calls the Anthropic Messages API with gaps, activities, and priorities; upserts weekly_plans.
       security:
         - bearerAuth: []
       requestBody:

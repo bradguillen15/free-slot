@@ -1,6 +1,6 @@
 # UX Plan — Schedule Management, Labels & Calendar Polish
 
-**Status:** decided — ready to enter the OpenSpec pipeline phase by phase
+**Status:** implemented (2026-06-12) — kept as the design record for these decisions
 **Date:** 2026-06-10 (updated same day with user decisions + new feedback)
 **Origin:** user feedback — "I already set the initial schedule; if I want to change something I have to do it one by one. I can only add single blocks. Events have no name, just labels — labels should be customizable (breakfast, snacks…). Short blocks render their text wrong."
 
