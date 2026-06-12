@@ -19,6 +19,7 @@ const baseProps = {
   onOpenChange: vi.fn(),
   date: "2026-06-10",
   categories: [cat],
+  defaultTitle: "Test session", // title is required; tests target the later validations
 };
 
 beforeEach(() => {

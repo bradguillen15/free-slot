@@ -68,10 +68,10 @@ describe("updateLog", () => {
 });
 
 describe("ensureBootstrap", () => {
-  it("seeds the 9 default categories once and is idempotent", () => {
+  it("seeds the 11 default categories once and is idempotent", () => {
     ensureBootstrap();
     ensureBootstrap();
-    expect(listCategories()).toHaveLength(9);
+    expect(listCategories()).toHaveLength(11);
   });
 });
 

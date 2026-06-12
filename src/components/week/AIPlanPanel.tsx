@@ -152,7 +152,8 @@ export function AIPlanPanel({
         end_time: slot.end,
         type,
         category_id: category?.id ?? null,
-        notes: `Accepted from AI plan: ${slot.activity_name}`,
+        title: slot.activity_name,
+        notes: "Accepted from AI plan",
       });
 
       if (error) {
@@ -182,7 +183,8 @@ export function AIPlanPanel({
         end_time: slot.end,
         type: (category?.type ?? "productive") as "productive" | "unproductive",
         category_id: category?.id ?? null,
-        notes: `Accepted from AI plan: ${slot.activity_name}`,
+        title: slot.activity_name,
+        notes: "Accepted from AI plan",
       };
     });
 

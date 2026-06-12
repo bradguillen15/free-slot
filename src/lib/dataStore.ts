@@ -206,6 +206,7 @@ export async function insertTimeLog(
     end_time: string;
     category_id: string;
     type: "productive" | "unproductive";
+    title?: string | null;
     notes?: string | null;
   }
 ) {
@@ -221,6 +222,7 @@ export async function insertTimeLog(
       end_time: input.end_time,
       category_id: input.category_id,
       type: input.type,
+      title: input.title ?? null,
       notes: input.notes ?? null,
     })
     .select()
@@ -244,6 +246,7 @@ export async function updateTimeLog(
     end_time: string;
     category_id: string;
     type: "productive" | "unproductive";
+    title?: string | null;
     notes?: string | null;
   }
 ) {
@@ -255,6 +258,7 @@ export async function updateTimeLog(
       end_time: input.end_time,
       category_id: input.category_id,
       type: input.type,
+      ...(input.title !== undefined ? { title: input.title } : {}),
       notes: input.notes ?? null,
     })
     .eq("id", id)
@@ -332,6 +336,47 @@ export async function upsertScheduleBlock(
 export async function deleteScheduleBlock(mode: Mode, userId: string | null, id: string) {
   if (mode === "guest") return L.deleteScheduleBlock(id);
   const { error } = await supabase.from("schedule_blocks").delete().eq("id", id).eq("user_id", userId!);
+  if (error) throw error;
+}
+
+export async function upsertCategory(
+  mode: Mode,
+  userId: string | null,
+  input: { id?: string; name?: string; color?: string; type?: "productive" | "unproductive" }
+) {
+  if (mode === "guest") return L.upsertCategory(input);
+  if (input.id) {
+    const patch: { name?: string; color?: string; type?: "productive" | "unproductive" } = {};
+    if (input.name !== undefined) patch.name = input.name;
+    if (input.color !== undefined) patch.color = input.color;
+    if (input.type !== undefined) patch.type = input.type;
+    const { data, error } = await supabase
+      .from("categories")
+      .update(patch)
+      .eq("id", input.id)
+      .eq("user_id", userId!)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({
+      user_id: userId!,
+      name: input.name ?? "Untitled",
+      color: input.color ?? "#3b82f6",
+      type: input.type ?? "productive",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCategory(mode: Mode, userId: string | null, id: string) {
+  if (mode === "guest") return L.deleteCategory(id);
+  const { error } = await supabase.from("categories").delete().eq("id", id).eq("user_id", userId!);
   if (error) throw error;
 }
 

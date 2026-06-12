@@ -6,9 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { cn } from "@/lib/utils";
 import { fmtDuration, toMin } from "@/lib/time";
-import { insertTimeLog, updateTimeLog } from "@/lib/dataStore";
+import { insertTimeLog, updateTimeLog, upsertCategory } from "@/lib/dataStore";
+import { CategoryPicker, nextCreateColor, type PickerCategory } from "@/components/CategoryPicker";
 
 export type Category = {
   id: string;
@@ -25,9 +25,12 @@ type Props = {
   defaultStart?: string;
   defaultEnd?: string;
   defaultCategoryId?: string;
+  defaultTitle?: string;
   defaultNotes?: string;
   editId?: string;
   onSaved?: () => void;
+  /** Called after a label is created on the fly so the parent refreshes its category list. */
+  onCategoriesRefresh?: () => void | Promise<void>;
   onOptimisticInsert?: (log: {
     id: string;
     date: string;
@@ -35,6 +38,7 @@ type Props = {
     end_time: string;
     category_id: string;
     type: "productive" | "unproductive";
+    title: string | null;
     notes: string | null;
   }) => void;
 };
@@ -42,10 +46,11 @@ type Props = {
 export function QuickLogDialog({
   open, onOpenChange, date, categories,
   defaultStart = "09:00", defaultEnd = "10:00",
-  defaultCategoryId, defaultNotes, editId,
-  onSaved, onOptimisticInsert,
+  defaultCategoryId, defaultTitle, defaultNotes, editId,
+  onSaved, onOptimisticInsert, onCategoriesRefresh,
 }: Props) {
   const { user } = useAuth();
+  const [title, setTitle] = useState(defaultTitle ?? "");
   const [start, setStart] = useState(defaultStart);
   const [end, setEnd] = useState(defaultEnd);
   const [categoryId, setCategoryId] = useState<string | undefined>(defaultCategoryId);
@@ -54,18 +59,23 @@ export function QuickLogDialog({
 
   useEffect(() => {
     if (open) {
+      setTitle(defaultTitle ?? "");
       setStart(defaultStart);
       setEnd(defaultEnd);
       setCategoryId(defaultCategoryId ?? categories[0]?.id);
       setNotes(defaultNotes ?? "");
     }
-  }, [open, defaultStart, defaultEnd, defaultCategoryId, defaultNotes, categories]);
+  }, [open, defaultStart, defaultEnd, defaultCategoryId, defaultTitle, defaultNotes, categories]);
 
   const duration = useMemo(() => Math.max(0, toMin(end) - toMin(start)), [start, end]);
   const selected = categories.find((c) => c.id === categoryId);
 
   const save = async () => {
     if (!categoryId) return;
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
     if (toMin(end) <= toMin(start)) {
       toast.error("End time must be after start");
       return;
@@ -80,6 +90,7 @@ export function QuickLogDialog({
           end_time: end,
           category_id: categoryId,
           type: selected?.type ?? "productive",
+          title: title.trim(),
           notes: notes || null,
         });
         toast.success(`Updated ${fmtDuration(duration)}`);
@@ -94,6 +105,7 @@ export function QuickLogDialog({
           end_time: end,
           category_id: categoryId,
           type: (selected?.type ?? "productive") as "productive" | "unproductive",
+          title: title.trim(),
           notes: notes || null,
         });
         await insertTimeLog(user ? "cloud" : "guest", user?.id ?? null, {
@@ -102,6 +114,7 @@ export function QuickLogDialog({
           end_time: end,
           category_id: categoryId,
           type: selected?.type ?? "productive",
+          title: title.trim(),
           notes: notes || null,
         });
         toast.success(`Logged ${fmtDuration(duration)}`);
@@ -115,8 +128,20 @@ export function QuickLogDialog({
     }
   };
 
-  const productive = categories.filter((c) => c.type === "productive");
-  const unproductive = categories.filter((c) => c.type === "unproductive");
+  const createLabel = async (name: string, type: "productive" | "unproductive"): Promise<PickerCategory | null> => {
+    try {
+      const created = await upsertCategory(user ? "cloud" : "guest", user?.id ?? null, {
+        name,
+        type,
+        color: nextCreateColor(categories.length),
+      });
+      await onCategoriesRefresh?.();
+      return created as PickerCategory;
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not create label");
+      return null;
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,6 +151,15 @@ export function QuickLogDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Title</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What did you do? e.g. Breakfast, Standup, Guitar practice"
+              autoFocus
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Start</Label>
@@ -140,21 +174,14 @@ export function QuickLogDialog({
             Duration · <span className="text-foreground">{fmtDuration(duration)}</span>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Productive</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {productive.map((c) => (
-                <CategoryChip key={c.id} c={c} active={c.id === categoryId} onClick={() => setCategoryId(c.id)} />
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Unproductive</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {unproductive.map((c) => (
-                <CategoryChip key={c.id} c={c} active={c.id === categoryId} onClick={() => setCategoryId(c.id)} />
-              ))}
-            </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Label</Label>
+            <CategoryPicker
+              categories={categories}
+              value={categoryId}
+              onChange={(id) => setCategoryId(id || undefined)}
+              onCreate={createLabel}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -172,21 +199,3 @@ export function QuickLogDialog({
   );
 }
 
-function CategoryChip({ c, active, onClick }: { c: Category; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-        active
-          ? "border-transparent text-primary-foreground shadow-soft"
-          : "border-border text-foreground/80 hover:border-primary/40 hover:text-foreground"
-      )}
-      style={active ? { backgroundColor: c.color } : undefined}
-    >
-      <span className="inline-block h-2 w-2 rounded-full mr-2" style={{ backgroundColor: c.color }} />
-      {c.name}
-    </button>
-  );
-}

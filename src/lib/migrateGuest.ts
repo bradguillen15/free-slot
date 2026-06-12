@@ -119,6 +119,7 @@ export async function migrateGuestToCloud(userId: string) {
         end_time: l.end_time,
         category_id: l.category_id ? catIdMap.get(l.category_id) ?? null : null,
         type: l.type,
+        title: l.title ?? null,
         notes: l.notes,
       }));
     const CHUNK = 200;

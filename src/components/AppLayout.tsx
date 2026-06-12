@@ -1,6 +1,8 @@
 import { Link, useLocation, useOutlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, CalendarDays, LogIn, Lock } from "lucide-react";
+import { useState } from "react";
+import { Calendar, BarChart3, Target, Settings, LogOut, Sparkles, CalendarRange, CalendarDays, Clock, LogIn, Lock, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
 import { CALENDAR_PAGE_SHELL, isCalendarRoute } from "@/components/calendar/calendarLayout";
 import { useTranslation } from "react-i18next";
@@ -14,17 +16,12 @@ const navItems = [
   { to: "/app", labelKey: "nav.day", icon: Calendar, requiresAuth: false },
   { to: "/app/week", labelKey: "nav.week", icon: CalendarRange, requiresAuth: false },
   { to: "/app/month", labelKey: "nav.month", icon: CalendarDays, requiresAuth: false },
+  { to: "/app/schedule", labelKey: "nav.schedule", icon: Clock, requiresAuth: false },
   { to: "/app/dashboard", labelKey: "nav.dashboard", icon: BarChart3, requiresAuth: true },
   { to: "/app/activities", labelKey: "nav.activities", icon: Target, requiresAuth: false },
   { to: "/app/settings", labelKey: "nav.settings", icon: Settings, requiresAuth: true },
 ];
 
-const mobileNavItems = [
-  { to: "/app", labelKey: "nav.calendar", icon: Calendar, requiresAuth: false, matchPrefixes: ["/app", "/app/week", "/app/month"] },
-  { to: "/app/activities", labelKey: "nav.activities", icon: Target, requiresAuth: false },
-  { to: "/app/dashboard", labelKey: "nav.stats", icon: BarChart3, requiresAuth: true },
-  { to: "/app/settings", labelKey: "nav.settings", icon: Settings, requiresAuth: true },
-];
 
 /** Single shell; child routes fade in on navigation (no exit fade — avoids double-blink). */
 export function AppLayoutOutlet() {
@@ -66,6 +63,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut, user } = useAuth();
   const { t } = useTranslation();
   const isGuest = !user;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -135,54 +133,85 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-x-hidden pb-20 md:pb-0">
+      <main className="flex-1 min-w-0 overflow-x-hidden">
+        {/* Mobile header: logo + hamburger (top-right), replaces the old bottom bar */}
+        <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 border-b border-sidebar-border bg-background/95 backdrop-blur-md">
+          <Link to="/app" className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
+              <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+            </div>
+            <span className="font-display text-base font-semibold tracking-tight">FreeSlot</span>
+          </Link>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("nav.menu")}
+                className="h-9 w-9 rounded-lg flex items-center justify-center text-foreground hover:bg-muted/60 transition-colors"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72 bg-sidebar border-sidebar-border p-0 flex flex-col">
+              <div className="px-5 py-5 border-b border-sidebar-border">
+                <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
+              </div>
+              <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+                {navItems.map(({ to, labelKey, icon: Icon, requiresAuth }) => {
+                  const active = to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to);
+                  const locked = isGuest && requiresAuth;
+                  const target = locked ? "/auth" : to;
+                  return (
+                    <Link
+                      key={to}
+                      to={target}
+                      onClick={() => setMenuOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                        locked && "opacity-70"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="flex-1">{t(labelKey)}</span>
+                      {locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="p-3 border-t border-sidebar-border space-y-2">
+                <div className="px-1"><LanguageSwitcher /></div>
+                {user ? (
+                  <>
+                    <div className="px-3 py-1 text-xs text-muted-foreground truncate">{user.email}</div>
+                    <button
+                      onClick={() => { setMenuOpen(false); signOut(); }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {t("common.signOut")}
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/auth"
+                    onClick={() => setMenuOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm gradient-primary text-primary-foreground font-medium hover:opacity-90 shadow-glow transition-opacity"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    {t("nav.signInCreate")}
+                  </Link>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+        </header>
+
         <GuestBanner />
         {children}
       </main>
-
-      {/* Mobile bottom nav */}
-      <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-sidebar-border bg-sidebar/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
-        aria-label="Primary"
-      >
-        <ul className="grid grid-cols-4">
-          {mobileNavItems.map((item) => {
-            const { to, labelKey, icon: Icon, requiresAuth } = item;
-            const prefixes = (item as typeof item & { matchPrefixes?: string[] }).matchPrefixes;
-            const active = prefixes
-              ? prefixes.some((p) => (p === "/app" ? location.pathname === "/app" : location.pathname.startsWith(p)))
-              : (to === "/app" ? location.pathname === "/app" : location.pathname.startsWith(to));
-            const locked = isGuest && requiresAuth;
-            const target = locked ? "/auth" : to;
-            return (
-              <li key={to}>
-                <Link
-                  to={target}
-                  className={cn(
-                    "relative flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors",
-                    active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="mobileNavIndicator"
-                      className="absolute top-0 h-0.5 w-8 rounded-b-full bg-primary"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <span className="relative">
-                    <Icon className="h-5 w-5" />
-                    {locked && (
-                      <Lock className="absolute -right-1.5 -top-1 h-2.5 w-2.5 text-muted-foreground" />
-                    )}
-                  </span>
-                  <span>{t(labelKey)}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
     </div>
   );
 }

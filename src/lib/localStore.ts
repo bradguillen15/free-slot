@@ -46,6 +46,7 @@ export type LocalTimeLog = {
   end_time: string;
   category_id: string | null;
   type: "productive" | "unproductive";
+  title?: string | null;
   notes: string | null;
   created_at: string;
 };
@@ -68,6 +69,8 @@ const DEFAULT_CATEGORIES: Omit<LocalCategory, "id" | "created_at">[] = [
   { name: "Social media",  type: "unproductive", color: "#ef4444", is_default: true },
   { name: "Gaming",        type: "unproductive", color: "#f97316", is_default: true },
   { name: "Idle",          type: "unproductive", color: "#6b7280", is_default: true },
+  { name: "Meals",          type: "productive",  color: "#84cc16", is_default: true },
+  { name: "Chores & errands", type: "productive", color: "#14b8a6", is_default: true },
 ];
 
 const DEFAULT_PROFILE: LocalProfile = {
@@ -157,6 +160,29 @@ export function updateProfile(patch: Partial<LocalProfile>) {
 // ---------- Categories ----------
 export function listCategories(): LocalCategory[] {
   return readArray<LocalCategory>(`${PREFIX}.categories`);
+}
+
+export function upsertCategory(input: Partial<LocalCategory> & { id?: string }) {
+  const all = listCategories();
+  if (input.id && all.some((c) => c.id === input.id)) {
+    const next = all.map((c) => (c.id === input.id ? { ...c, ...input } : c));
+    write(`${PREFIX}.categories`, next);
+    return next.find((c) => c.id === input.id)!;
+  }
+  const created: LocalCategory = {
+    id: input.id ?? rid(),
+    name: input.name ?? "Untitled",
+    type: input.type ?? "productive",
+    color: input.color ?? "#3b82f6",
+    is_default: false,
+    created_at: new Date().toISOString(),
+  };
+  write(`${PREFIX}.categories`, [...all, created]);
+  return created;
+}
+
+export function deleteCategory(id: string) {
+  write(`${PREFIX}.categories`, listCategories().filter((c) => c.id !== id));
 }
 
 // ---------- Activities ----------
@@ -267,6 +293,7 @@ export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_t
     end_time: input.end_time,
     category_id: input.category_id ?? null,
     type: input.type,
+    title: input.title ?? null,
     notes: input.notes ?? null,
     created_at: new Date().toISOString(),
   };

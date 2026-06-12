@@ -12,10 +12,11 @@ import { seedGuestData } from "../test/factories";
 import { migrateGuestToCloud } from "./migrateGuest";
 import { hasGuestData } from "./localStore";
 
-// The 9 default category names the signup trigger creates in the cloud.
+// The default category names the signup trigger creates in the cloud
+// (must mirror DEFAULT_CATEGORIES in src/lib/localStore.ts).
 const DEFAULT_NAMES = [
   "Deep work", "Reading", "Exercise", "Study", "Creative work",
-  "Side project", "Social media", "Gaming", "Idle",
+  "Side project", "Social media", "Gaming", "Idle", "Meals", "Chores & errands",
 ];
 const cloudDefaults = DEFAULT_NAMES.map((name, i) => ({ id: `cloud-cat-${i}`, name }));
 

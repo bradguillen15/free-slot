@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Settings as SettingsIcon, Plus, Trash2, Save, Tag, AlertTriangle } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { Settings as SettingsIcon, Plus, Trash2, Save, Tag, AlertTriangle, CalendarRange, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProfile, useCategories, updateProfile } from "@/lib/dataStore";
+import {
+  useProfile, useCategories, updateProfile,
+  upsertCategory as upsertCategoryStore, deleteCategory as deleteCategoryStore,
+} from "@/lib/dataStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +33,7 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const mode = user ? "cloud" : "guest";
 
@@ -84,33 +89,34 @@ export default function SettingsPage() {
     }
   };
 
-  // Category mutations remain cloud-only (categories aren't in the localStorage CRUD schema via Settings)
+  // Category mutations go through the dataStore adapter (mode-aware, user-scoped).
   const addCategory = async () => {
     if (!user || !newCat.name.trim()) return;
-    const { data, error } = await supabase
-      .from("categories")
-      .insert({ user_id: user.id, name: newCat.name.trim(), color: newCat.color, type: newCat.type })
-      .select("id,name,color,type,is_default")
-      .single();
-    if (error) return toast.error(error.message);
-    // Optimistically append so the list updates instantly
-    setLocalCats((prev) => [...(prev ?? categories), data as Category]);
-    setNewCat({ name: "", color: "#3b82f6", type: "productive" });
-    toast.success("Category added");
-    // Sync authoritative data in the background; clear override once done
-    refreshCats().then(() => setLocalCats(null));
+    try {
+      const data = await upsertCategoryStore("cloud", user.id, {
+        name: newCat.name.trim(), color: newCat.color, type: newCat.type,
+      });
+      // Optimistically append so the list updates instantly
+      setLocalCats((prev) => [...(prev ?? categories), data as Category]);
+      setNewCat({ name: "", color: "#3b82f6", type: "productive" });
+      toast.success("Category added");
+      // Sync authoritative data in the background; clear override once done
+      refreshCats().then(() => setLocalCats(null));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not add category");
+    }
   };
 
   const updateCategory = async (id: string, patch: Partial<Category>) => {
     if (!user) return;
     // Optimistically update local state so the UI reflects the change instantly
     setLocalCats((prev) => (prev ?? categories).map((c) => c.id === id ? { ...c, ...patch } : c));
-    const { error } = await supabase.from("categories").update(patch).eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      setLocalCats(null); // revert to authoritative data on failure
-    } else {
+    try {
+      await upsertCategoryStore("cloud", user.id, { id, ...patch });
       refreshCats().then(() => setLocalCats(null));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not update category");
+      setLocalCats(null); // revert to authoritative data on failure
     }
   };
 
@@ -118,12 +124,12 @@ export default function SettingsPage() {
     if (!user) return;
     if (!confirm("Delete this category? Logs and activities using it will keep working but lose color.")) return;
     setLocalCats((prev) => (prev ?? categories).filter((c) => c.id !== id));
-    const { error } = await supabase.from("categories").delete().eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      setLocalCats(null); // revert on failure
-    } else {
+    try {
+      await deleteCategoryStore("cloud", user.id, id);
       refreshCats().then(() => setLocalCats(null));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not delete category");
+      setLocalCats(null); // revert on failure
     }
   };
 
@@ -157,6 +163,22 @@ export default function SettingsPage() {
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">Tune the planner and curate your categories.</p>
       </header>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 gap-4">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CalendarRange className="h-4 w-4" /> {t("schedule.manageCard")}
+            </CardTitle>
+            <CardDescription className="mt-1.5">{t("schedule.manageCardDesc")}</CardDescription>
+          </div>
+          <Button asChild variant="outline" size="sm" className="gap-1.5 shrink-0">
+            <Link to="/app/schedule">
+              {t("schedule.title")} <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardHeader>
+      </Card>
 
       <Card>
         <CardHeader>

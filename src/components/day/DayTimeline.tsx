@@ -12,6 +12,7 @@ export type ScheduleBlock = {
   end_time: string;
   days_of_week: number[];
   type: "fixed" | "waste_expected"; // matches the block_type DB enum
+  category_id?: string | null;
 };
 
 export type TimeLog = {
@@ -21,6 +22,7 @@ export type TimeLog = {
   type: "productive" | "unproductive";
   start_time: string;
   end_time: string;
+  title?: string | null;
   notes: string | null;
 };
 
@@ -181,7 +183,7 @@ export function DayTimeline({
                 log={l}
                 seg={seg}
                 color={color}
-                name={cat?.name ?? l.type}
+                name={l.title || (cat?.name ?? l.type)}
                 index={idx}
                 draggable={!!onLogReschedule && segs.length === 1 && !!l.category_id}
                 onReschedule={onLogReschedule}
@@ -230,6 +232,9 @@ export function DayTimeline({
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
+/** Below this bar height two text rows don't fit — collapse to one line. */
+const COMPACT_BAR_PX = 36;
+
 function BlockBar({
   seg, color, name, onClick,
 }: {
@@ -240,12 +245,14 @@ function BlockBar({
 }) {
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
+  const compact = height < COMPACT_BAR_PX;
   return (
     <motion.div
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       className={cn(
-        "absolute left-1 right-1 rounded-md px-2 py-1 text-[11px] font-medium overflow-hidden border-l-[3px]",
+        "absolute left-1 right-1 rounded-md px-2 text-[11px] font-medium overflow-hidden border-l-[3px]",
+        compact ? "py-0 flex items-center" : "py-1",
         onClick ? "cursor-pointer pointer-events-auto hover:brightness-95 transition-[filter]" : "pointer-events-none"
       )}
       style={{
@@ -256,9 +263,16 @@ function BlockBar({
         color: "hsl(var(--foreground) / 0.85)",
       }}
       onClick={onClick}
+      title={`${name} · Planned`}
     >
-      <div className="truncate">{name}</div>
-      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Planned</div>
+      {compact ? (
+        <div className="truncate text-[10px] leading-none">{name}</div>
+      ) : (
+        <>
+          <div className="truncate">{name}</div>
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Planned</div>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -277,6 +291,7 @@ function LogBar({
 }) {
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
+  const compact = height < COMPACT_BAR_PX;
   const [dragDy, setDragDy] = useState(0);
   const dragRef = useRef<{ startY: number; origStart: number; origEnd: number; moved: boolean } | null>(null);
 
@@ -343,7 +358,8 @@ function LogBar({
         y: { duration: 0 },
       }}
       className={cn(
-        "absolute left-1 right-1 rounded-md px-2 py-1 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
+        "absolute left-1 right-1 rounded-md px-2 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
+        compact ? "py-0 flex items-center" : "py-1",
         draggable ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-pointer"
       )}
       style={{
@@ -359,10 +375,18 @@ function LogBar({
       onClick={!draggable ? handleClick : undefined}
       title={draggable ? "Drag to reschedule · click to edit" : undefined}
     >
-      <div className="truncate">{name}</div>
-      <div className="text-[9px] uppercase tracking-wider opacity-80 font-mono-num">
-        {fmtDuration(seg.endMin - seg.startMin)}
-      </div>
+      {compact ? (
+        <div className="truncate text-[10px] leading-none">
+          {name} · {fmtDuration(seg.endMin - seg.startMin)}
+        </div>
+      ) : (
+        <>
+          <div className="truncate">{name}</div>
+          <div className="text-[9px] uppercase tracking-wider opacity-80 font-mono-num">
+            {fmtDuration(seg.endMin - seg.startMin)}
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }

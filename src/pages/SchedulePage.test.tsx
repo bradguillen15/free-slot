@@ -1,0 +1,67 @@
+// Guest-mode behavior of the Schedule management page (Phase 1 of the UX plan).
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import "@/i18n";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/integrations/supabase/client", async () => {
+  const m = await import("../test/supabaseMock");
+  return { supabase: m.mockSupabaseClient() };
+});
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
+}));
+
+import { ensureBootstrap, listScheduleBlocks, upsertScheduleBlock } from "@/lib/localStore";
+import SchedulePage from "./SchedulePage";
+
+beforeEach(() => {
+  localStorage.clear();
+  ensureBootstrap();
+});
+
+describe("SchedulePage — guest mode", () => {
+  it("lists existing blocks with their day toggles", async () => {
+    upsertScheduleBlock({ name: "Work", start_time: "09:00", end_time: "17:00", days_of_week: [1, 2, 3, 4, 5] });
+    render(<SchedulePage />);
+    await waitFor(() => expect(screen.getByDisplayValue("Work")).toBeInTheDocument());
+  });
+
+  it("duplicates a block in one click", async () => {
+    const user = userEvent.setup();
+    upsertScheduleBlock({ name: "Gym", start_time: "18:00", end_time: "19:00", days_of_week: [1, 3, 5] });
+    render(<SchedulePage />);
+    await waitFor(() => expect(screen.getByDisplayValue("Gym")).toBeInTheDocument());
+
+    await user.click(screen.getAllByLabelText(/Duplicate|Duplicar/)[0]);
+
+    await waitFor(() => {
+      const names = listScheduleBlocks().map((b) => b.name);
+      expect(names).toContain("Gym (copy)");
+    });
+  });
+
+  it("offers presets and adds one on click", async () => {
+    const user = userEvent.setup();
+    render(<SchedulePage />);
+    await user.click(await screen.findByRole("button", { name: "+ Sleep" }));
+    await waitFor(() => {
+      expect(listScheduleBlocks().some((b) => b.name === "Sleep")).toBe(true);
+    });
+  });
+
+  it("guards the last remaining day from being toggled off", async () => {
+    const user = userEvent.setup();
+    upsertScheduleBlock({ name: "Solo", start_time: "08:00", end_time: "09:00", days_of_week: [3] });
+    const { toast } = await import("sonner");
+    render(<SchedulePage />);
+    await waitFor(() => expect(screen.getByDisplayValue("Solo")).toBeInTheDocument());
+
+    // The active "Wed" chip is the only selected day — clicking it must be refused.
+    const wedChips = screen.getAllByRole("button", { name: "Wed" });
+    await user.click(wedChips[0]);
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Select at least one day");
+    expect(listScheduleBlocks().find((b) => b.name === "Solo")?.days_of_week).toEqual([3]);
+  });
+});

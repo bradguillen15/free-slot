@@ -198,6 +198,7 @@ export type Database = {
           id: string
           notes: string | null
           start_time: string
+          title: string | null
           type: Database["public"]["Enums"]["category_type"]
           user_id: string
         }
@@ -209,6 +210,7 @@ export type Database = {
           id?: string
           notes?: string | null
           start_time: string
+          title?: string | null
           type: Database["public"]["Enums"]["category_type"]
           user_id: string
         }
@@ -220,6 +222,7 @@ export type Database = {
           id?: string
           notes?: string | null
           start_time?: string
+          title?: string | null
           type?: Database["public"]["Enums"]["category_type"]
           user_id?: string
         }
