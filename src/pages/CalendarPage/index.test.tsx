@@ -5,7 +5,7 @@ import "@/i18n";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/integrations/supabase/client", async () => {
-  const m = await import("../test/supabaseMock");
+  const m = await import("../../test/supabaseMock");
   return { supabase: m.mockSupabaseClient() };
 });
 vi.mock("@/contexts/AuthContext", () => ({
@@ -13,7 +13,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 import { ensureBootstrap } from "@/lib/localStore";
-import CalendarPage from "./CalendarPage";
+import CalendarPage from ".";
 
 beforeEach(() => {
   localStorage.clear();

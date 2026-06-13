@@ -19,6 +19,9 @@ import { NotebookPen, CalendarRange } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
+import { useNowMinute } from "@/hooks/useNowMinute";
+import { useAutoScrollToHour } from "./useAutoScrollToHour";
+import { useAddBlockHereListener } from "./useAddBlockHereListener";
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -42,7 +45,6 @@ export default function CalendarPage() {
   // Plan-vs-actual chooser when a block occurrence is clicked
   const [chooserBlock, setChooserBlock] = useState<ScheduleBlock | null>(null);
 
-  const [now, setNow] = useState(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Sync ?date= on change
@@ -82,38 +84,20 @@ export default function CalendarPage() {
     [visibleCategories, cats, blockDialogTarget.block?.category_id]
   );
 
-  // Tick "now" line
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
+  const currentMinute = useNowMinute(isToday);
 
-  // Auto-scroll to ~7am or "now" — only when the displayed day changes, not on
-  // every minute tick (that would yank the viewport away from the user's scroll).
-  useEffect(() => {
-    if (!scrollRef.current) return;
-    const current = new Date();
-    const minute = isToday ? current.getHours() * 60 + current.getMinutes() : 7 * 60;
-    const top = (minute / 60) * 56 - 120;
-    scrollRef.current.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  }, [date, isToday]);
+  useAutoScrollToHour(scrollRef, date, isToday);
 
-  const currentMinute = isToday ? now.getHours() * 60 + now.getMinutes() : null;
-
-  // Listen for "add-block-here" custom event from DayTimeline context menu
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { startMin } = (e as CustomEvent<{ startMin: number }>).detail;
+  // New blocks default to Weekdays (no defaultWeekday) — single-day blocks were a
+  // recurring source of confusion.
+  useAddBlockHereListener(
+    useCallback((startMin: number) => {
       const h = Math.floor(startMin / 60);
       const hStr = `${String(h).padStart(2, "0")}:00`;
-      // New blocks default to Weekdays (no defaultWeekday) — single-day blocks
-      // were a recurring source of confusion.
       setBlockDialogTarget({ defaultStartTime: hStr });
       setBlockDialogOpen(true);
-    };
-    document.addEventListener("add-block-here", handler);
-    return () => document.removeEventListener("add-block-here", handler);
-  }, [weekday]);
+    }, [])
+  );
 
   const openLogAt = (startMin: number) => {
     const snapped = Math.floor(startMin / 30) * 30;
@@ -122,7 +106,8 @@ export default function CalendarPage() {
   };
 
   const openQuickLog = () => {
-    const base = isToday ? now.getHours() * 60 + now.getMinutes() - 30 : 9 * 60;
+    // currentMinute is non-null exactly when the displayed day is today.
+    const base = currentMinute != null ? currentMinute - 30 : 9 * 60;
     openLogAt(Math.max(0, base));
   };
 

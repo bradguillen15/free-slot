@@ -32,11 +32,32 @@ FreeSlot is a React SPA built with Vite and TypeScript. The most important archi
 src/
 ├── components/     # Feature + UI (ui/, day/, week/, activities/, dashboard/)
 ├── pages/          # Route components
+├── hooks/          # Reusable hooks shared across components (e.g. useNowMinute, useIsMobile)
 ├── lib/            # Pure logic & adapters (dataStore, localStore, gaps, schedule, time)
 ├── contexts/       # AuthContext
 ├── integrations/   # Generated Supabase client + types (do not edit)
 └── test/           # Vitest setup
 ```
+
+### Component hook co-location
+
+When a component accumulates substantial **component-specific** effect or derivation logic
+(large `useEffect`s, multi-`useMemo` stat derivations, async fetch/aggregate effects), extract it
+into named custom hooks instead of inlining:
+
+- Convert the component to a folder named after it: `Foo/index.tsx` (the component) plus one or
+  more `Foo/useX.ts` hook files **used only by that component**. The folder + `index.tsx` keeps
+  `import Foo from ".../Foo"` resolving, so consumer imports do not change.
+- A hook that is **reusable** across components goes in `src/hooks/` instead — a co-located hook is,
+  by definition, used by exactly one component.
+- Extract by lifting the existing logic verbatim and returning the exact shape the component already
+  consumes; keep behavior identical.
+
+Examples: `pages/DashboardPage/` (`useDashboardStats`, `useWeeklyReviewPrompt`),
+`components/dashboard/WeeklyReviewModal/` (`useWeeklyReviewData`),
+`components/activities/PriorityRanker/` (`usePriorityData`),
+`pages/CalendarPage/` (`useAutoScrollToHour`, `useAddBlockHereListener`); the reusable
+`useNowMinute` lives in `src/hooks/`.
 
 ## Data Access Rules
 

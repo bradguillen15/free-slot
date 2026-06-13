@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -9,18 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { weekStartISO, fmtWeekRange } from "@/lib/week";
 import { addDaysISO } from "@/lib/time";
-import { listPriorities, setPriorities } from "@/lib/localStore";
+import { setPriorities } from "@/lib/localStore";
+import { usePriorityData, type Activity, type RankItem } from "./usePriorityData";
 
 type Category = { id: string; name: string; color: string; type: string };
-type Activity = {
-  id: string;
-  name: string;
-  category_id: string | null;
-  target_hours_per_week: number;
-  is_active: boolean;
-};
-
-type RankItem = Activity & { rank: number };
 
 function SortableRow({ item, idx, cat }: { item: RankItem; idx: number; cat?: Category }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
@@ -67,44 +59,12 @@ export function PriorityRanker({
   categories: Category[];
 }) {
   const [weekStart, setWeekStart] = useState(weekStartISO());
-  const [items, setItems] = useState<RankItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items, setItems, loading } = usePriorityData({ userId, weekStart, activities });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const active = activities.filter((a) => a.is_active);
-      let prios: { activity_id: string; rank: number }[] | null;
-      if (userId) {
-        const { data, error } = await supabase
-          .from("weekly_priorities")
-          .select("activity_id, rank")
-          .eq("user_id", userId)
-          .eq("week_start", weekStart);
-        if (error) console.error("weekly_priorities fetch failed:", error.message);
-        prios = data;
-      } else {
-        prios = listPriorities(weekStart);
-      }
-      if (cancelled) return;
-      const rankMap = new Map(prios?.map((p) => [p.activity_id, p.rank]) ?? []);
-      const ordered = [...active].sort((a, b) => {
-        const ra = rankMap.get(a.id) ?? 999;
-        const rb = rankMap.get(b.id) ?? 999;
-        if (ra !== rb) return ra - rb;
-        return a.name.localeCompare(b.name);
-      });
-      setItems(ordered.map((a, i) => ({ ...a, rank: i })));
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [userId, weekStart, activities]);
 
   const persist = async (next: RankItem[]) => {
     if (!userId) {
