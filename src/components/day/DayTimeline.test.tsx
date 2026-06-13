@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { visibleBlockSegments } from "./DayTimeline";
+import { visibleBlockSegments } from "@/lib/daySegments";
 
 // Each log only needs start_time/end_time for clipping.
 const log = (start_time: string, end_time: string) => ({ start_time, end_time });

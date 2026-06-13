@@ -24,6 +24,15 @@ export default tseslint.config(
     },
   },
   {
+    // Vendored shadcn/ui primitives intentionally co-export `cva` variants and hooks
+    // (e.g. buttonVariants, useFormField), and AuthContext co-exports the `useAuth` hook
+    // with its provider — both idiomatic patterns the Fast Refresh rule can't model.
+    files: ["src/components/ui/**/*.{ts,tsx}", "src/contexts/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
+  {
     files: ["src/pages/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
     ignores: ["src/pages/Auth.tsx"],
     rules: {
