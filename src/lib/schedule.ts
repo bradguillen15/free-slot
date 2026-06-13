@@ -23,3 +23,18 @@ export const BLOCK_PRESETS = [
 export const ACTIVITY_PRESETS = [
   "Reading", "Meditation", "Side project", "Exercise", "Study", "Writing", "Learning",
 ];
+
+/**
+ * Prefill values for "log actual time" from a schedule block occurrence. Uses the block's
+ * true span (HH:MM) for both same-day and overnight blocks — overnight logging is supported,
+ * so no truncation is needed.
+ */
+export function logDefaultsFromBlock(
+  block: { name: string; start_time: string; end_time: string }
+): { start: string; end: string; defaultTitle: string } {
+  return {
+    start: block.start_time.slice(0, 5),
+    end: block.end_time.slice(0, 5),
+    defaultTitle: block.name,
+  };
+}

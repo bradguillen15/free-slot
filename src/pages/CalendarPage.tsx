@@ -5,7 +5,8 @@ import { ChevronLeft, ChevronRight, Plus, CalendarDays, Sparkles } from "lucide-
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
+import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/lib/time";
+import { logDefaultsFromBlock } from "@/lib/schedule";
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
@@ -131,10 +132,7 @@ export default function CalendarPage() {
   }, []);
 
   const logFromBlock = useCallback((block: ScheduleBlock) => {
-    const start = block.start_time.slice(0, 5);
-    const overnight = toMin(block.end_time) <= toMin(block.start_time);
-    const end = overnight ? fromMin(Math.min(toMin(start) + 60, 1439)) : block.end_time.slice(0, 5);
-    setLogDefaults({ start, end, defaultTitle: block.name, defaultCategoryId: undefined });
+    setLogDefaults({ ...logDefaultsFromBlock(block), defaultCategoryId: undefined });
     setLogOpen(true);
   }, []);
 

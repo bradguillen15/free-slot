@@ -121,6 +121,17 @@ The core algorithm. Given:
 
 This is what powers the **"Total free time"** card on the week view, the dashed gap markers in `WeekGrid`, and the candidate slots fed to the AI planner.
 
+### Schedule guide vs. logged time (day view)
+
+The schedule is a **guide**, the log is the truth. In the day timeline (`DayTimeline`), planned
+schedule blocks are **clipped against logged time**: a block is rendered only for the minutes not
+covered by any `time_log` that day (`visibleBlockSegments` → `subtractIntervals` in `lib/time.ts`,
+overnight-aware). Logging a replacement activity is the override — the planned block recedes to the
+remaining, unaccounted-for time; there is no per-day "skip" mechanism. This clipping is
+**presentation-only** and does not change free-window detection (`gaps.ts` still treats both planned
+and logged time as busy). Time entries may also span midnight (`durationMinutes` wraps past
+midnight). Week and Month views are **not yet clipped** — a deliberate follow-up.
+
 ---
 
 ## 6. AI planner (`src/components/week/AIPlanPanel.tsx` + `supabase/functions/generate-weekly-plan/`)
