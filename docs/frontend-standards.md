@@ -95,6 +95,11 @@ Query client defaults live in `src/lib/queryClient.ts` (`staleTime: 30s`, `retry
 - Explicit TypeScript types for props and hook return shapes.
 - English for all identifiers, comments, and user-facing copy.
 - Prefer small, focused components; colocate feature code under `components/<feature>/`.
+- **Named imports only** — do not use `import * as`. Import the specific symbols you need:
+  - React: `import { forwardRef } from "react"` and `import type { HTMLAttributes } from "react"`.
+  - Radix / libraries: `import { Root, Trigger } from "@radix-ui/react-dialog"`.
+  - Internal modules: import functions and types by name; alias on conflict (e.g. `upsertCategory as localUpsertCategory` when a wrapper shares the same name).
+  - Enforced by ESLint (`no-restricted-syntax` on `ImportNamespaceSpecifier` in `eslint.config.js`).
 
 ## Testing
 

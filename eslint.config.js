@@ -21,6 +21,14 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportNamespaceSpecifier",
+          message:
+            "Use named imports instead of `import * as`. Import only the symbols you need (e.g. `import { forwardRef } from \"react\"`).",
+        },
+      ],
     },
   },
   {
