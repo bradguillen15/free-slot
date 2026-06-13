@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Plus, X, Check, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Check, ArrowRight, ArrowLeft, CalendarDays, Dumbbell, Settings2, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,34 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { DAYS, BLOCK_PRESETS, ACTIVITY_PRESETS } from "@/lib/schedule";
+import { DAYS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import { PublicHeader } from "@/components/PublicHeader";
 import { useTranslation } from "react-i18next";
 import {
   ensureBootstrap,
-  listCategories as listLocalCategories,
-  upsertScheduleBlock as upsertLocalBlock,
-  upsertActivity as upsertLocalActivity,
   updateProfile as updateLocalProfile,
 } from "@/lib/localStore";
-
-type Block = {
-  name: string;
-  start_time: string;
-  end_time: string;
-  days_of_week: number[];
-  color: string;
-  type: "fixed" | "waste_expected";
-};
-
-type Activity = {
-  name: string;
-  target_hours_per_week: number;
-  category_id?: string | null;
-};
-
-type Category = { id: string; name: string; type: "productive" | "unproductive"; color: string };
+import { useScheduleBlocks, useActivities, useProfile } from "@/lib/dataStore";
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -45,116 +26,73 @@ export default function Onboarding() {
   const STEPS = [t("onboarding.steps.schedule"), t("onboarding.steps.activities"), t("onboarding.steps.preferences")];
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
 
-  // Step 1
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  // Step 2
-  const [activities, setActivities] = useState<Activity[]>([]);
-  // Step 3
+  const { data: blocks } = useScheduleBlocks();
+  const { data: activities } = useActivities();
+  const { data: profile } = useProfile();
+
+  // Step 3 — preferences, pre-populated from saved profile on first load only
   const [peakStart, setPeakStart] = useState("09:00");
   const [peakEnd, setPeakEnd] = useState("12:00");
   const [includeWeekends, setIncludeWeekends] = useState(true);
   const [reviewDay, setReviewDay] = useState(0);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      if (!user) {
-        ensureBootstrap();
-        const cats = listLocalCategories().map((c) => ({
-          id: c.id, name: c.name, type: c.type, color: c.color,
-        }));
-        setCategories(cats);
-        return;
-      }
-      const { data } = await supabase.from("categories").select("id,name,type,color").eq("user_id", user.id);
-      if (data) setCategories(data as Category[]);
-    })();
+    if (!user) ensureBootstrap();
   }, [user]);
 
-  const productiveCats = categories.filter((c) => c.type === "productive");
+  useEffect(() => {
+    if (prefsLoaded || !profile) return;
+    if (profile.peak_hours) {
+      setPeakStart(profile.peak_hours.start ?? "09:00");
+      setPeakEnd(profile.peak_hours.end ?? "12:00");
+    }
+    if (profile.include_weekends !== undefined) setIncludeWeekends(profile.include_weekends);
+    if (profile.weekly_review_day !== undefined) setReviewDay(profile.weekly_review_day);
+    setPrefsLoaded(true);
+  }, [profile, prefsLoaded]);
 
-  const addPreset = (p: typeof BLOCK_PRESETS[number]) => {
-    if (blocks.some((b) => b.name === p.name)) return;
-    setBlocks([...blocks, {
-      name: p.name, start_time: p.start, end_time: p.end,
-      days_of_week: p.days, color: p.color, type: p.type,
-    }]);
+  const activeActivities = (activities ?? []).filter((a) => a.is_active !== false);
+
+  const skip = async () => {
+    setSaving(true);
+    try {
+      if (!user) {
+        updateLocalProfile({ onboarding_skipped: true });
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ onboarding_skipped: true })
+          .eq("id", user.id);
+        if (error) throw error;
+      }
+      navigate("/app", { replace: true });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : t("common.somethingWrong"));
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const addCustomBlock = () =>
-    setBlocks([...blocks, { name: "New block", start_time: "08:00", end_time: "09:00", days_of_week: [1,2,3,4,5], color: "#3b82f6", type: "fixed" }]);
-
-  const updateBlock = (i: number, patch: Partial<Block>) =>
-    setBlocks(blocks.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
-
-  const removeBlock = (i: number) => setBlocks(blocks.filter((_, idx) => idx !== i));
-
-  const addActivityPreset = (name: string) => {
-    if (activities.some((a) => a.name === name)) return;
-    setActivities([...activities, { name, target_hours_per_week: 3, category_id: productiveCats[0]?.id }]);
-  };
-
-  const addCustomActivity = () =>
-    setActivities([...activities, { name: "New activity", target_hours_per_week: 2, category_id: productiveCats[0]?.id }]);
-
-  const updateActivity = (i: number, patch: Partial<Activity>) =>
-    setActivities(activities.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
-
-  const removeActivity = (i: number) => setActivities(activities.filter((_, idx) => idx !== i));
 
   const finish = async () => {
     setSaving(true);
     try {
+      const prefs = {
+        peak_hours: { start: peakStart, end: peakEnd },
+        include_weekends: includeWeekends,
+        weekly_review_day: reviewDay,
+        onboarding_completed: true,
+      };
       if (!user) {
-        // Guest mode — persist to localStorage
-        for (const b of blocks) {
-          upsertLocalBlock({
-            name: b.name, start_time: b.start_time, end_time: b.end_time,
-            days_of_week: b.days_of_week, color: b.color, type: b.type,
-          });
-        }
-        for (const a of activities) {
-          upsertLocalActivity({
-            name: a.name,
-            target_hours_per_week: a.target_hours_per_week,
-            category_id: a.category_id ?? null,
-            is_active: true,
-          });
-        }
-        updateLocalProfile({
-          peak_hours: { start: peakStart, end: peakEnd },
-          include_weekends: includeWeekends,
-          weekly_review_day: reviewDay,
-          onboarding_completed: true,
-        });
-        toast.success(t("onboarding.allSet"));
-        navigate("/app", { replace: true });
-        return;
+        updateLocalProfile(prefs);
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update(prefs)
+          .eq("id", user.id);
+        if (error) throw error;
       }
-
-      if (blocks.length) {
-        const { error: bErr } = await supabase.from("schedule_blocks").insert(
-          blocks.map((b) => ({ ...b, user_id: user.id }))
-        );
-        if (bErr) throw bErr;
-      }
-      if (activities.length) {
-        const { error: aErr } = await supabase.from("activities").insert(
-          activities.map((a) => ({ ...a, user_id: user.id, is_active: true }))
-        );
-        if (aErr) throw aErr;
-      }
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({
-          peak_hours: { start: peakStart, end: peakEnd },
-          include_weekends: includeWeekends,
-          weekly_review_day: reviewDay,
-          onboarding_completed: true,
-        })
-        .eq("id", user.id);
-      if (pErr) throw pErr;
       toast.success(t("onboarding.allSet"));
       navigate("/app", { replace: true });
     } catch (e: unknown) {
@@ -212,92 +150,26 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.schedule.subtitle")}</p>
                 </header>
 
-                <div className="flex flex-wrap gap-2">
-                  {BLOCK_PRESETS.map((p) => {
-                    const added = blocks.some((b) => b.name === p.name);
-                    return (
-                      <button
-                        key={p.name}
-                        onClick={() => addPreset(p)}
-                        disabled={added}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                          added
-                            ? "bg-primary/10 border-primary/40 text-primary cursor-default"
-                            : "bg-surface border-border hover:border-primary/40 hover:text-foreground text-muted-foreground"
-                        )}
-                      >
-                        {added ? "✓ " : "+ "}{p.name}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={addCustomBlock}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                  >
-                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />{t("onboarding.schedule.custom")}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {blocks.length === 0 && (
-                    <div className="glass border border-dashed border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                      {t("onboarding.schedule.empty")}
+                <div className="glass rounded-xl border border-border p-6 flex flex-col sm:flex-row sm:items-center gap-5">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <CalendarDays className="h-6 w-6 text-primary" />
                     </div>
-                  )}
-                  {blocks.map((b, i) => (
-                    <motion.div
-                      key={i}
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="glass rounded-xl border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-                    >
-                      <div className="h-8 w-1 rounded-full" style={{ backgroundColor: b.color }} />
-                      <Input
-                        value={b.name}
-                        onChange={(e) => updateBlock(i, { name: e.target.value })}
-                        className="bg-input border-border w-full sm:w-40"
-                      />
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="time"
-                          value={b.start_time}
-                          onChange={(e) => updateBlock(i, { start_time: e.target.value })}
-                          className="bg-input border-border w-28 font-mono"
-                        />
-                        <span className="text-muted-foreground text-xs">→</span>
-                        <Input
-                          type="time"
-                          value={b.end_time}
-                          onChange={(e) => updateBlock(i, { end_time: e.target.value })}
-                          className="bg-input border-border w-28 font-mono"
-                        />
-                      </div>
-                      <div className="flex flex-1 gap-1 flex-wrap">
-                        {DAYS.map((d) => {
-                          const active = b.days_of_week.includes(d.idx);
-                          return (
-                            <button
-                              key={d.idx}
-                              onClick={() => updateBlock(i, {
-                                days_of_week: active ? b.days_of_week.filter((x) => x !== d.idx) : [...b.days_of_week, d.idx].sort(),
-                              })}
-                              className={cn(
-                                "h-7 w-8 rounded-md text-[10px] font-semibold transition-colors",
-                                active ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground hover:text-foreground border border-border"
-                              )}
-                            >
-                              {d.short.slice(0,1)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <button onClick={() => removeBlock(i)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </motion.div>
-                  ))}
+                    <div>
+                      <p className="text-2xl font-semibold tabular-nums">
+                        {blocks.length === 0
+                          ? t("onboarding.schedule.countLabel_zero")
+                          : t(blocks.length === 1 ? "onboarding.schedule.countLabel_one" : "onboarding.schedule.countLabel_other", { count: blocks.length })}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{t("onboarding.schedule.subtitle").slice(0, 60)}…</p>
+                    </div>
+                  </div>
+                  <Link to="/app/schedule">
+                    <Button variant="outline" className="gap-2 shrink-0">
+                      {t("onboarding.schedule.cta")}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
                 </div>
               </section>
             )}
@@ -309,77 +181,26 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.activities.subtitle")}</p>
                 </header>
 
-                <div className="flex flex-wrap gap-2">
-                  {ACTIVITY_PRESETS.map((name) => {
-                    const added = activities.some((a) => a.name === name);
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => addActivityPreset(name)}
-                        disabled={added}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                          added
-                            ? "bg-primary/10 border-primary/40 text-primary cursor-default"
-                            : "bg-surface border-border hover:border-primary/40 hover:text-foreground text-muted-foreground"
-                        )}
-                      >
-                        {added ? "✓ " : "+ "}{name}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={addCustomActivity}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                  >
-                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />{t("onboarding.schedule.custom")}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {activities.length === 0 && (
-                    <div className="glass border border-dashed border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                      {t("onboarding.activities.empty")}
+                <div className="glass rounded-xl border border-border p-6 flex flex-col sm:flex-row sm:items-center gap-5">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Dumbbell className="h-6 w-6 text-primary" />
                     </div>
-                  )}
-                  {activities.map((a, i) => (
-                    <motion.div
-                      key={i}
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="glass rounded-xl border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-                    >
-                      <Input
-                        value={a.name}
-                        onChange={(e) => updateActivity(i, { name: e.target.value })}
-                        className="bg-input border-border flex-1"
-                      />
-                      <select
-                        value={a.category_id ?? ""}
-                        onChange={(e) => updateActivity(i, { category_id: e.target.value || null })}
-                        className="bg-input border border-border rounded-md px-3 py-2 text-sm h-10"
-                      >
-                        {productiveCats.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0.5}
-                          step={0.5}
-                          value={a.target_hours_per_week}
-                          onChange={(e) => updateActivity(i, { target_hours_per_week: Number(e.target.value) })}
-                          className="bg-input border-border w-20 font-mono text-right"
-                        />
-                        <span className="text-xs text-muted-foreground">{t("onboarding.activities.hrsWk")}</span>
-                      </div>
-                      <button onClick={() => removeActivity(i)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </motion.div>
-                  ))}
+                    <div>
+                      <p className="text-2xl font-semibold tabular-nums">
+                        {activeActivities.length === 0
+                          ? t("onboarding.activities.countLabel_zero")
+                          : t(activeActivities.length === 1 ? "onboarding.activities.countLabel_one" : "onboarding.activities.countLabel_other", { count: activeActivities.length })}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{t("onboarding.activities.subtitle").slice(0, 60)}…</p>
+                    </div>
+                  </div>
+                  <Link to="/app/activities">
+                    <Button variant="outline" className="gap-2 shrink-0">
+                      {t("onboarding.activities.cta")}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
                 </div>
               </section>
             )}
@@ -429,6 +250,11 @@ export default function Onboarding() {
                       ))}
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Settings2 className="h-4 w-4 shrink-0" />
+                    <p className="text-xs">{t("onboarding.preferences.settingsHint")}</p>
+                  </div>
                 </div>
               </section>
             )}
@@ -443,6 +269,16 @@ export default function Onboarding() {
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> {t("common.back")}
           </Button>
+
+          <Button
+            variant="ghost"
+            onClick={skip}
+            disabled={saving}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {t("onboarding.skip")}
+          </Button>
+
           {step < STEPS.length - 1 ? (
             <Button
               onClick={() => setStep(step + 1)}

@@ -57,6 +57,7 @@ export type LocalProfile = {
   include_weekends: boolean;
   weekly_review_day: number;
   onboarding_completed: boolean;
+  onboarding_skipped: boolean;
 };
 
 /** Seeded defaults for guests and referenced by migrateGuest name mapping. Keep in sync with handle_new_user() migration. */
@@ -82,6 +83,7 @@ const DEFAULT_PROFILE: LocalProfile = {
   include_weekends: true,
   weekly_review_day: 0,
   onboarding_completed: false,
+  onboarding_skipped: false,
 };
 
 function rid() {
@@ -433,7 +435,8 @@ export function hasGuestData() {
     s.schedule_blocks.length > 0 ||
     s.time_logs.length > 0 ||
     s.priorities.length > 0 ||
-    s.profile.onboarding_completed
+    s.profile.onboarding_completed ||
+    s.profile.onboarding_skipped
   );
 }
 

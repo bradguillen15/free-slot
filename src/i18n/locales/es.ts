@@ -164,6 +164,8 @@ const es: Translations = {
     createOne: "Crear una",
     welcome: "Bienvenido a FreeSlot",
     signedIn: "Sesión iniciada",
+    orDivider: "o",
+    continueWithGoogle: "Continuar con Google",
     migrate: {
       title: "¿Traer tus datos de invitado?",
       desc: "Encontramos datos de tu sesión como invitado. ¿Quieres importarlos a tu cuenta nueva para no perder nada?",
@@ -175,17 +177,26 @@ const es: Translations = {
   },
   onboarding: {
     steps: { schedule: "Horario", activities: "Actividades", preferences: "Preferencias" },
+    skip: "Omitir por ahora",
     schedule: {
       title: "Mapea tu semana",
       subtitle: "Añade lo que ya ocurre en repetición — trabajo, sueño, comidas, gimnasio. Encontraremos los huecos entre medias.",
       empty: "Elige algunos presets arriba para empezar.",
       custom: "Personalizado",
+      countLabel_one: "{{count}} bloque añadido",
+      countLabel_other: "{{count}} bloques añadidos",
+      countLabel_zero: "Ningún bloque aún",
+      cta: "Configurar en la página de Horario",
     },
     activities: {
       title: "¿Para qué quieres tiempo?",
       subtitle: "Elige actividades que sigues posponiendo. Define un objetivo de horas semanales. El plan las encajará en tus huecos.",
       empty: "Añade al menos una actividad para continuar.",
       hrsWk: "h/sem",
+      countLabel_one: "{{count}} actividad añadida",
+      countLabel_other: "{{count}} actividades añadidas",
+      countLabel_zero: "Ninguna actividad aún",
+      cta: "Configurar en la página de Actividades",
     },
     preferences: {
       title: "Algunas preferencias",
@@ -195,6 +206,7 @@ const es: Translations = {
       weekends: "Planificar en fines de semana",
       weekendsHint: "Incluir sábado y domingo al planificar",
       reviewDay: "Día de revisión semanal",
+      settingsHint: "Puedes cambiar esto en cualquier momento en Ajustes.",
     },
     allSet: "¡Todo listo!",
   },

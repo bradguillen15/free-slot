@@ -34,12 +34,12 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             {/* Onboarding works for both guests and signed-in users */}
-            <Route path="/onboarding" element={<OnboardingGate><Onboarding /></OnboardingGate>} />
+            <Route path="/onboarding" element={<OnboardingGate key="onboarding"><Onboarding /></OnboardingGate>} />
             {/* One AppLayout for all /app/* — child routes fade in/out on navigation */}
             <Route
               path="/app"
               element={
-                <OnboardingGate>
+                <OnboardingGate key="app">
                   <AppLayoutOutlet />
                 </OnboardingGate>
               }

@@ -78,6 +78,7 @@ export function mockSupabaseClient() {
       getUser: vi.fn(),
       getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      signInWithOAuth: vi.fn().mockResolvedValue({ data: { provider: "google", url: "https://example.com/oauth" }, error: null }),
       signOut: vi.fn(),
     },
     functions: { invoke: vi.fn() },
