@@ -1,7 +1,7 @@
 process.env.TZ = "America/New_York";
 
 import { describe, it, expect } from "vitest";
-import { addDaysISO, durationMinutes, expandRange, fmtDayHeading, fmtDuration, fmtTimeLabel, fromMin, isoToWeekday, toMin } from "./time";
+import { addDaysISO, durationMinutes, expandRange, fmtDayHeading, fmtDuration, fmtTimeLabel, fromMin, isoToWeekday, subtractIntervals, toMin } from "./time";
 
 describe("expandRange", () => {
   it("returns a single segment for a normal range", () => {
@@ -29,6 +29,47 @@ describe("durationMinutes", () => {
 
   it("returns 0 for equal start and end", () => {
     expect(durationMinutes("09:00", "09:00")).toBe(0);
+  });
+
+  it("wraps a full overnight sleep span", () => {
+    expect(durationMinutes("23:00", "06:00")).toBe(420);
+  });
+});
+
+describe("subtractIntervals", () => {
+  it("trims a cut overlapping the start", () => {
+    expect(subtractIntervals([[540, 600]], [[520, 560]])).toEqual([[560, 600]]);
+  });
+
+  it("trims a cut overlapping the end", () => {
+    expect(subtractIntervals([[540, 600]], [[580, 620]])).toEqual([[540, 580]]);
+  });
+
+  it("splits the base when a cut falls in the middle", () => {
+    expect(subtractIntervals([[540, 1020]], [[720, 780]])).toEqual([[540, 720], [780, 1020]]);
+  });
+
+  it("removes a base interval fully covered by a cut", () => {
+    expect(subtractIntervals([[780, 840]], [[750, 870]])).toEqual([]);
+  });
+
+  it("leaves the base intact when there are no cuts", () => {
+    expect(subtractIntervals([[540, 600]], [])).toEqual([[540, 600]]);
+  });
+
+  it("applies multiple overlapping cuts", () => {
+    expect(subtractIntervals([[0, 600]], [[100, 200], [150, 300]])).toEqual([[0, 100], [300, 600]]);
+  });
+
+  it("ignores zero-length cuts", () => {
+    expect(subtractIntervals([[540, 600]], [[560, 560]])).toEqual([[540, 600]]);
+  });
+
+  it("clips an overnight block by an overnight log using pre-expanded segments", () => {
+    // Block 23:00→08:00, log 23:00→01:00 → block remains 01:00→08:00.
+    const block = expandRange(toMin("23:00"), toMin("08:00")); // [[1380,1440],[0,480]]
+    const log = expandRange(toMin("23:00"), toMin("01:00")); // [[1380,1440],[0,60]]
+    expect(subtractIntervals(block, log)).toEqual([[60, 480]]);
   });
 });
 

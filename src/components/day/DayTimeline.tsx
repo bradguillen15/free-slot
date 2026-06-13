@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { MIN_PER_DAY, expandRange, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
+import { MIN_PER_DAY, expandRange, fmtDuration, fmtTimeLabel, subtractIntervals, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Category } from "./QuickLogDialog";
 
@@ -42,6 +42,24 @@ function segmentsForDay(start: string, end: string): Segment[] {
   const s = toMin(start);
   const e = toMin(end);
   return expandRange(s, e).map(([a, b]) => ({ startMin: a, endMin: b }));
+}
+
+/**
+ * Visible segments of a planned block after logged time takes precedence: the block is
+ * clipped to only the minutes not covered by any log on that day (overnight-aware). The
+ * schedule reads as a shrinking guide of time still unaccounted for.
+ */
+export function visibleBlockSegments(
+  block: { start_time: string; end_time: string },
+  logs: Array<{ start_time: string; end_time: string }>,
+): Segment[] {
+  const base = segmentsForDay(block.start_time, block.end_time).map(
+    (s) => [s.startMin, s.endMin] as [number, number]
+  );
+  const cuts = logs
+    .flatMap((l) => segmentsForDay(l.start_time, l.end_time))
+    .map((s) => [s.startMin, s.endMin] as [number, number]);
+  return subtractIntervals(base, cuts).map(([startMin, endMin]) => ({ startMin, endMin }));
 }
 
 type ContextMenu = { x: number; y: number; startMin: number } | null;
@@ -138,10 +156,11 @@ export function DayTimeline({
           </div>
         ))}
 
-        {/* Schedule blocks — full width, z-10 */}
+        {/* Schedule blocks — full width, z-10. Clipped against logged time so the
+            planned guide only shows where nothing has been logged yet. */}
         <div className="absolute inset-y-0 left-16 right-0 z-[10]">
           {blocks.flatMap((b) =>
-            segmentsForDay(b.start_time, b.end_time).map((seg, i) => (
+            visibleBlockSegments(b, logs).map((seg, i) => (
               <BlockBar
                 key={`${b.id}-${i}`}
                 seg={seg}

@@ -68,3 +68,35 @@ export function durationMinutes(start: string, end: string): number {
   if (b === a) return 0;
   return b > a ? b - a : MIN_PER_DAY - a + b;
 }
+
+/**
+ * Subtract `cuts` from `base`, both being half-open [start, end) intervals in the same
+ * minute-space. Used to clip planned schedule blocks against logged time so the schedule
+ * guide only shows the time not yet accounted for. Pass pre-expanded (overnight-split)
+ * segments — see `expandRange`. Zero-length cuts are ignored; results keep `base` order.
+ */
+export function subtractIntervals(
+  base: Array<[number, number]>,
+  cuts: Array<[number, number]>,
+): Array<[number, number]> {
+  const validCuts = cuts.filter(([s, e]) => e > s);
+  const result: Array<[number, number]> = [];
+  for (const [bs, be] of base) {
+    if (be <= bs) continue;
+    let pieces: Array<[number, number]> = [[bs, be]];
+    for (const [cs, ce] of validCuts) {
+      const next: Array<[number, number]> = [];
+      for (const [ps, pe] of pieces) {
+        if (ce <= ps || cs >= pe) {
+          next.push([ps, pe]); // no overlap
+          continue;
+        }
+        if (cs > ps) next.push([ps, cs]); // left remainder
+        if (ce < pe) next.push([ce, pe]); // right remainder
+      }
+      pieces = next;
+    }
+    for (const p of pieces) result.push(p);
+  }
+  return result;
+}

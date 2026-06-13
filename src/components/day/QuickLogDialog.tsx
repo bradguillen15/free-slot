@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { fmtDuration, toMin } from "@/lib/time";
+import { durationMinutes, fmtDuration, toMin } from "@/lib/time";
 import { deleteTimeLog, insertTimeLog, updateTimeLog, upsertCategory } from "@/lib/dataStore";
 import { CategoryPicker, nextCreateColor, type PickerCategory } from "@/components/CategoryPicker";
 
@@ -69,7 +69,7 @@ export function QuickLogDialog({
     }
   }, [open, defaultStart, defaultEnd, defaultCategoryId, defaultTitle, defaultNotes, categories]);
 
-  const duration = useMemo(() => Math.max(0, toMin(end) - toMin(start)), [start, end]);
+  const duration = useMemo(() => durationMinutes(start, end), [start, end]);
   const selected = categories.find((c) => c.id === categoryId);
 
   const save = async () => {
@@ -78,7 +78,7 @@ export function QuickLogDialog({
       toast.error("Title is required");
       return;
     }
-    if (toMin(end) <= toMin(start)) {
+    if (toMin(end) === toMin(start)) {
       toast.error("End time must be after start");
       return;
     }
