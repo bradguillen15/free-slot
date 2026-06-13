@@ -31,7 +31,7 @@ vi.mock("recharts", async (importOriginal) => {
 });
 
 vi.mock("@/integrations/supabase/client", async () => {
-  const m = await import("../test/supabaseMock");
+  const m = await import("../../test/supabaseMock");
   return { supabase: m.mockSupabaseClient() };
 });
 
@@ -51,9 +51,9 @@ vi.mock("@/contexts/AuthContext", () => ({
 import { ensureBootstrap, insertLog, upsertCategory } from "@/lib/localStore";
 import { addDaysISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
-import { resetSupabaseMock, setTableResult } from "../test/supabaseMock";
+import { resetSupabaseMock, setTableResult } from "../../test/supabaseMock";
 import i18n from "@/i18n";
-import DashboardPage from "./DashboardPage";
+import DashboardPage from ".";
 
 function seedGuestDashboardLogs() {
   ensureBootstrap();
