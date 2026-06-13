@@ -66,5 +66,5 @@ export function useWeeklyReviewPrompt({
       });
     })();
     return () => { cancelled = true; };
-  }, [user, isCurrentWeek, weekStart, autoPromptedFor, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, isCurrentWeek, weekStart, autoPromptedFor, t]); // eslint-disable-line react-hooks/exhaustive-deps -- openReview omitted to avoid retriggering on parent renders; supabase is a module singleton
 }

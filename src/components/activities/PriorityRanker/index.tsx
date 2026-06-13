@@ -11,6 +11,7 @@ import { weekStartISO, fmtWeekRange } from "@/lib/week";
 import { addDaysISO } from "@/lib/time";
 import { setPriorities } from "@/lib/localStore";
 import { usePriorityData, type Activity, type RankItem } from "./usePriorityData";
+import { Surface } from "@/components/Surface";
 
 type Category = { id: string; name: string; color: string; type: string };
 
@@ -99,7 +100,7 @@ export function PriorityRanker({
   const catOf = (id: string | null) => categories.find((c) => c.id === id);
 
   return (
-    <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-sm p-6 space-y-4">
+    <Surface elevation="glass" padding="lg" className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <Trophy className="h-4 w-4 text-primary" />
         <h2 className="font-display text-lg font-semibold">This week's priorities</h2>
@@ -137,6 +138,6 @@ export function PriorityRanker({
           </SortableContext>
         </DndContext>
       )}
-    </div>
+    </Surface>
   );
 }

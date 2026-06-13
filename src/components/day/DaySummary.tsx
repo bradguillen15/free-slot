@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { fmtDuration, expandRange, toMin } from "@/lib/time";
+import { Surface } from "@/components/Surface";
 import type { Category } from "./QuickLogDialog";
 import type { TimeLog } from "./DayTimeline";
 
@@ -42,7 +43,7 @@ export function DaySummary({ logs, categories }: { logs: TimeLog[]; categories: 
         <Stat label="Logged" value={fmtDuration(stats.total)} accent="text-foreground" />
       </div>
 
-      <div className="rounded-2xl border border-border bg-surface p-4">
+      <Surface padding="md">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs uppercase tracking-wider text-muted-foreground">Productive ratio</span>
           <span className="font-mono-num text-sm">{Math.round(ratio * 100)}%</span>
@@ -55,9 +56,9 @@ export function DaySummary({ logs, categories }: { logs: TimeLog[]; categories: 
             className="h-full bg-productive"
           />
         </div>
-      </div>
+      </Surface>
 
-      <div className="rounded-2xl border border-border bg-surface p-4">
+      <Surface padding="md">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Top categories</div>
         {stats.top.length === 0 ? (
           <div className="text-sm text-muted-foreground">No logs yet today.</div>
@@ -74,16 +75,16 @@ export function DaySummary({ logs, categories }: { logs: TimeLog[]; categories: 
             ))}
           </ul>
         )}
-      </div>
+      </Surface>
     </div>
   );
 }
 
 function Stat({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
+    <Surface padding="md">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`mt-1 font-display text-2xl font-semibold font-mono-num ${accent}`}>{value}</div>
-    </div>
+    </Surface>
   );
 }

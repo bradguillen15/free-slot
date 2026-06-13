@@ -43,6 +43,7 @@ import { BLOCK_PRESETS, DAYS } from "@/lib/schedule";
 import { findScheduleCollisions, groupScheduleCollisions } from "@/lib/scheduleCollisions";
 import { toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { Surface } from "@/components/Surface";
 
 /** Monday-first ordering of the canonical DAYS constant. */
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -122,10 +123,13 @@ function SortableScheduleRow({
   };
 
   return (
-    <div
+    <Surface
       ref={setNodeRef}
       style={style}
-      className="flex flex-col lg:flex-row lg:items-center gap-3 rounded-xl border border-border bg-card/40 p-3"
+      elevation="muted"
+      radius="xl"
+      padding="sm"
+      className="flex flex-col lg:flex-row lg:items-center gap-3"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <Tooltip>
@@ -205,7 +209,7 @@ function SortableScheduleRow({
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </IconTooltipButton>
       </div>
-    </div>
+    </Surface>
   );
 }
 
@@ -464,7 +468,7 @@ export default function SchedulePage() {
 
       {/* Mini week preview */}
       {blocks.length > 0 && (
-        <div className="rounded-2xl border border-border bg-surface p-4">
+        <Surface padding="md">
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("schedule.preview")}</div>
           <div className="grid grid-cols-7 gap-1.5">
             {DAY_ORDER.map((idx) => (
@@ -484,7 +488,7 @@ export default function SchedulePage() {
               </div>
             ))}
           </div>
-        </div>
+        </Surface>
       )}
 
       <ScheduleBlockDialog

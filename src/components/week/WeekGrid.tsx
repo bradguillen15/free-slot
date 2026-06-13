@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
+import { Surface } from "@/components/Surface";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { GapWindow } from "@/lib/gaps";
 
@@ -67,7 +68,7 @@ export function WeekGrid({
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+    <Surface className="overflow-hidden">
       {/* Day headers */}
       <div className="grid" style={{ gridTemplateColumns: `48px repeat(7, 1fr)` }}>
         <div />
@@ -271,7 +272,7 @@ export function WeekGrid({
           </div>
         ))}
       </div>
-    </div>
+    </Surface>
     </TooltipProvider>
   );
 }

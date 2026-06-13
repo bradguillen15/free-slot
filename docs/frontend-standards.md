@@ -100,6 +100,25 @@ Query client defaults live in `src/lib/queryClient.ts` (`staleTime: 30s`, `retry
   - Radix / libraries: `import { Root, Trigger } from "@radix-ui/react-dialog"`.
   - Internal modules: import functions and types by name; alias on conflict (e.g. `upsertCategory as localUpsertCategory` when a wrapper shares the same name).
   - Enforced by ESLint (`no-restricted-syntax` on `ImportNamespaceSpecifier` in `eslint.config.js`).
+- **Comments** — default to none. Only comment *why* (invariants, guest/cloud semantics, workarounds, product/security decisions, non-obvious test intent). Do not restate variable names or “dialog state” labels. JSDoc on exported APIs when the contract is not obvious from the signature. See [comment-audit-plan.md](./comment-audit-plan.md).
+
+### Layout surfaces & variants
+
+- **Dashboard/calendar/schedule panels** → `Surface` ([src/components/Surface.tsx](../src/components/Surface.tsx)) with `elevation`, `radius`, and `padding` props.
+- **KPI / stat tiles** → `StatCard` + `toneClasses` ([src/components/StatCard.tsx](../src/components/StatCard.tsx)). Do not copy `rounded-2xl border border-border bg-surface` into pages.
+- **Settings / forms with titled sections** → shadcn `Card`.
+- Never define a local component named `Card` in a page file.
+
+### CVA decision matrix
+
+| Situation | Use |
+|---|---|
+| shadcn primitive with `variant` / `size` props | `cva` in `src/components/ui/` |
+| Shared layout with 2–3 enum props (`elevation`, `padding`) | Component with internal class map; CVA optional |
+| Shared layout, single shape | Plain component + `cn()` |
+| One page, unique layout | Inline Tailwind |
+| Tone colors for stats | `toneClasses()` until >3 tones or compound variants |
+| Merging caller `className` | Always `cn()` from `@/lib/utils` |
 
 ## Testing
 

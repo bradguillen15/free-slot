@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3, NotebookPen, CalendarDays, Lock } from "lucide-react";
@@ -12,9 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
-import { fmtDuration } from "@/lib/time";
+import { addDaysISO, fmtDuration } from "@/lib/time";
 import { fmtWeekRange, weekStartISO } from "@/lib/week";
-import { toneClasses, type StatTone } from "@/lib/toneClasses";
+import { StatCard } from "@/components/StatCard";
+import { Surface } from "@/components/Surface";
 import { useDashboardStats } from "./useDashboardStats";
 import { useWeeklyReviewPrompt } from "./useWeeklyReviewPrompt";
 
@@ -84,27 +85,40 @@ export default function DashboardPage() {
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Kpi icon={<Activity className="h-4 w-4" />} label={t("dashboard.kpi.totalTracked")} value={fmtDuration(totals.total)} tone="muted" />
-          <Kpi icon={<TrendingUp className="h-4 w-4" />} label={t("dashboard.kpi.productive")} value={fmtDuration(totals.prod)} tone="primary" />
-          <Kpi icon={<Target className="h-4 w-4" />} label={t("dashboard.kpi.productiveRatio")} value={`${totals.ratio}%`} tone="accent" />
-          {isGuest ? (
-            <Kpi icon={<CalendarDays className="h-4 w-4" />} label={t("dashboard.kpi.daysLogged")} value={String(daysLogged)} tone="muted" />
-          ) : (
-            <Kpi icon={<Sparkles className="h-4 w-4" />} label={t("dashboard.kpi.aiSlots")} value={String(planSlotsCount)} tone="muted" />
-          )}
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <StatCard icon={<Activity className="h-4 w-4" />} label={t("dashboard.kpi.totalTracked")} value={fmtDuration(totals.total)} tone="muted" />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <StatCard icon={<TrendingUp className="h-4 w-4" />} label={t("dashboard.kpi.productive")} value={fmtDuration(totals.prod)} tone="primary" />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <StatCard icon={<Target className="h-4 w-4" />} label={t("dashboard.kpi.productiveRatio")} value={`${totals.ratio}%`} tone="accent" />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            {isGuest ? (
+              <StatCard icon={<CalendarDays className="h-4 w-4" />} label={t("dashboard.kpi.daysLogged")} value={String(daysLogged)} tone="muted" />
+            ) : (
+              <StatCard icon={<Sparkles className="h-4 w-4" />} label={t("dashboard.kpi.aiSlots")} value={String(planSlotsCount)} tone="muted" />
+            )}
+          </motion.div>
         </div>
 
-        <Card title={t("dashboard.cards.productiveRatio")}>
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+        <Surface padding="md">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.productiveRatio")}</div>
           <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
             <span>{fmtDuration(totals.prod)} {t("dashboard.kpi.productive").toLowerCase()}</span>
             <span>·</span>
             <span>{fmtDuration(totals.unprod)} unproductive</span>
           </div>
           <Progress value={totals.ratio} className="h-2" />
-        </Card>
+        </Surface>
+        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          <Card title={t("dashboard.cards.perDay")}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <Surface padding="md">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.perDay")}</div>
             <div className="h-64">
               <ResponsiveContainer>
                 <BarChart data={perDay} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -120,9 +134,12 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </Card>
+          </Surface>
+          </motion.div>
 
-          <Card title={t("dashboard.cards.byCategory")}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <Surface padding="md">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.byCategory")}</div>
             {catBreakdown.length === 0 ? (
               <Empty message={t("dashboard.cards.noLoggedTime")} />
             ) : (
@@ -153,7 +170,8 @@ export default function DashboardPage() {
                 </ul>
               </div>
             )}
-          </Card>
+          </Surface>
+          </motion.div>
         </div>
 
         <div className="mt-4">
@@ -171,7 +189,9 @@ export default function DashboardPage() {
               </Button>
             </div>
           ) : (
-            <Card title={t("dashboard.cards.planVsLogged")}>
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <Surface padding="md">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.planVsLogged")}</div>
               {planVsActual.length === 0 ? (
                 <Empty message={t("dashboard.cards.noPlanCompare")} />
               ) : (
@@ -191,7 +211,8 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </div>
               )}
-            </Card>
+            </Surface>
+            </motion.div>
           )}
         </div>
 
@@ -202,27 +223,6 @@ export default function DashboardPage() {
   );
 }
 
-function Kpi({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: StatTone }) {
-  const { bg } = toneClasses(tone);
-  return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border bg-surface px-4 py-3">
-      <div className="flex items-center gap-2 mb-1">
-        <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${bg}`}>{icon}</span>
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      </div>
-      <div className="font-display text-2xl font-semibold tracking-tight font-mono-num">{value}</div>
-    </motion.div>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border bg-surface p-4">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{title}</div>
-      {children}
-    </motion.div>
-  );
-}
 
 function Empty({ message }: { message: string }) {
   return <div className="text-sm text-muted-foreground py-8 text-center">{message}</div>;

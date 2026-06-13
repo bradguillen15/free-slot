@@ -30,24 +30,20 @@ export default function CalendarPage() {
   const initialDate = searchParams.get("date") || todayISO();
   const [date, setDate] = useState<string>(initialDate);
 
-  // Quick-log dialog state
   const [logOpen, setLogOpen] = useState(false);
   const [logDefaults, setLogDefaults] = useState<{
     start: string; end: string; editId?: string;
     defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
   }>({ start: "09:00", end: "10:00" });
 
-  // Schedule-block dialog state
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockDialogTarget, setBlockDialogTarget] = useState<{
     block?: ScheduleBlock; defaultStartTime?: string; defaultWeekday?: number;
   }>({});
-  // Plan-vs-actual chooser when a block occurrence is clicked
   const [chooserBlock, setChooserBlock] = useState<ScheduleBlock | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Sync ?date= on change
   useEffect(() => {
     if (date === todayISO()) {
       if (searchParams.get("date")) {
@@ -60,7 +56,7 @@ export default function CalendarPage() {
       next.set("date", date);
       setSearchParams(next, { replace: true });
     }
-  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps -- searchParams in deps causes a sync loop
 
   const weekday = isoToWeekday(date);
   const isToday = date === todayISO();
@@ -111,7 +107,6 @@ export default function CalendarPage() {
     openLogAt(Math.max(0, base));
   };
 
-  // Clicking a block occurrence asks: log actual time, or edit the template?
   const handleBlockClick = useCallback((block: ScheduleBlock) => {
     setChooserBlock(block);
   }, []);

@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { ACTIVITY_PRESETS } from "@/lib/schedule";
 import { upsertActivity, deleteActivity } from "@/lib/dataStore";
+import { Surface } from "@/components/Surface";
 
 const activityDraftSchema = z.object({
   name: z.string().trim().min(1, "Name required"),
@@ -102,7 +103,7 @@ export function ActivityEditor({
   const catOf = (id: string | null) => categories.find((c) => c.id === id);
 
   return (
-    <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-sm p-6 space-y-5">
+    <Surface elevation="glass" padding="lg" className="space-y-5">
       <div className="flex items-center gap-2">
         <Target className="h-4 w-4 text-primary" />
         <h2 className="font-display text-lg font-semibold">Goal stack</h2>
@@ -256,6 +257,6 @@ export function ActivityEditor({
           </form>
         </Form>
       </div>
-    </div>
+    </Surface>
   );
 }

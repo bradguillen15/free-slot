@@ -117,7 +117,6 @@ export default function Onboarding() {
       <div className="flex-1 min-h-0 overflow-y-auto w-full">
       <div className="max-w-3xl mx-auto px-6 py-6">
 
-        {/* Progress */}
         <div className="flex items-center gap-3 mb-6">
           {STEPS.map((label, i) => (
             <div key={label} className="flex-1">

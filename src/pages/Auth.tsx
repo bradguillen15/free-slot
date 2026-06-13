@@ -47,7 +47,6 @@ export default function Auth() {
     defaultValues: { email: "", password: "" },
   });
 
-  // If we land on /auth already signed-in, decide what to do.
   useEffect(() => {
     if (!user) return;
     if (hasGuestData() && !pendingUserId) {
