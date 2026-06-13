@@ -124,6 +124,7 @@ export default function MonthPage() {
   return (
     <>
       <CalendarViewHeader
+        testId="page-month"
         label="Month view"
         title={`${MONTHS[month0]} ${year}`}
         actions={

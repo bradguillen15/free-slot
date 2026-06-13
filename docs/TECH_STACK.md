@@ -82,9 +82,10 @@ See [`CLOUD.md`](./CLOUD.md) for the schema, RLS policies, edge functions, and s
 
 | Tech | Why |
 |---|---|
-| **Vitest** | Unit tests. Setup in `src/test/setup.ts`, config in `vitest.config.ts`. Run with `bun run test`. |
+| **Vitest** | Unit/component tests. Setup in `src/test/setup.ts`, config in `vitest.config.ts`. Run with `bun run test`. |
+| **Playwright** | Guest-flow E2E in `e2e/` (`*.e2e.ts`), config in `playwright.config.ts`. Boots the app with `vite --mode e2e` (placeholder `.env.e2e`) so no backend is needed. Run with `pnpm test:e2e`. See `docs/development_guide.md`. |
 
-We test pure logic in `src/lib/` (especially `gaps.ts`, `time.ts`, `week.ts`). Components are exercised end-to-end in the browser rather than with heavy unit tests.
+We test pure logic in `src/lib/` (especially `gaps.ts`, `time.ts`, `week.ts`) with Vitest, and drive the full guest journey (onboarding, schedule, activities, labels, time logging, calendar/dashboard, i18n) end-to-end with Playwright.
 
 ---
 

@@ -224,6 +224,7 @@ export default function WeekPage() {
   return (
     <>
       <CalendarViewHeader
+        testId="page-week"
         label="Week view"
         title={fmtWeekRange(weekStart)}
         actions={

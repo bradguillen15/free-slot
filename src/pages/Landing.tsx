@@ -25,7 +25,7 @@ export default function Landing() {
           <span className="font-display text-lg font-semibold tracking-tight">FreeSlot</span>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/app">
+          <Link to="/app" data-testid="landing-try-app">
             <Button variant="ghost" size="sm">{t("landing.tryApp")}</Button>
           </Link>
           <Link to="/auth">
@@ -47,7 +47,7 @@ export default function Landing() {
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-glow" />
                 {t("landing.badge")}
               </div>
-              <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] max-w-4xl mx-auto">
+              <h1 data-testid="landing-heading" className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] max-w-4xl mx-auto">
                 {t("landing.titlePre")}{" "}
                 <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>
                   {t("landing.titleHighlight")}

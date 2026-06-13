@@ -1,0 +1,22 @@
+#!/bin/sh
+# Pre-push gate: run the guest E2E suite so regressions are caught before they
+# reach the remote. E2E does not run on every PR commit in CI (only at deploy
+# time, see .github/workflows/e2e.yml), so this hook is the per-developer guard.
+#
+# Bypass for exceptional cases with:  git push --no-verify
+
+echo "▶ Running guest E2E suite before push (pnpm test:e2e) — bypass with 'git push --no-verify'"
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "✖ pnpm not found on PATH; cannot run E2E. Install pnpm or push with --no-verify." >&2
+  exit 1
+fi
+
+pnpm test:e2e
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "✖ Guest E2E failed — push aborted. Fix the tests or re-run with 'git push --no-verify'." >&2
+fi
+
+exit "$status"

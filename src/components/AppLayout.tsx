@@ -90,7 +90,13 @@ export function AppLayout({
             const locked = isGuest && requiresAuth;
             const target = locked ? "/auth" : to;
             return (
-              <Link key={to} to={target} className="block">
+              <Link
+                key={to}
+                to={target}
+                className="block"
+                aria-current={active ? "page" : undefined}
+                data-testid={`nav-link-${labelKey.split(".")[1]}`}
+              >
                 <motion.div
                   whileHover={{ x: 2 }}
                   className={cn(
@@ -172,6 +178,8 @@ export function AppLayout({
                       key={to}
                       to={target}
                       onClick={() => setMenuOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      data-testid={`nav-link-mobile-${labelKey.split(".")[1]}`}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                         active

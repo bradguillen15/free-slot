@@ -84,17 +84,19 @@ function IconTooltipButton({
   label,
   onClick,
   className,
+  testId,
   children,
 }: {
   label: string;
   onClick: () => void;
   className?: string;
+  testId?: string;
   children: React.ReactNode;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" className={cn("h-8 w-8", className)} onClick={onClick} aria-label={label}>
+        <Button variant="ghost" size="icon" className={cn("h-8 w-8", className)} onClick={onClick} aria-label={label} data-testid={testId}>
           {children}
         </Button>
       </TooltipTrigger>
@@ -129,6 +131,7 @@ function SortableScheduleRow({
       elevation="muted"
       radius="xl"
       padding="sm"
+      data-testid={`schedule-row-${b.id}`}
       className="flex flex-col lg:flex-row lg:items-center gap-3"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -138,6 +141,7 @@ function SortableScheduleRow({
               type="button"
               {...attributes}
               {...listeners}
+              data-testid={`schedule-drag-${b.id}`}
               className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
               aria-label={dragLabel}
             >
@@ -154,6 +158,7 @@ function SortableScheduleRow({
         <Input
           key={`${b.id}-${b.name}`}
           defaultValue={b.name}
+          data-testid={`schedule-name-${b.id}`}
           onBlur={(e) => {
             const name = e.target.value.trim();
             if (name && name !== b.name) onUpdate(b, { name });
@@ -199,13 +204,13 @@ function SortableScheduleRow({
         })}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <IconTooltipButton label={editLabel} onClick={() => onEdit(b)}>
+        <IconTooltipButton label={editLabel} onClick={() => onEdit(b)} testId={`schedule-edit-${b.id}`}>
           <Pencil className="h-3.5 w-3.5" />
         </IconTooltipButton>
-        <IconTooltipButton label={duplicateLabel} onClick={() => onDuplicate(b)}>
+        <IconTooltipButton label={duplicateLabel} onClick={() => onDuplicate(b)} testId={`schedule-duplicate-${b.id}`}>
           <Copy className="h-3.5 w-3.5" />
         </IconTooltipButton>
-        <IconTooltipButton label={deleteLabel} onClick={() => onDelete(b)}>
+        <IconTooltipButton label={deleteLabel} onClick={() => onDelete(b)} testId={`schedule-delete-${b.id}`}>
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </IconTooltipButton>
       </div>
@@ -387,7 +392,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
+    <div data-testid="page-schedule" className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-semibold tracking-tight flex items-center gap-2">
@@ -396,7 +401,7 @@ export default function SchedulePage() {
           </h1>
           <p className="text-muted-foreground mt-1 text-sm max-w-xl">{t("schedule.subtitle")}</p>
         </div>
-        <Button onClick={() => { setDialogBlock(undefined); setDialogOpen(true); }} className="gap-1.5">
+        <Button onClick={() => { setDialogBlock(undefined); setDialogOpen(true); }} className="gap-1.5" data-testid="schedule-add-block">
           <Plus className="h-4 w-4" /> {t("schedule.addBlock")}
         </Button>
       </header>
@@ -511,7 +516,7 @@ export default function SchedulePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("schedule.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={confirmDelete} data-testid="schedule-confirm-delete" className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {t("schedule.confirmDelete")}
             </AlertDialogAction>
           </AlertDialogFooter>

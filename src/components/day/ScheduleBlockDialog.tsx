@@ -150,7 +150,7 @@ export function ScheduleBlockDialog({
                 <FormItem className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">Name</Label>
                   <FormControl>
-                    <Input placeholder="e.g. Work, College, Gym…" {...field} />
+                    <Input placeholder="e.g. Work, College, Gym…" data-testid="schedule-dialog-name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -338,7 +338,7 @@ export function ScheduleBlockDialog({
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || days.length === 0}>
+                <Button type="submit" disabled={form.formState.isSubmitting || days.length === 0} data-testid="schedule-dialog-submit">
                   {form.formState.isSubmitting ? "Saving…" : block ? "Save changes" : "Add block"}
                 </Button>
               </div>

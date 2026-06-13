@@ -71,7 +71,7 @@ export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave 
                     {t("labels.namePlaceholder")}
                   </FormLabel>
                   <FormControl>
-                    <Input id="label-name" placeholder={t("labels.namePlaceholder")} autoFocus {...field} />
+                    <Input id="label-name" placeholder={t("labels.namePlaceholder")} data-testid="label-dialog-name" autoFocus {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -96,7 +96,7 @@ export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave 
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
                 {t("labels.cancel")}
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting} data-testid="label-dialog-submit">
                 {submitting ? t("common.loading") : t("labels.save")}
               </Button>
             </DialogFooter>
