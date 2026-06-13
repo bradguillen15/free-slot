@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Settings as SettingsIcon, Trash2, Save, Tag, AlertTriangle, CalendarRange, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,12 +15,18 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  Form, FormControl, FormField, FormItem,
+} from "@/components/ui/form";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { plannerPrefsSchema, type PlannerPrefsValues } from "@/lib/formSchemas";
 import { toast } from "sonner";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const deleteAccountSchema = z.object({ confirmText: z.literal("DELETE") });
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -27,41 +36,43 @@ export default function SettingsPage() {
 
   const { data: profileRaw, refresh: refreshProfile } = useProfile();
 
-  const [localProfile, setLocalProfile] = useState<{
-    peak_hours: { start: string; end: string };
-    include_weekends: boolean;
-    weekly_review_day: number;
-  } | null>(null);
+  const form = useForm<PlannerPrefsValues>({
+    resolver: zodResolver(plannerPrefsSchema),
+    defaultValues: { peakStart: "09:00", peakEnd: "12:00", includeWeekends: true, weeklyReviewDay: 0 },
+  });
 
-  const profile = localProfile ?? (profileRaw ? {
-    peak_hours: (profileRaw.peak_hours as { start: string; end: string } | null) ?? { start: "09:00", end: "12:00" },
-    include_weekends: profileRaw.include_weekends ?? true,
-    weekly_review_day: profileRaw.weekly_review_day ?? 0,
-  } : null);
+  // Hydrate from the loaded profile; don't clobber unsaved edits on refetch.
+  useEffect(() => {
+    if (!profileRaw || form.formState.isDirty) return;
+    const peak = (profileRaw.peak_hours as { start: string; end: string } | null) ?? { start: "09:00", end: "12:00" };
+    form.reset({
+      peakStart: peak.start ?? "09:00",
+      peakEnd: peak.end ?? "12:00",
+      includeWeekends: profileRaw.include_weekends ?? true,
+      weeklyReviewDay: profileRaw.weekly_review_day ?? 0,
+    });
+  }, [profileRaw, form]);
 
-  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
+  const deleteForm = useForm<{ confirmText: string }>({
+    resolver: zodResolver(deleteAccountSchema),
+    defaultValues: { confirmText: "" },
+    mode: "onChange",
+  });
 
-  const setProfile = (patch: typeof profile) => setLocalProfile(patch);
-
-  const saveProfile = async () => {
-    if (!profile) return;
+  const saveProfile = async (values: PlannerPrefsValues) => {
     if (mode === "cloud" && !user) return;
-    setSaving(true);
     try {
       await updateProfile(mode, user?.id ?? null, {
-        peak_hours: profile.peak_hours,
-        include_weekends: profile.include_weekends,
-        weekly_review_day: profile.weekly_review_day,
+        peak_hours: { start: values.peakStart, end: values.peakEnd },
+        include_weekends: values.includeWeekends,
+        weekly_review_day: values.weeklyReviewDay,
       });
-      setLocalProfile(null);
       await refreshProfile();
+      form.reset(values); // mark clean so the next profile refetch can rehydrate
       toast.success("Preferences saved");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Could not save preferences");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -78,7 +89,7 @@ export default function SettingsPage() {
     navigate("/", { replace: true });
   };
 
-  if (!profile) {
+  if (!profileRaw) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <div className="h-64 rounded-2xl bg-muted/20 animate-pulse" />
@@ -133,53 +144,73 @@ export default function SettingsPage() {
           <CardTitle className="text-lg">Planner preferences</CardTitle>
           <CardDescription>How free time is detected and how the AI fills your week.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Peak hours start</Label>
-              <Input
-                type="time"
-                value={profile.peak_hours.start}
-                onChange={(e) => setProfile({ ...profile, peak_hours: { ...profile.peak_hours, start: e.target.value } })}
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(saveProfile)} className="space-y-6" noValidate>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="peakStart"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <Label>Peak hours start</Label>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="peakEnd"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <Label>Peak hours end</Label>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <Label className="text-base">Include weekends</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Plan activities on Saturday and Sunday.</p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="includeWeekends"
+                  render={({ field }) => (
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="weeklyReviewDay"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <Label>Weekly review day</Label>
+                    <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Peak hours end</Label>
-              <Input
-                type="time"
-                value={profile.peak_hours.end}
-                onChange={(e) => setProfile({ ...profile, peak_hours: { ...profile.peak_hours, end: e.target.value } })}
-              />
-            </div>
-          </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
-            <div>
-              <Label className="text-base">Include weekends</Label>
-              <p className="text-xs text-muted-foreground mt-1">Plan activities on Saturday and Sunday.</p>
-            </div>
-            <Switch
-              checked={profile.include_weekends}
-              onCheckedChange={(v) => setProfile({ ...profile, include_weekends: v })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Weekly review day</Label>
-            <Select
-              value={String(profile.weekly_review_day)}
-              onValueChange={(v) => setProfile({ ...profile, weekly_review_day: Number(v) })}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button onClick={saveProfile} disabled={saving} className="gap-2">
-            <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save preferences"}
-          </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting} className="gap-2">
+                <Save className="h-4 w-4" /> {form.formState.isSubmitting ? "Saving…" : "Save preferences"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
@@ -194,7 +225,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <AlertDialog onOpenChange={(o) => !o && setConfirmText("")}>
+            <AlertDialog onOpenChange={(o) => !o && deleteForm.reset({ confirmText: "" })}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="gap-2">
                   <Trash2 className="h-4 w-4" /> Delete account
@@ -209,15 +240,14 @@ export default function SettingsPage() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <Input
-                  value={confirmText}
-                  onChange={(e) => setConfirmText(e.target.value)}
+                  {...deleteForm.register("confirmText")}
                   placeholder="DELETE"
                   autoFocus
                 />
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    disabled={confirmText !== "DELETE" || deleting}
+                    disabled={!deleteForm.formState.isValid || deleting}
                     onClick={(e) => { e.preventDefault(); deleteAccount(); }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >

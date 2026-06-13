@@ -64,6 +64,38 @@ describe("Auth — Google sign-in", () => {
     });
   });
 
+  it("blocks submit and shows messages for invalid email / short password", async () => {
+    const user = userEvent.setup();
+    renderAuth();
+
+    await user.type(screen.getByLabelText("Email"), "not-an-email");
+    await user.type(screen.getByLabelText("Password"), "123");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText("Enter a valid email")).toBeInTheDocument();
+    expect(screen.getByText("At least 6 characters")).toBeInTheDocument();
+    expect(supabase.auth.signUp).not.toHaveBeenCalled();
+  });
+
+  it("submits valid credentials to signUp", async () => {
+    const user = userEvent.setup();
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: { id: "u1" }, session: null },
+      error: null,
+    } as never);
+
+    renderAuth();
+    await user.type(screen.getByLabelText("Email"), "a@b.com");
+    await user.type(screen.getByLabelText("Password"), "secret1");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() =>
+      expect(supabase.auth.signUp).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "a@b.com", password: "secret1" }),
+      ),
+    );
+  });
+
   it("disables the Google button while OAuth is pending", async () => {
     let resolveOAuth!: (value: { data: { provider: string; url: string }; error: null }) => void;
     const pendingOAuth = new Promise<{ data: { provider: string; url: string }; error: null }>((resolve) => {

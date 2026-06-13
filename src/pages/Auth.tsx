@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -7,7 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
+} from "@/components/ui/form";
 import { toast } from "sonner";
 import { clearGuestData, hasGuestData } from "@/lib/localStore";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
@@ -23,13 +28,24 @@ export default function Auth() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [mode, setMode] = useState<"signin" | "signup">("signup");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [migrateOpen, setMigrateOpen] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [migrating, setMigrating] = useState(false);
+
+  const schema = useMemo(
+    () => z.object({
+      email: z.string().email(t("auth.invalidEmail")),
+      password: z.string().min(6, t("auth.passwordMin")),
+    }),
+    [t],
+  );
+  type AuthValues = z.infer<typeof schema>;
+
+  const form = useForm<AuthValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: "", password: "" },
+  });
 
   // If we land on /auth already signed-in, decide what to do.
   useEffect(() => {
@@ -42,9 +58,7 @@ export default function Auth() {
     if (!migrateOpen) navigate("/app", { replace: true });
   }, [user, navigate, pendingUserId, migrateOpen]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const submit = async ({ email, password }: AuthValues) => {
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
@@ -73,8 +87,6 @@ export default function Auth() {
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -153,36 +165,51 @@ export default function Auth() {
         </div>
 
         <div className="glass rounded-2xl border border-border p-6 shadow-elevated">
-          <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">{t("auth.email")}</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="bg-input border-border"
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="email">{t("auth.email")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        className="bg-input border-border"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">{t("auth.password")}</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                className="bg-input border-border"
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="password">{t("auth.password")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="password"
+                        type="password"
+                        autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                        className="bg-input border-border"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <Button type="submit" disabled={loading || googleLoading} className="w-full gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signup" ? t("auth.submitSignup") : t("auth.submitSignin")}
-            </Button>
-          </form>
+              <Button type="submit" disabled={form.formState.isSubmitting || googleLoading} className="w-full gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
+                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signup" ? t("auth.submitSignup") : t("auth.submitSignin")}
+              </Button>
+            </form>
+          </Form>
 
           <div className="relative my-5">
             <div className="absolute inset-0 flex items-center">
@@ -196,7 +223,7 @@ export default function Auth() {
           <Button
             type="button"
             variant="outline"
-            disabled={loading || googleLoading}
+            disabled={form.formState.isSubmitting || googleLoading}
             onClick={signInWithGoogle}
             className="w-full bg-input border-border"
           >

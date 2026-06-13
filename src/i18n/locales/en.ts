@@ -164,6 +164,8 @@ const en = {
     signedIn: "Signed in",
     orDivider: "or",
     continueWithGoogle: "Continue with Google",
+    invalidEmail: "Enter a valid email",
+    passwordMin: "At least 6 characters",
     migrate: {
       title: "Bring your guest data along?",
       desc: "We found data from your guest session. Want to import it into your new account so nothing is lost?",

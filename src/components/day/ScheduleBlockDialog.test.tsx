@@ -8,7 +8,6 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));
 
-import { toast } from "sonner";
 import { upsertScheduleBlock } from "@/lib/dataStore";
 import { ScheduleBlockDialog } from "./ScheduleBlockDialog";
 
@@ -23,7 +22,7 @@ describe("ScheduleBlockDialog validation", () => {
     const user = userEvent.setup();
     render(<ScheduleBlockDialog {...baseProps} />);
     await user.click(screen.getByRole("button", { name: "Add block" }));
-    expect(toast.error).toHaveBeenCalledWith("Name is required");
+    expect(await screen.findByText("Name is required")).toBeInTheDocument();
     expect(upsertScheduleBlock).not.toHaveBeenCalled();
   });
 
@@ -36,7 +35,7 @@ describe("ScheduleBlockDialog validation", () => {
     fireEvent.change(timeInputs[1], { target: { value: "09:00" } });
 
     await user.click(screen.getByRole("button", { name: "Add block" }));
-    expect(toast.error).toHaveBeenCalledWith("End time must differ from start time");
+    expect(await screen.findByText("End time must differ from start time")).toBeInTheDocument();
     expect(upsertScheduleBlock).not.toHaveBeenCalled();
   });
 

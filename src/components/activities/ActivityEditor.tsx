@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { motion } from "framer-motion";
 import { Plus, Trash2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,9 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  Form, FormControl, FormField, FormItem, FormMessage,
+} from "@/components/ui/form";
 import { toast } from "sonner";
 import { ACTIVITY_PRESETS } from "@/lib/schedule";
 import { upsertActivity, deleteActivity } from "@/lib/dataStore";
+
+const activityDraftSchema = z.object({
+  name: z.string().trim().min(1, "Name required"),
+  categoryId: z.string().optional(),
+  target: z.coerce.number().min(0, "Must be ≥ 0"),
+});
+type ActivityDraftValues = z.infer<typeof activityDraftSchema>;
 
 type Category = { id: string; name: string; color: string; type: "productive" | "unproductive" };
 type Activity = {
@@ -31,24 +44,27 @@ export function ActivityEditor({
   onChange: () => void;
 }) {
   const mode = userId ? "cloud" : "guest";
-  const [draft, setDraft] = useState({ name: "", category_id: "", target: 3 });
   const [local, setLocal] = useState<Activity[]>(activities);
+
+  const form = useForm<ActivityDraftValues>({
+    resolver: zodResolver(activityDraftSchema),
+    defaultValues: { name: "", categoryId: "", target: 3 },
+  });
 
   useEffect(() => setLocal(activities), [activities]);
 
   const productiveCats = categories.filter((c) => c.type === "productive");
 
-  const addActivity = async () => {
-    if (!draft.name.trim()) return toast.error("Name required");
+  const addActivity = async (values: ActivityDraftValues) => {
     try {
       await upsertActivity(mode, userId, {
-        name: draft.name.trim(),
-        category_id: draft.category_id || null,
-        target_hours_per_week: draft.target,
+        name: values.name,
+        category_id: values.categoryId || null,
+        target_hours_per_week: values.target,
         is_active: true,
       });
       toast.success("Activity added");
-      setDraft({ name: "", category_id: "", target: 3 });
+      form.reset({ name: "", categoryId: "", target: 3 });
       onChange();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Could not add activity");
@@ -172,41 +188,73 @@ export function ActivityEditor({
           {ACTIVITY_PRESETS.filter((p) => !local.some((a) => a.name.toLowerCase() === p.toLowerCase())).map((p) => (
             <button
               key={p}
-              onClick={() => setDraft((d) => ({ ...d, name: p }))}
+              type="button"
+              onClick={() => form.setValue("name", p, { shouldValidate: true })}
               className="text-xs px-2.5 py-1 rounded-md border border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-colors"
             >
               {p}
             </button>
           ))}
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Input
-            placeholder="Activity name"
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            className="flex-1 min-w-[180px]"
-          />
-          <Select value={draft.category_id || "none"} onValueChange={(v) => setDraft({ ...draft, category_id: v === "none" ? "" : v })}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No category</SelectItem>
-              {productiveCats.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            type="number"
-            min={0}
-            step={0.5}
-            value={draft.target}
-            onChange={(e) => setDraft({ ...draft, target: Number(e.target.value) })}
-            className="w-20"
-          />
-          <Button onClick={addActivity} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Add
-          </Button>
-        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(addActivity)} className="flex gap-2 flex-wrap" noValidate>
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem className="flex-1 min-w-[180px]">
+                  <FormControl>
+                    <Input placeholder="Activity name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <Select
+                    value={field.value || "none"}
+                    onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">No category</SelectItem>
+                      {productiveCats.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="target"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      className="w-20"
+                      value={field.value}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="gap-1.5">
+              <Plus className="h-4 w-4" /> Add
+            </Button>
+          </form>
+        </Form>
       </div>
     </div>
   );

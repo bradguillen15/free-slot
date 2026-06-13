@@ -33,7 +33,7 @@ describe("QuickLogDialog", () => {
 
     await user.click(screen.getByRole("button", { name: "Save log" }));
 
-    expect(toast.error).toHaveBeenCalledWith("End time must be after start");
+    expect(await screen.findByText("End time must be after start")).toBeInTheDocument();
     expect(insertTimeLog).not.toHaveBeenCalled();
   });
 

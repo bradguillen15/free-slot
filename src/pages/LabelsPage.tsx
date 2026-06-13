@@ -6,19 +6,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCategories, upsertCategory, deleteCategory } from "@/lib/dataStore";
 import type { LocalCategory } from "@/lib/localStore";
 import { nextCreateColor } from "@/components/CategoryPicker";
-import { ColorInput } from "@/components/ColorInput";
+import { AddLabelDialog, type AddLabelValues } from "@/components/labels/AddLabelDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 type LabelType = "productive" | "unproductive";
@@ -88,79 +84,6 @@ function LabelRow({
   );
 }
 
-type AddLabelDialogProps = {
-  open: boolean;
-  type: LabelType;
-  name: string;
-  color: string;
-  nameError: string | null;
-  saving: boolean;
-  onOpenChange: (open: boolean) => void;
-  onNameChange: (name: string) => void;
-  onColorChange: (color: string) => void;
-  onSave: () => void;
-};
-
-function AddLabelDialog({
-  open,
-  type,
-  name,
-  color,
-  nameError,
-  saving,
-  onOpenChange,
-  onNameChange,
-  onColorChange,
-  onSave,
-}: AddLabelDialogProps) {
-  const { t } = useTranslation();
-  const title = type === "productive"
-    ? t("labels.addModalTitleProductive")
-    : t("labels.addModalTitleUnproductive");
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-surface border-border max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">{title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="label-name" className="text-xs uppercase tracking-wider text-muted-foreground">
-              {t("labels.namePlaceholder")}
-            </Label>
-            <Input
-              id="label-name"
-              value={name}
-              onChange={(e) => onNameChange(e.target.value)}
-              placeholder={t("labels.namePlaceholder")}
-              autoFocus
-              aria-invalid={!!nameError}
-            />
-            {nameError && <p className="text-xs text-destructive">{nameError}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("labels.color")}</Label>
-            <ColorInput
-              value={color}
-              onChange={onColorChange}
-              ariaLabel={t("labels.color")}
-            />
-          </div>
-        </div>
-        <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
-            {t("labels.cancel")}
-          </Button>
-          <Button onClick={onSave} disabled={saving}>
-            {saving ? t("common.loading") : t("labels.save")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function LabelsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -169,10 +92,6 @@ export default function LabelsPage() {
   const categories = categoriesRaw as LocalCategory[];
 
   const [addDialogType, setAddDialogType] = useState<LabelType | null>(null);
-  const [draftName, setDraftName] = useState("");
-  const [draftColor, setDraftColor] = useState("#3b82f6");
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LocalCategory | null>(null);
 
   const grouped = useMemo(() => ({
@@ -186,20 +105,6 @@ export default function LabelsPage() {
     hide: t("labels.hide"),
     show: t("labels.show"),
     delete: t("labels.delete"),
-  };
-
-  const openAddDialog = (type: LabelType) => {
-    setAddDialogType(type);
-    setDraftName("");
-    setDraftColor(nextCreateColor(categories.length));
-    setNameError(null);
-  };
-
-  const closeAddDialog = () => {
-    if (saving) return;
-    setAddDialogType(null);
-    setDraftName("");
-    setNameError(null);
   };
 
   const updateLabel = async (id: string, patch: Partial<LocalCategory>) => {
@@ -238,28 +143,18 @@ export default function LabelsPage() {
     setDeleteTarget(cat);
   };
 
-  const saveNewLabel = async () => {
-    if (!addDialogType) return;
-    const trimmed = draftName.trim();
-    if (!trimmed) {
-      setNameError(t("labels.nameRequired"));
-      return;
-    }
-    setNameError(null);
-    setSaving(true);
+  const saveNewLabel = async (values: AddLabelValues): Promise<boolean> => {
     try {
       await upsertCategory(mode, user?.id ?? null, {
-        name: trimmed,
-        color: draftColor,
-        type: addDialogType,
+        name: values.name,
+        color: values.color,
+        type: values.type,
       });
       toast.success(t("labels.created"));
-      setAddDialogType(null);
-      setDraftName("");
+      return true;
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -280,7 +175,7 @@ export default function LabelsPage() {
             <Button
               size="sm"
               className="gap-1.5 shrink-0 gradient-primary text-primary-foreground font-medium hover:opacity-90 shadow-glow"
-              onClick={() => openAddDialog(type)}
+              onClick={() => setAddDialogType(type)}
             >
               <Plus className="h-3.5 w-3.5" /> {t("labels.addLabel")}
             </Button>
@@ -307,16 +202,8 @@ export default function LabelsPage() {
         <AddLabelDialog
           open={!!addDialogType}
           type={addDialogType}
-          name={draftName}
-          color={draftColor}
-          nameError={nameError}
-          saving={saving}
-          onOpenChange={(open) => !open && closeAddDialog()}
-          onNameChange={(name) => {
-            setDraftName(name);
-            if (nameError && name.trim()) setNameError(null);
-          }}
-          onColorChange={setDraftColor}
+          defaultColor={nextCreateColor(categories.length)}
+          onOpenChange={(open) => !open && setAddDialogType(null)}
           onSave={saveNewLabel}
         />
       )}
