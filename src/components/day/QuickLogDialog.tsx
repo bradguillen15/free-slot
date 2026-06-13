@@ -14,7 +14,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { durationMinutes, fmtDuration, toMin } from "@/lib/time";
 import { deleteTimeLog, insertTimeLog, updateTimeLog, upsertCategory } from "@/lib/dataStore";
-import { CategoryPicker, nextCreateColor, type PickerCategory } from "@/components/CategoryPicker";
+import { CategoryPicker, type PickerCategory } from "@/components/CategoryPicker";
+import { nextCreateColor } from "@/lib/categoryColors";
 import { timeString } from "@/lib/formSchemas";
 
 const quickLogSchema = z.object({

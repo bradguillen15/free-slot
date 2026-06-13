@@ -14,7 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { upsertScheduleBlock, deleteScheduleBlock, upsertCategory } from "@/lib/dataStore";
 import { ColorInput } from "@/components/ColorInput";
-import { CategoryPicker, nextCreateColor, type PickerCategory } from "@/components/CategoryPicker";
+import { CategoryPicker, type PickerCategory } from "@/components/CategoryPicker";
+import { nextCreateColor } from "@/lib/categoryColors";
 import { hexColor, timeString } from "@/lib/formSchemas";
 import type { ScheduleBlock } from "./DayTimeline";
 

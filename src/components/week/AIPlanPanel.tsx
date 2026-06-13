@@ -73,7 +73,7 @@ export function AIPlanPanel({
       setAccepted(new Set());
     })();
     return () => { active = false; };
-  }, [user, weekStart]);
+  }, [user, weekStart, onPlanChange]);
 
   const generate = async () => {
     if (!user) return;

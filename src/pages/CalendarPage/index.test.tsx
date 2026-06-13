@@ -1,6 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { renderWithProviders } from "@/test/renderWithProviders";
 import "@/i18n";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -23,11 +22,7 @@ beforeEach(() => {
 
 describe("CalendarPage — day timeline sizing", () => {
   it("uses flex sizing instead of calc(100vh) on the timeline root", () => {
-    render(
-      <MemoryRouter>
-        <CalendarPage />
-      </MemoryRouter>
-    );
+    renderWithProviders(<CalendarPage />);
 
     const timeline = document.getElementById("day-timeline-root");
     expect(timeline).toBeTruthy();

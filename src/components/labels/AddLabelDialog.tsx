@@ -12,15 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ColorInput } from "@/components/ColorInput";
-import { hexColor, labelType } from "@/lib/formSchemas";
-
-export type AddLabelValues = z.infer<typeof addLabelSchema>;
-
-export const addLabelSchema = z.object({
-  name: z.string().trim().min(1),
-  color: hexColor,
-  type: labelType,
-});
+import { addLabelSchema, type AddLabelValues } from "./addLabelSchema";
 
 type Props = {
   open: boolean;
