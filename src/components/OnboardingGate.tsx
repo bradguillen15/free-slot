@@ -7,8 +7,9 @@ import { ensureBootstrap, getProfile } from "@/lib/localStore";
 
 /**
  * Routes onboarding flow for both signed-in users and guests.
- *  - Signed-in: reads `profiles.onboarding_completed`.
+ *  - Signed-in: reads `profiles.onboarding_completed` and `profiles.onboarding_skipped`.
  *  - Guests: reads localStorage profile.
+ * Passes through when either flag is true; redirects to /onboarding only when both are false.
  */
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -19,10 +20,9 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     if (!user) {
-      // Guest mode — bootstrap defaults & read local profile
       ensureBootstrap();
       const p = getProfile();
-      setStatus(p.onboarding_completed ? "done" : "needs");
+      setStatus(p.onboarding_completed || p.onboarding_skipped ? "done" : "needs");
       return;
     }
 
@@ -30,11 +30,13 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("onboarding_completed")
+        .select("onboarding_completed,onboarding_skipped")
         .eq("id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      setStatus(data?.onboarding_completed ? "done" : "needs");
+      setStatus(
+        data?.onboarding_completed || data?.onboarding_skipped ? "done" : "needs"
+      );
     })();
     return () => { cancelled = true; };
   }, [user, loading]);
@@ -46,7 +48,8 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (status === "needs" && !location.pathname.startsWith("/onboarding")) {
+  const isSetupRoute = location.pathname.startsWith("/app/schedule") || location.pathname.startsWith("/app/activities");
+  if (status === "needs" && !location.pathname.startsWith("/onboarding") && !isSetupRoute) {
     return <Navigate to="/onboarding" replace />;
   }
   if (status === "done" && location.pathname.startsWith("/onboarding")) {

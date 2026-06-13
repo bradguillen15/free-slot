@@ -146,14 +146,24 @@ export async function migrateGuestToCloud(userId: string) {
     }
   }
 
-  // 5. Profile preferences
+  // 5. Profile flags + preferences.
+  // Rules:
+  //   - Only write a flag when it is true in the guest profile (never downgrade cloud true→false).
+  //   - Only push preference values when the guest completed the prefs step (onboarding_completed);
+  //     a skip-only guest never configured them, so pushing DEFAULT_PROFILE values would silently
+  //     overwrite legitimate cloud settings.
+  const profileUpdate: Record<string, unknown> = {};
   if (snap.profile.onboarding_completed) {
-    const { error: profErr } = await supabase.from("profiles").update({
-      peak_hours: snap.profile.peak_hours,
-      include_weekends: snap.profile.include_weekends,
-      weekly_review_day: snap.profile.weekly_review_day,
-      onboarding_completed: true,
-    }).eq("id", userId);
+    profileUpdate.onboarding_completed = true;
+    profileUpdate.peak_hours = snap.profile.peak_hours;
+    profileUpdate.include_weekends = snap.profile.include_weekends;
+    profileUpdate.weekly_review_day = snap.profile.weekly_review_day;
+  }
+  if (snap.profile.onboarding_skipped) {
+    profileUpdate.onboarding_skipped = true;
+  }
+  if (Object.keys(profileUpdate).length > 0) {
+    const { error: profErr } = await supabase.from("profiles").update(profileUpdate).eq("id", userId);
     if (profErr) throw profErr;
   }
 

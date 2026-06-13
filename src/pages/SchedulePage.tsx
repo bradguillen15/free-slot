@@ -163,7 +163,7 @@ function SortableScheduleRow({
           type="time"
           defaultValue={b.start_time.slice(0, 5)}
           onBlur={(e) => e.target.value !== b.start_time.slice(0, 5) && onUpdate(b, { start_time: e.target.value })}
-          className="h-9 w-28 font-mono-num"
+          className="h-9 w-32 font-mono-num"
         />
         <span className="text-muted-foreground text-xs">→</span>
         <Input
@@ -171,7 +171,7 @@ function SortableScheduleRow({
           type="time"
           defaultValue={b.end_time.slice(0, 5)}
           onBlur={(e) => e.target.value !== b.end_time.slice(0, 5) && onUpdate(b, { end_time: e.target.value })}
-          className="h-9 w-28 font-mono-num"
+          className="h-9 w-32 font-mono-num"
         />
       </div>
       <div className="flex items-center gap-1 flex-wrap">

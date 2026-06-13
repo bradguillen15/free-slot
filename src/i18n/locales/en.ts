@@ -162,6 +162,8 @@ const en = {
     createOne: "Create one",
     welcome: "Welcome to FreeSlot",
     signedIn: "Signed in",
+    orDivider: "or",
+    continueWithGoogle: "Continue with Google",
     migrate: {
       title: "Bring your guest data along?",
       desc: "We found data from your guest session. Want to import it into your new account so nothing is lost?",
@@ -173,17 +175,26 @@ const en = {
   },
   onboarding: {
     steps: { schedule: "Schedule", activities: "Activities", preferences: "Preferences" },
+    skip: "Skip for now",
     schedule: {
       title: "Map your week",
       subtitle: "Add the things that already happen on repeat — work, sleep, meals, gym. We'll find the gaps in between.",
       empty: "Pick a few presets above to get started.",
       custom: "Custom",
+      countLabel_one: "{{count}} block added",
+      countLabel_other: "{{count}} blocks added",
+      countLabel_zero: "No blocks yet",
+      cta: "Set up on Schedule page",
     },
     activities: {
       title: "What do you want time for?",
       subtitle: "Pick activities you keep meaning to do. Set a weekly hour target. The plan will fit them into your gaps.",
       empty: "Add at least one activity to keep going.",
       hrsWk: "hrs/wk",
+      countLabel_one: "{{count}} activity added",
+      countLabel_other: "{{count}} activities added",
+      countLabel_zero: "No activities yet",
+      cta: "Set up on Activities page",
     },
     preferences: {
       title: "A few preferences",
@@ -193,6 +204,7 @@ const en = {
       weekends: "Schedule on weekends",
       weekendsHint: "Include Saturday and Sunday when planning",
       reviewDay: "Weekly review day",
+      settingsHint: "You can change these anytime in Settings.",
     },
     allSet: "You're all set",
   },
