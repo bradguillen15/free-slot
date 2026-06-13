@@ -126,6 +126,7 @@ export function ActivityEditor({
               layout
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
+              data-testid={`activity-row-${a.id}`}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/60 bg-background/40"
             >
               <div
@@ -134,6 +135,7 @@ export function ActivityEditor({
               />
               <Input
                 value={a.name}
+                data-testid={`activity-name-${a.id}`}
                 onChange={(e) => setLocal((p) => p.map((x) => x.id === a.id ? { ...x, name: e.target.value } : x))}
                 onBlur={(e) => e.target.value !== a.name && updateActivity(a, { name: e.target.value })}
                 className="h-8 flex-1 bg-transparent border-transparent hover:border-border focus:border-border px-2"
@@ -142,7 +144,7 @@ export function ActivityEditor({
                 value={a.category_id ?? "none"}
                 onValueChange={(v) => updateActivity(a, { category_id: v === "none" ? null : v })}
               >
-                <SelectTrigger className="h-8 w-[140px] text-xs">
+                <SelectTrigger className="h-8 w-[140px] text-xs" data-testid={`activity-category-${a.id}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -173,9 +175,10 @@ export function ActivityEditor({
               </div>
               <Switch
                 checked={a.is_active}
+                data-testid={`activity-active-${a.id}`}
                 onCheckedChange={(v) => updateActivity(a, { is_active: v })}
               />
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeActivity(a.id)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`activity-delete-${a.id}`} onClick={() => removeActivity(a.id)}>
                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
               </Button>
             </motion.div>
@@ -205,7 +208,7 @@ export function ActivityEditor({
               render={({ field }) => (
                 <FormItem className="flex-1 min-w-[180px]">
                   <FormControl>
-                    <Input placeholder="Activity name" {...field} />
+                    <Input placeholder="Activity name" data-testid="activity-name-input" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -251,7 +254,7 @@ export function ActivityEditor({
                 </FormItem>
               )}
             />
-            <Button type="submit" className="gap-1.5">
+            <Button type="submit" className="gap-1.5" data-testid="activity-add">
               <Plus className="h-4 w-4" /> Add
             </Button>
           </form>

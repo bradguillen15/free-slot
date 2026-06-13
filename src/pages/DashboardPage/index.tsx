@@ -45,7 +45,7 @@ export default function DashboardPage() {
     : totals.total === 0 && planSlotsCount === 0;
 
   return (
-    <div className="px-6 md:px-10 py-8 max-w-[1400px] mx-auto">
+    <div data-testid="page-dashboard" className="px-6 md:px-10 py-8 max-w-[1400px] mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">{t("dashboard.title")}</div>
@@ -73,7 +73,7 @@ export default function DashboardPage() {
         </div>
 
         {showEmptyState && (
-          <div className="mb-6">
+          <div className="mb-6" data-testid="dashboard-empty">
             <EmptyState
               icon={<BarChart3 className="h-5 w-5" />}
               title={t("dashboard.empty.title")}

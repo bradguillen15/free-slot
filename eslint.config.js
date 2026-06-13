@@ -77,4 +77,17 @@ export default tseslint.config(
       "no-restricted-imports": "off",
     },
   },
+  {
+    // Playwright E2E specs and fixtures run in Node, not the browser, and fixtures
+    // export `test`/`expect` helpers that the Fast Refresh rule cannot model.
+    files: ["e2e/**/*.ts"],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      "react-refresh/only-export-components": "off",
+      // Playwright fixtures use a `use(value)` callback that is not a React hook.
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
 );

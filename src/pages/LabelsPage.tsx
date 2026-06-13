@@ -44,6 +44,7 @@ function LabelRow({
     <Surface
       elevation="muted"
       radius="lg"
+      data-testid={`label-row-${cat.id}`}
       className={cn("flex flex-wrap items-center gap-2 p-2", cat.hidden && "opacity-60")}
     >
       <input
@@ -56,6 +57,7 @@ function LabelRow({
       <Input
         key={`${cat.id}-${cat.name}`}
         defaultValue={cat.name}
+        data-testid={`label-name-${cat.id}`}
         onBlur={(e) => {
           const name = e.target.value.trim();
           if (name && name !== cat.name) onUpdate(cat.id, { name });
@@ -76,7 +78,7 @@ function LabelRow({
           {cat.hidden ? labels.show : labels.hide}
         </Button>
         {!cat.is_default && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(cat)} aria-label={labels.delete}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`label-delete-${cat.id}`} onClick={() => onDelete(cat)} aria-label={labels.delete}>
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </Button>
         )}
@@ -160,7 +162,7 @@ export default function LabelsPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+    <div data-testid="page-labels" className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
       <header>
         <h1 className="font-display text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Tag className="h-6 w-6 text-primary" />
@@ -176,6 +178,7 @@ export default function LabelsPage() {
             <Button
               size="sm"
               className="gap-1.5 shrink-0 gradient-primary text-primary-foreground font-medium hover:opacity-90 shadow-glow"
+              data-testid={`labels-add-${type}`}
               onClick={() => setAddDialogType(type)}
             >
               <Plus className="h-3.5 w-3.5" /> {t("labels.addLabel")}
@@ -219,6 +222,7 @@ export default function LabelsPage() {
             <AlertDialogCancel>{t("labels.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && removeLabel(deleteTarget)}
+              data-testid="labels-confirm-delete"
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {t("labels.confirmDelete")}

@@ -29,7 +29,48 @@ bun run build        # Production build
 bun run lint         # ESLint
 bun run test         # Vitest (one-shot)
 bun run test:watch   # Vitest watch mode
+pnpm test:e2e        # Playwright guest E2E (headless)
+pnpm test:e2e:ui     # Playwright in interactive UI mode
 ```
+
+## End-to-end tests (Playwright)
+
+Browser E2E lives in `e2e/` (specs named `*.e2e.ts`) and covers the **guest user
+flow** end to end. Key facts:
+
+- **No backend required.** Playwright's `webServer` runs the app with `vite
+  --mode e2e`, which loads the committed placeholder `.env.e2e`. The app boots
+  into guest mode (localStorage-backed) and never contacts a real Supabase
+  project — runs are deterministic and offline.
+- **Isolation from Vitest.** Vitest only includes `src/**` and `supabase/**`, so
+  `e2e/` is never picked up by `pnpm test` (and vice versa).
+- **Selectors are `data-testid`-first** via `page.getByTestId(...)` so tests are
+  immune to i18n copy changes. Convention: `page-<view>` for route roots,
+  `nav-link-<view>` for sidebar items, `<feature>-<element>` for controls
+  (e.g. `schedule-add-block`, `quicklog-submit`). Active route is asserted via
+  `aria-current="page"`, not a test-id. Language is pinned to English by default.
+- **Fixtures/helpers** live in `e2e/fixtures/guest.ts`: `seedGuest(page, …)`
+  seeds guest preconditions (profile, schedule blocks, activities, time logs)
+  into localStorage before navigation (once per context), plus `readGuest*`
+  helpers to assert persisted state.
+- **Scope:** guest flows only. Authenticated/cloud flows, Settings, and edge
+  functions are intentionally out of scope (they need real Supabase infra).
+
+### When E2E runs (CD + pre-push, not per-PR-commit)
+
+E2E is too expensive to run on every PR commit, so:
+
+- **CD:** `.github/workflows/e2e.yml` runs the suite on **merge to `main`** (and
+  manual `workflow_dispatch`), uploading the HTML report/trace on failure. PR CI
+  (`ci.yml`) runs only lint, typecheck, unit tests, and build.
+- **Local pre-push hook:** `.githooks/pre-push` runs `pnpm test:e2e` before every
+  push and blocks on failure. It is wired automatically — `pnpm install` runs the
+  `prepare` script which sets `git config core.hooksPath .githooks`. Bypass for
+  exceptional cases with `git push --no-verify`.
+- **One-time setup:** after cloning, run `pnpm install` (wires the hook) and
+  `pnpm exec playwright install chromium` (installs the browser the hook/CD need).
+- `pnpm test:e2e:ui` is a **manual dev tool** for debugging — it opens the
+  Playwright UI and cannot run headless in CI/CD.
 
 ## OpenSpec / Harness Workflow
 

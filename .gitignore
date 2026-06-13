@@ -17,8 +17,15 @@ coverage
 .env
 .env.*
 !.env.example
+# Committed placeholder env for guest E2E (no real secrets — boots app in guest mode)
+!.env.e2e
 *.pem
 *.key
+
+# Playwright E2E
+test-results/
+playwright-report/
+e2e/.cache/
 
 # Editor directories and files
 .vscode/*

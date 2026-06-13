@@ -162,7 +162,7 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
+      <div data-testid="page-day" className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
         <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
@@ -231,12 +231,13 @@ export default function CalendarPage() {
               whileTap={{ scale: 0.95 }}
               className="fixed bottom-6 right-6 z-30 h-14 w-14 rounded-full gradient-primary text-primary-foreground shadow-glow flex items-center justify-center animate-pulse-glow"
               aria-label="Add"
+              data-testid="day-fab"
             >
               <Plus className="h-6 w-6" />
             </motion.button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="mb-2">
-            <DropdownMenuItem onClick={openQuickLog} className="gap-2">
+            <DropdownMenuItem onClick={openQuickLog} className="gap-2" data-testid="day-log-time">
               <NotebookPen className="h-4 w-4" /> {t("schedule.logTime")}
             </DropdownMenuItem>
             <DropdownMenuItem

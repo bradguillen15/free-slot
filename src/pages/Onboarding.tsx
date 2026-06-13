@@ -272,6 +272,7 @@ export default function Onboarding() {
                               <button
                                 key={d.idx}
                                 type="button"
+                                data-testid={`onboarding-review-day-${d.idx}`}
                                 onClick={() => field.onChange(d.idx)}
                                 className={cn(
                                   "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
@@ -312,6 +313,7 @@ export default function Onboarding() {
             variant="ghost"
             onClick={skip}
             disabled={saving}
+            data-testid="onboarding-skip"
             className="text-muted-foreground hover:text-foreground"
           >
             {t("onboarding.skip")}
@@ -320,6 +322,7 @@ export default function Onboarding() {
           {step < STEPS.length - 1 ? (
             <Button
               onClick={() => setStep(step + 1)}
+              data-testid="onboarding-continue"
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >
               {t("common.continue")} <ArrowRight className="h-4 w-4 ml-1" />
@@ -328,6 +331,7 @@ export default function Onboarding() {
             <Button
               onClick={form.handleSubmit(finish)}
               disabled={saving}
+              data-testid="onboarding-finish"
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>{t("common.finish")} <Check className="h-4 w-4 ml-1" /></>}

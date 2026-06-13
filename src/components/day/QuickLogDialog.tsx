@@ -199,6 +199,7 @@ export function QuickLogDialog({
                     <Input
                       placeholder="What did you do? e.g. Breakfast, Standup, Guitar practice"
                       autoFocus
+                      data-testid="quicklog-title"
                       {...field}
                     />
                   </FormControl>
@@ -214,7 +215,7 @@ export function QuickLogDialog({
                   <FormItem className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">Start</Label>
                     <FormControl>
-                      <Input type="time" className="font-mono-num" {...field} />
+                      <Input type="time" className="font-mono-num" data-testid="quicklog-start" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -227,7 +228,7 @@ export function QuickLogDialog({
                   <FormItem className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">End</Label>
                     <FormControl>
-                      <Input type="time" className="font-mono-num" {...field} />
+                      <Input type="time" className="font-mono-num" data-testid="quicklog-end" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -287,7 +288,7 @@ export function QuickLogDialog({
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || deleting || !categoryId}>
+                <Button type="submit" disabled={form.formState.isSubmitting || deleting || !categoryId} data-testid="quicklog-submit">
                   {form.formState.isSubmitting ? "Saving…" : "Save log"}
                 </Button>
               </div>
