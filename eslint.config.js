@@ -49,4 +49,12 @@ export default tseslint.config(
       "no-restricted-imports": "off",
     },
   },
+  {
+    // Test files legitimately import the Supabase client to mock and assert against it;
+    // the "use dataStore in guest-capable views" guard only applies to production code.
+    files: ["**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
 );
