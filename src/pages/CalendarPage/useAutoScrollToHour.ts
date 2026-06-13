@@ -14,5 +14,5 @@ export function useAutoScrollToHour(scrollRef: RefObject<HTMLElement>, date: str
     const minute = isToday ? current.getHours() * 60 + current.getMinutes() : 7 * 60;
     const top = (minute / 60) * PX_PER_HOUR - 120;
     scrollRef.current.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  }, [date, isToday]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date, isToday]); // eslint-disable-line react-hooks/exhaustive-deps -- scrollRef is a stable useRef; scroll on date change only
 }

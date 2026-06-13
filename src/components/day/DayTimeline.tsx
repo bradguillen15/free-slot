@@ -60,7 +60,6 @@ export function DayTimeline({
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
 
-  // Long-press tracking
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressOriginRef = useRef<{ x: number; y: number; startMin: number } | null>(null);
 
@@ -223,8 +222,6 @@ export function DayTimeline({
     </div>
   );
 }
-
-// ── Sub-components ──────────────────────────────────────────────────────────
 
 /** Below this bar height two text rows don't fit — collapse to one line. */
 const COMPACT_BAR_PX = 36;
@@ -393,7 +390,6 @@ function ContextMenuPopover({
   onLog: () => void;
   onAddBlock: () => void;
 }) {
-  // Position relative to viewport using fixed
   return (
     <div
       className="fixed z-50 min-w-[180px] rounded-lg border border-border bg-surface shadow-lg py-1 text-sm"

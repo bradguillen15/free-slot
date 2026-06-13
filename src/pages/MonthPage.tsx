@@ -7,7 +7,7 @@ import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { useVisibleCategories, pickerCategories, useTimeLogsInRange } from "@/lib/dataStore";
 import { durationMinutes, fmtDuration, fromMin, todayISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { toneClasses, type StatTone } from "@/lib/toneClasses";
+import { StatCard } from "@/components/StatCard";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -142,9 +142,9 @@ export default function MonthPage() {
       />
 
       <div className="grid grid-cols-3 gap-3 mb-5">
-          <Stat label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
-          <Stat label="Productive" value={fmtDuration(monthProd)} tone="accent" />
-          <Stat label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
+          <StatCard label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
+          <StatCard label="Productive" value={fmtDuration(monthProd)} tone="accent" />
+          <StatCard label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
         </div>
 
         <div>
@@ -234,12 +234,3 @@ export default function MonthPage() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone: StatTone }) {
-  const { ring } = toneClasses(tone);
-  return (
-    <div className={`rounded-2xl border border-border bg-surface px-4 py-3 ring-1 ${ring}`}>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
-      <div className="font-display text-2xl font-semibold tracking-tight font-mono-num">{value}</div>
-    </div>
-  );
-}

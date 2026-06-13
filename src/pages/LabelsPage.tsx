@@ -17,6 +17,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { Surface } from "@/components/Surface";
 
 type LabelType = "productive" | "unproductive";
 
@@ -40,11 +41,10 @@ function LabelRow({
   };
 }) {
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-2 p-2 rounded-lg border border-border bg-card/40",
-        cat.hidden && "opacity-60"
-      )}
+    <Surface
+      elevation="muted"
+      radius="lg"
+      className={cn("flex flex-wrap items-center gap-2 p-2", cat.hidden && "opacity-60")}
     >
       <input
         type="color"
@@ -81,7 +81,7 @@ function LabelRow({
           </Button>
         )}
       </div>
-    </div>
+    </Surface>
   );
 }
 

@@ -87,7 +87,7 @@ export function ScheduleBlockDialog({
   // Re-sync when the target block or defaults change (e.g. user clicks different block)
   useEffect(() => {
     if (open) form.reset(buildDefaults());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form is stable from useForm; including it would loop on reset
   }, [open, block, defaultStartTime, defaultWeekday]);
 
   const days = form.watch("days");
