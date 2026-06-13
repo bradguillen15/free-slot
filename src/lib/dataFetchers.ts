@@ -1,11 +1,12 @@
+import type { LocalActivity, LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
+import { ensureBootstrap, getProfile, listActivities, listCategories, listLogsInRange, listScheduleBlocks } from "@/lib/localStore";
 import { supabase } from "@/integrations/supabase/client";
-import * as L from "@/lib/localStore";
 import type { Mode } from "./queryKeys";
 
-export async function fetchCategories(mode: Mode, userId: string | null): Promise<L.LocalCategory[]> {
+export async function fetchCategories(mode: Mode, userId: string | null): Promise<LocalCategory[]> {
   if (mode === "guest") {
-    L.ensureBootstrap();
-    return L.listCategories();
+    ensureBootstrap();
+    return listCategories();
   }
   const { data: rows, error } = await supabase
     .from("categories")
@@ -14,15 +15,15 @@ export async function fetchCategories(mode: Mode, userId: string | null): Promis
     .order("name");
   if (error) throw new Error(error.message);
   return (rows ?? []).map((r) => ({
-    ...(r as L.LocalCategory),
+    ...(r as LocalCategory),
     hidden: (r as { hidden?: boolean }).hidden ?? false,
   }));
 }
 
-export async function fetchActivities(mode: Mode, userId: string | null): Promise<L.LocalActivity[]> {
+export async function fetchActivities(mode: Mode, userId: string | null): Promise<LocalActivity[]> {
   if (mode === "guest") {
-    L.ensureBootstrap();
-    return L.listActivities();
+    ensureBootstrap();
+    return listActivities();
   }
   const { data: rows, error } = await supabase
     .from("activities")
@@ -30,13 +31,13 @@ export async function fetchActivities(mode: Mode, userId: string | null): Promis
     .eq("user_id", userId!)
     .order("created_at");
   if (error) throw new Error(error.message);
-  return (rows ?? []) as L.LocalActivity[];
+  return (rows ?? []) as LocalActivity[];
 }
 
-export async function fetchScheduleBlocks(mode: Mode, userId: string | null): Promise<L.LocalScheduleBlock[]> {
+export async function fetchScheduleBlocks(mode: Mode, userId: string | null): Promise<LocalScheduleBlock[]> {
   if (mode === "guest") {
-    L.ensureBootstrap();
-    return L.listScheduleBlocks();
+    ensureBootstrap();
+    return listScheduleBlocks();
   }
   const { data: rows, error } = await supabase
     .from("schedule_blocks")
@@ -49,7 +50,7 @@ export async function fetchScheduleBlocks(mode: Mode, userId: string | null): Pr
     if (ao !== bo) return ao - bo;
     return a.created_at.localeCompare(b.created_at);
   });
-  return sorted as L.LocalScheduleBlock[];
+  return sorted as LocalScheduleBlock[];
 }
 
 export async function fetchTimeLogsInRange(
@@ -57,10 +58,10 @@ export async function fetchTimeLogsInRange(
   userId: string | null,
   startISO: string,
   endISO: string,
-): Promise<L.LocalTimeLog[]> {
+): Promise<LocalTimeLog[]> {
   if (mode === "guest") {
-    L.ensureBootstrap();
-    return L.listLogsInRange(startISO, endISO);
+    ensureBootstrap();
+    return listLogsInRange(startISO, endISO);
   }
   const { data: rows, error } = await supabase
     .from("time_logs")
@@ -70,13 +71,13 @@ export async function fetchTimeLogsInRange(
     .lte("date", endISO)
     .order("date");
   if (error) throw new Error(error.message);
-  return (rows ?? []) as L.LocalTimeLog[];
+  return (rows ?? []) as LocalTimeLog[];
 }
 
-export async function fetchProfile(mode: Mode, userId: string | null): Promise<L.LocalProfile | null> {
+export async function fetchProfile(mode: Mode, userId: string | null): Promise<LocalProfile | null> {
   if (mode === "guest") {
-    L.ensureBootstrap();
-    return L.getProfile();
+    ensureBootstrap();
+    return getProfile();
   }
   const { data: row, error } = await supabase
     .from("profiles")
@@ -84,7 +85,7 @@ export async function fetchProfile(mode: Mode, userId: string | null): Promise<L
     .eq("id", userId!)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (row as L.LocalProfile | null) ?? null;
+  return (row as LocalProfile | null) ?? null;
 }
 
 export type WeeklyPlanSlot = {

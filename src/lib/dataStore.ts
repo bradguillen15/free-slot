@@ -4,7 +4,20 @@ import { useCallback, useMemo, useState, type SetStateAction } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import * as L from "@/lib/localStore";
+import type { LocalActivity, LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
+import {
+  deleteActivity as localDeleteActivity,
+  deleteCategory as localDeleteCategory,
+  deleteLog as localDeleteLog,
+  deleteScheduleBlock as localDeleteScheduleBlock,
+  insertLog as localInsertLog,
+  reorderScheduleBlocks as localReorderScheduleBlocks,
+  updateLog as localUpdateLog,
+  updateProfile as localUpdateProfile,
+  upsertActivity as localUpsertActivity,
+  upsertCategory as localUpsertCategory,
+  upsertScheduleBlock as localUpsertScheduleBlock,
+} from "@/lib/localStore";
 import {
   fetchActivities,
   fetchCategories,
@@ -75,10 +88,10 @@ function useDataQuery<T>({
   return { query, fetchError, refresh };
 }
 
-const EMPTY_CATEGORIES: L.LocalCategory[] = [];
-const EMPTY_ACTIVITIES: L.LocalActivity[] = [];
-const EMPTY_BLOCKS: L.LocalScheduleBlock[] = [];
-const EMPTY_LOGS: L.LocalTimeLog[] = [];
+const EMPTY_CATEGORIES: LocalCategory[] = [];
+const EMPTY_ACTIVITIES: LocalActivity[] = [];
+const EMPTY_BLOCKS: LocalScheduleBlock[] = [];
+const EMPTY_LOGS: LocalTimeLog[] = [];
 
 function invalidateCategories(mode: Mode, userId: string | null) {
   getQueryClient().invalidateQueries({ queryKey: queryKeys.categories(mode, userId) });
@@ -105,7 +118,7 @@ function invalidateWeeklyPlan(userId: string, weekStart: string) {
 }
 
 // ---------- Categories ----------
-export function filterVisibleCategories(categories: L.LocalCategory[]): L.LocalCategory[] {
+export function filterVisibleCategories(categories: LocalCategory[]): LocalCategory[] {
   return categories.filter((c) => !c.hidden);
 }
 
@@ -179,8 +192,8 @@ export function useTimeLogsInRange(startISO: string, endISO: string) {
   });
 
   const setData = useCallback(
-    (updater: SetStateAction<L.LocalTimeLog[]>) => {
-      queryClient.setQueryData(queryKey, (prev: L.LocalTimeLog[] | undefined) => {
+    (updater: SetStateAction<LocalTimeLog[]>) => {
+      queryClient.setQueryData(queryKey, (prev: LocalTimeLog[] | undefined) => {
         const current = prev ?? [];
         return typeof updater === "function" ? updater(current) : updater;
       });
@@ -249,7 +262,7 @@ export async function insertTimeLog(
 ) {
   let result: unknown;
   if (mode === "guest") {
-    result = L.insertLog(input);
+    result = localInsertLog(input);
   } else {
     const { data, error } = await supabase
       .from("time_logs")
@@ -274,7 +287,7 @@ export async function insertTimeLog(
 
 export async function deleteTimeLog(mode: Mode, userId: string | null, id: string) {
   if (mode === "guest") {
-    L.deleteLog(id);
+    localDeleteLog(id);
   } else {
     const { error } = await supabase.from("time_logs").delete().eq("id", id).eq("user_id", userId!);
     if (error) throw error;
@@ -297,7 +310,7 @@ export async function updateTimeLog(
 ) {
   let result: unknown;
   if (mode === "guest") {
-    result = L.updateLog(id, input);
+    result = localUpdateLog(id, input);
   } else {
     const { data, error } = await supabase
       .from("time_logs")
@@ -333,7 +346,7 @@ export async function upsertActivity(
 ) {
   let result: unknown;
   if (mode === "guest") {
-    result = L.upsertActivity(input);
+    result = localUpsertActivity(input);
   } else if (input.id) {
     const { data, error } = await supabase.from("activities").update({
       name: input.name,
@@ -360,7 +373,7 @@ export async function upsertActivity(
 
 export async function deleteActivity(mode: Mode, userId: string | null, id: string) {
   if (mode === "guest") {
-    L.deleteActivity(id);
+    localDeleteActivity(id);
   } else {
     const { error } = await supabase.from("activities").delete().eq("id", id).eq("user_id", userId!);
     if (error) throw error;
@@ -371,7 +384,7 @@ export async function deleteActivity(mode: Mode, userId: string | null, id: stri
 export async function upsertScheduleBlock(
   mode: Mode,
   userId: string | null,
-  input: Partial<L.LocalScheduleBlock> & {
+  input: Partial<LocalScheduleBlock> & {
     name: string;
     start_time: string;
     end_time: string;
@@ -382,7 +395,7 @@ export async function upsertScheduleBlock(
 ) {
   let result: unknown;
   if (mode === "guest") {
-    result = L.upsertScheduleBlock(input);
+    result = localUpsertScheduleBlock(input);
   } else if (input.id) {
     const { data, error } = await supabase.from("schedule_blocks").update({
       name: input.name, start_time: input.start_time, end_time: input.end_time,
@@ -415,7 +428,7 @@ export async function upsertScheduleBlock(
 
 export async function deleteScheduleBlock(mode: Mode, userId: string | null, id: string) {
   if (mode === "guest") {
-    L.deleteScheduleBlock(id);
+    localDeleteScheduleBlock(id);
   } else {
     const { error } = await supabase.from("schedule_blocks").delete().eq("id", id).eq("user_id", userId!);
     if (error) throw error;
@@ -425,7 +438,7 @@ export async function deleteScheduleBlock(mode: Mode, userId: string | null, id:
 
 export async function reorderScheduleBlocks(mode: Mode, userId: string | null, orderedIds: string[]) {
   if (mode === "guest") {
-    L.reorderScheduleBlocks(orderedIds);
+    localReorderScheduleBlocks(orderedIds);
   } else {
     const results = await Promise.all(
       orderedIds.map((id, i) =>
@@ -445,7 +458,7 @@ export async function upsertCategory(
 ) {
   let result: unknown;
   if (mode === "guest") {
-    result = L.upsertCategory(input);
+    result = localUpsertCategory(input);
   } else if (input.id) {
     const patch: { name?: string; color?: string; type?: "productive" | "unproductive"; hidden?: boolean } = {};
     if (input.name !== undefined) patch.name = input.name;
@@ -482,7 +495,7 @@ export async function upsertCategory(
 
 export async function deleteCategory(mode: Mode, userId: string | null, id: string) {
   if (mode === "guest") {
-    await L.deleteCategory(id);
+    await localDeleteCategory(id);
   } else {
     const { data: cat, error: selErr } = await supabase
       .from("categories")
@@ -501,10 +514,10 @@ export async function deleteCategory(mode: Mode, userId: string | null, id: stri
 export async function updateProfile(
   mode: Mode,
   userId: string | null,
-  patch: Partial<L.LocalProfile>,
+  patch: Partial<LocalProfile>,
 ) {
   if (mode === "guest") {
-    L.updateProfile(patch);
+    localUpdateProfile(patch);
   } else {
     const { error } = await supabase.from("profiles").update(patch).eq("id", userId!);
     if (error) throw error;
@@ -566,7 +579,7 @@ export function useReorderScheduleBlocksMutation() {
 export function useUpdateProfileMutation() {
   const { mode, userId } = useAuthScope();
   return useMutation({
-    mutationFn: (patch: Partial<L.LocalProfile>) => updateProfile(mode, userId, patch),
+    mutationFn: (patch: Partial<LocalProfile>) => updateProfile(mode, userId, patch),
   });
 }
 

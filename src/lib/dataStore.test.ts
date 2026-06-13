@@ -1,3 +1,11 @@
+import {
+  ensureBootstrap,
+  getProfile,
+  listCategories,
+  listLogsForMonth,
+  upsertActivity as localUpsertActivity,
+  upsertCategory as localUpsertCategory,
+} from "./localStore";
 process.env.TZ = "America/New_York";
 
 import { beforeEach, describe, it, expect, vi } from "vitest";
@@ -37,7 +45,6 @@ import {
   useScheduleBlocks,
   useTimeLogsInRange,
 } from "./dataStore";
-import * as L from "./localStore";
 
 const CAT = { id: "c1", name: "Deep work", color: "#000", type: "productive" as const, is_default: true, hidden: false, created_at: "" };
 
@@ -116,13 +123,13 @@ describe("useTimeLogsInRange — stale-response guard", () => {
 describe("guest mode — change events", () => {
   it("re-reads localStorage when a guest write fires the change event", async () => {
     authState.user = null;
-    L.ensureBootstrap(); // before seeding — bootstrap re-seeds empty arrays otherwise
-    L.upsertActivity({ name: "Guitar" });
+    ensureBootstrap(); // before seeding — bootstrap re-seeds empty arrays otherwise
+    localUpsertActivity({ name: "Guitar" });
     const { result } = renderDataHook(() => useActivities(), undefined, { guestBridge: true });
     await waitFor(() => expect(result.current.data).toHaveLength(1));
 
     act(() => {
-      L.upsertActivity({ name: "Reading" }); // write() dispatches freeslot:guest-change
+      localUpsertActivity({ name: "Reading" }); // write() dispatches freeslot:guest-change
     });
     await waitFor(() => expect(result.current.data).toHaveLength(2));
   });
@@ -206,16 +213,16 @@ describe("mutations — remaining happy paths (both modes)", () => {
   it("category mutations work in both modes (Phase 4b labels)", async () => {
     // Guest: create on the fly, then delete.
     const created = await upsertCategory("guest", null, { name: "Breakfast", type: "productive" });
-    expect(L.listCategories().some((c) => c.name === "Breakfast")).toBe(true);
+    expect(listCategories().some((c) => c.name === "Breakfast")).toBe(true);
     await deleteCategory("guest", null, (created as { id: string }).id);
-    expect(L.listCategories().some((c) => c.name === "Breakfast")).toBe(false);
+    expect(listCategories().some((c) => c.name === "Breakfast")).toBe(false);
 
     // Guest: hide flag persists.
-    L.ensureBootstrap();
-    const deep = L.listCategories().find((c) => c.name === "Deep work")!;
+    ensureBootstrap();
+    const deep = listCategories().find((c) => c.name === "Deep work")!;
     await upsertCategory("guest", null, { id: deep.id, hidden: true });
-    expect(L.listCategories().find((c) => c.id === deep.id)?.hidden).toBe(true);
-    expect(filterVisibleCategories(L.listCategories()).some((c) => c.id === deep.id)).toBe(false);
+    expect(listCategories().find((c) => c.id === deep.id)?.hidden).toBe(true);
+    expect(filterVisibleCategories(listCategories()).some((c) => c.id === deep.id)).toBe(false);
 
     // Cloud: insert + update branches resolve; errors propagate.
     queueTableResult("categories", { data: { id: "c9", name: "Snacks" } });
@@ -229,9 +236,9 @@ describe("mutations — remaining happy paths (both modes)", () => {
 
   it("useVisibleCategories omits hidden labels", async () => {
     authState.user = null;
-    L.ensureBootstrap();
-    const cat = L.listCategories()[0];
-    L.upsertCategory({ id: cat.id, hidden: true });
+    ensureBootstrap();
+    const cat = listCategories()[0];
+    localUpsertCategory({ id: cat.id, hidden: true });
     const { result } = renderDataHook(() => useVisibleCategories());
     await waitFor(() => expect(result.current.all.length).toBeGreaterThan(0));
     await waitFor(() => expect(result.current.data.some((c) => c.id === cat.id)).toBe(false));
@@ -239,12 +246,12 @@ describe("mutations — remaining happy paths (both modes)", () => {
   });
 
   it("pickerCategories keeps a hidden selected label for edit dialogs", () => {
-    L.ensureBootstrap();
-    const all = L.listCategories();
+    ensureBootstrap();
+    const all = listCategories();
     const hidden = all[0];
-    L.upsertCategory({ id: hidden.id, hidden: true });
-    const visible = L.listCategories().filter((c) => !c.hidden);
-    const picker = pickerCategories(visible, L.listCategories(), hidden.id);
+    localUpsertCategory({ id: hidden.id, hidden: true });
+    const visible = listCategories().filter((c) => !c.hidden);
+    const picker = pickerCategories(visible, listCategories(), hidden.id);
     expect(picker.some((c) => c.id === hidden.id)).toBe(true);
     expect(picker).toHaveLength(visible.length + 1);
   });
@@ -257,15 +264,15 @@ describe("mutations — remaining happy paths (both modes)", () => {
   });
 
   it("guest mutations route to localStore", async () => {
-    L.ensureBootstrap();
+    ensureBootstrap();
     const a = await upsertActivity("guest", null, { name: "G", category_id: null, target_hours_per_week: 1, is_active: true });
     await deleteActivity("guest", null, (a as { id: string }).id);
     const b = await upsertScheduleBlock("guest", null, { name: "B", start_time: "09:00", end_time: "10:00", days_of_week: [1], type: "fixed", color: "#fff" });
     await deleteScheduleBlock("guest", null, (b as { id: string }).id);
     await updateProfile("guest", null, { include_weekends: false });
-    expect(L.getProfile().include_weekends).toBe(false);
+    expect(getProfile().include_weekends).toBe(false);
     const log = await insertTimeLog("guest", null, { date: "2026-06-10", start_time: "09:00", end_time: "10:00", category_id: "c", type: "productive" });
     await deleteTimeLog("guest", null, (log as { id: string }).id);
-    expect(L.listLogsForMonth("2026-06")).toHaveLength(0);
+    expect(listLogsForMonth("2026-06")).toHaveLength(0);
   });
 });
