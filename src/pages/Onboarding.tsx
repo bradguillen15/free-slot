@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Check, ArrowRight, ArrowLeft, CalendarDays, Dumbbell, Settings2, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
+import { plannerPrefsSchema, type PlannerPrefsValues } from "@/lib/formSchemas";
 import { toast } from "sonner";
 import { DAYS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
@@ -32,26 +36,26 @@ export default function Onboarding() {
   const { data: profile } = useProfile();
 
   // Step 3 — preferences, pre-populated from saved profile on first load only
-  const [peakStart, setPeakStart] = useState("09:00");
-  const [peakEnd, setPeakEnd] = useState("12:00");
-  const [includeWeekends, setIncludeWeekends] = useState(true);
-  const [reviewDay, setReviewDay] = useState(0);
-  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const form = useForm<PlannerPrefsValues>({
+    resolver: zodResolver(plannerPrefsSchema),
+    defaultValues: { peakStart: "09:00", peakEnd: "12:00", includeWeekends: true, weeklyReviewDay: 0 },
+  });
+  const prefsLoaded = useRef(false);
 
   useEffect(() => {
     if (!user) ensureBootstrap();
   }, [user]);
 
   useEffect(() => {
-    if (prefsLoaded || !profile) return;
-    if (profile.peak_hours) {
-      setPeakStart(profile.peak_hours.start ?? "09:00");
-      setPeakEnd(profile.peak_hours.end ?? "12:00");
-    }
-    if (profile.include_weekends !== undefined) setIncludeWeekends(profile.include_weekends);
-    if (profile.weekly_review_day !== undefined) setReviewDay(profile.weekly_review_day);
-    setPrefsLoaded(true);
-  }, [profile, prefsLoaded]);
+    if (prefsLoaded.current || !profile) return;
+    form.reset({
+      peakStart: profile.peak_hours?.start ?? "09:00",
+      peakEnd: profile.peak_hours?.end ?? "12:00",
+      includeWeekends: profile.include_weekends ?? true,
+      weeklyReviewDay: profile.weekly_review_day ?? 0,
+    });
+    prefsLoaded.current = true;
+  }, [profile, form]);
 
   const activeActivities = (activities ?? []).filter((a) => a.is_active !== false);
 
@@ -75,13 +79,13 @@ export default function Onboarding() {
     }
   };
 
-  const finish = async () => {
+  const finish = async (values: PlannerPrefsValues) => {
     setSaving(true);
     try {
       const prefs = {
-        peak_hours: { start: peakStart, end: peakEnd },
-        include_weekends: includeWeekends,
-        weekly_review_day: reviewDay,
+        peak_hours: { start: values.peakStart, end: values.peakEnd },
+        include_weekends: values.includeWeekends,
+        weekly_review_day: values.weeklyReviewDay,
         onboarding_completed: true,
       };
       if (!user) {
@@ -212,50 +216,85 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.preferences.subtitle")}</p>
                 </header>
 
-                <div className="glass rounded-xl border border-border p-5 space-y-5">
-                  <div>
-                    <Label className="mb-2 block">{t("onboarding.preferences.peak")}</Label>
-                    <div className="flex items-center gap-2">
-                      <Input type="time" value={peakStart} onChange={(e) => setPeakStart(e.target.value)} className="bg-input border-border w-32 font-mono" />
-                      <span className="text-muted-foreground text-xs">→</span>
-                      <Input type="time" value={peakEnd} onChange={(e) => setPeakEnd(e.target.value)} className="bg-input border-border w-32 font-mono" />
-                      <span className="text-sm text-muted-foreground ml-2">{t("onboarding.preferences.peakHint")}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
+                <Form {...form}>
+                  <div className="glass rounded-xl border border-border p-5 space-y-5">
                     <div>
-                      <Label className="block">{t("onboarding.preferences.weekends")}</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">{t("onboarding.preferences.weekendsHint")}</p>
-                    </div>
-                    <Switch checked={includeWeekends} onCheckedChange={setIncludeWeekends} />
-                  </div>
-
-                  <div>
-                    <Label className="mb-2 block">{t("onboarding.preferences.reviewDay")}</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {DAYS.map((d) => (
-                        <button
-                          key={d.idx}
-                          onClick={() => setReviewDay(d.idx)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
-                            reviewDay === d.idx
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-surface border-border text-muted-foreground hover:text-foreground"
+                      <Label className="mb-2 block">{t("onboarding.preferences.peak")}</Label>
+                      <div className="flex items-center gap-2">
+                        <FormField
+                          control={form.control}
+                          name="peakStart"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="time" className="bg-input border-border w-32 font-mono" {...field} />
+                              </FormControl>
+                            </FormItem>
                           )}
-                        >
-                          {d.short}
-                        </button>
-                      ))}
+                        />
+                        <span className="text-muted-foreground text-xs">→</span>
+                        <FormField
+                          control={form.control}
+                          name="peakEnd"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="time" className="bg-input border-border w-32 font-mono" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <span className="text-sm text-muted-foreground ml-2">{t("onboarding.preferences.peakHint")}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="block">{t("onboarding.preferences.weekends")}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t("onboarding.preferences.weekendsHint")}</p>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="includeWeekends"
+                        render={({ field }) => (
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        )}
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="mb-2 block">{t("onboarding.preferences.reviewDay")}</Label>
+                      <FormField
+                        control={form.control}
+                        name="weeklyReviewDay"
+                        render={({ field }) => (
+                          <div className="flex flex-wrap gap-1.5">
+                            {DAYS.map((d) => (
+                              <button
+                                key={d.idx}
+                                type="button"
+                                onClick={() => field.onChange(d.idx)}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
+                                  field.value === d.idx
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-surface border-border text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                {d.short}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Settings2 className="h-4 w-4 shrink-0" />
+                      <p className="text-xs">{t("onboarding.preferences.settingsHint")}</p>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Settings2 className="h-4 w-4 shrink-0" />
-                    <p className="text-xs">{t("onboarding.preferences.settingsHint")}</p>
-                  </div>
-                </div>
+                </Form>
               </section>
             )}
           </motion.div>
@@ -288,7 +327,7 @@ export default function Onboarding() {
             </Button>
           ) : (
             <Button
-              onClick={finish}
+              onClick={form.handleSubmit(finish)}
               disabled={saving}
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >

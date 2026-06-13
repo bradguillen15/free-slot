@@ -166,6 +166,8 @@ const es: Translations = {
     signedIn: "Sesión iniciada",
     orDivider: "o",
     continueWithGoogle: "Continuar con Google",
+    invalidEmail: "Introduce un correo válido",
+    passwordMin: "Al menos 6 caracteres",
     migrate: {
       title: "¿Traer tus datos de invitado?",
       desc: "Encontramos datos de tu sesión como invitado. ¿Quieres importarlos a tu cuenta nueva para no perder nada?",
