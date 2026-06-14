@@ -58,4 +58,6 @@ tmp/
 **/.claude/settings.local.json
 
 # Local planning docs — kept on disk only, not published with the repo
-docs/*-plan.md
+docs/calendar-ux-improvements-plan.md
+docs/resources-layer-plan.md
+docs/sleep-overnight-logging-plan.md
