@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Check, ArrowRight, ArrowLeft, CalendarDays, Dumbbell, Settings2, ExternalLink } from "lucide-react";
+import { Loader2, Check, ArrowRight, ArrowLeft, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,23 @@ import { toast } from "sonner";
 import { DAYS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import { PublicHeader } from "@/components/PublicHeader";
+import { ScheduleEditor } from "@/components/schedule/ScheduleEditor";
+import { ActivityEditor } from "@/components/activities/ActivityEditor";
 import { useTranslation } from "react-i18next";
 import {
   ensureBootstrap,
   updateProfile as updateLocalProfile,
 } from "@/lib/localStore";
-import { useScheduleBlocks, useActivities, useProfile } from "@/lib/dataStore";
+import { useActivities, useVisibleCategories, useProfile } from "@/lib/dataStore";
+import type { Category } from "@/components/day/QuickLogDialog";
+
+type Activity = {
+  id: string;
+  name: string;
+  category_id: string | null;
+  target_hours_per_week: number;
+  is_active: boolean;
+};
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -31,9 +42,13 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const { data: blocks } = useScheduleBlocks();
-  const { data: activities } = useActivities();
+  const { all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
+  const { data: activitiesRaw, refresh: refreshActs } = useActivities();
   const { data: profile } = useProfile();
+
+  const categories = (allCategoriesRaw ?? []) as unknown as Category[];
+  const activities = (activitiesRaw ?? []) as unknown as Activity[];
+  const reloadActivities = () => { refreshCats(); refreshActs(); };
 
   // Step 3 — preferences, pre-populated from saved profile on first load only
   const form = useForm<PlannerPrefsValues>({
@@ -56,8 +71,6 @@ export default function Onboarding() {
     });
     prefsLoaded.current = true;
   }, [profile, form]);
-
-  const activeActivities = (activities ?? []).filter((a) => a.is_active !== false);
 
   const skip = async () => {
     setSaving(true);
@@ -115,7 +128,7 @@ export default function Onboarding() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto w-full">
-      <div className="max-w-3xl mx-auto px-6 py-6">
+      <div className="max-w-5xl mx-auto px-6 py-6">
 
         <div className="flex items-center gap-3 mb-6">
           {STEPS.map((label, i) => (
@@ -153,27 +166,7 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.schedule.subtitle")}</p>
                 </header>
 
-                <div className="glass rounded-xl border border-border p-6 flex flex-col sm:flex-row sm:items-center gap-5">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <CalendarDays className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-semibold tabular-nums">
-                        {blocks.length === 0
-                          ? t("onboarding.schedule.countLabel_zero")
-                          : t(blocks.length === 1 ? "onboarding.schedule.countLabel_one" : "onboarding.schedule.countLabel_other", { count: blocks.length })}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-0.5">{t("onboarding.schedule.subtitle").slice(0, 60)}…</p>
-                    </div>
-                  </div>
-                  <Link to="/app/schedule">
-                    <Button variant="outline" className="gap-2 shrink-0">
-                      {t("onboarding.schedule.cta")}
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
-                </div>
+                <ScheduleEditor />
               </section>
             )}
 
@@ -184,27 +177,12 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.activities.subtitle")}</p>
                 </header>
 
-                <div className="glass rounded-xl border border-border p-6 flex flex-col sm:flex-row sm:items-center gap-5">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <Dumbbell className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-semibold tabular-nums">
-                        {activeActivities.length === 0
-                          ? t("onboarding.activities.countLabel_zero")
-                          : t(activeActivities.length === 1 ? "onboarding.activities.countLabel_one" : "onboarding.activities.countLabel_other", { count: activeActivities.length })}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-0.5">{t("onboarding.activities.subtitle").slice(0, 60)}…</p>
-                    </div>
-                  </div>
-                  <Link to="/app/activities">
-                    <Button variant="outline" className="gap-2 shrink-0">
-                      {t("onboarding.activities.cta")}
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
-                </div>
+                <ActivityEditor
+                  userId={user?.id ?? null}
+                  categories={categories}
+                  activities={activities}
+                  onChange={reloadActivities}
+                />
               </section>
             )}
 

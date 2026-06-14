@@ -43,39 +43,51 @@ The system SHALL allow any user (guest or authenticated) to skip the onboarding 
 
 ---
 
-### Requirement: Live-count schedule step
-Step 1 of the onboarding wizard SHALL display the current count of schedule blocks (sourced from the `useScheduleBlocks` dataStore hook) and a CTA link that navigates to `/app/schedule`. It SHALL NOT contain an inline block editor.
+### Requirement: In-place schedule setup step
+Step 1 of the onboarding wizard SHALL embed the shared `ScheduleEditor` component — the same component rendered by `/app/schedule` — so the user can add, edit, reorder, and delete schedule blocks without leaving the wizard. The wizard SHALL NOT maintain its own bespoke block editor. The editor SHALL operate against the same `dataStore` source for both guest and authenticated users.
 
-#### Scenario: Shows zero count on first visit
-- **WHEN** a new user is on step 1 of the onboarding wizard
-- **WHEN** no schedule blocks exist
-- **THEN** the UI shows "0 blocks added" (or equivalent empty-state text)
-- **THEN** a CTA link to `/app/schedule` is visible
+#### Scenario: Shows the schedule editor in-flow
+- **WHEN** a user is on step 1 of the onboarding wizard
+- **THEN** the embedded `ScheduleEditor` is visible with its preset chips and "Add block" control
+- **THEN** the user is not required to navigate to `/app/schedule`
 
-#### Scenario: Reflects live block count
-- **WHEN** the user has added schedule blocks via `/app/schedule`
-- **WHEN** they return to the onboarding wizard step 1
-- **THEN** the count reflects the current number of blocks in the dataStore
+#### Scenario: Adding a block in onboarding persists it
+- **WHEN** the user adds a schedule block via the embedded editor on step 1
+- **THEN** the block is written through `dataStore` (localStorage for guests, Supabase for cloud users)
+- **THEN** the same block is visible on `/app/schedule` and in the existing schedule list within the step
+
+#### Scenario: Existing blocks are listed
+- **WHEN** the user already has schedule blocks
+- **WHEN** they are on step 1 of the onboarding wizard
+- **THEN** those blocks are listed in the embedded editor (not just a count)
 
 #### Scenario: Continue is always available
 - **WHEN** a user is on step 1 with zero blocks
 - **THEN** the "Continue" button is still enabled (blocks are optional)
 
+#### Scenario: SchedulePage renders the same component
+- **WHEN** the user opens `/app/schedule`
+- **THEN** the page renders the same `ScheduleEditor` component embedded in onboarding, under its page header
+
 ---
 
-### Requirement: Live-count activities step
-Step 2 of the onboarding wizard SHALL display the current count of active activities (sourced from the `useActivities` dataStore hook) and a CTA link that navigates to `/app/activities`. It SHALL NOT contain an inline activity editor.
+### Requirement: In-place activities setup step
+Step 2 of the onboarding wizard SHALL embed the existing shared `ActivityEditor` component — the same component rendered by `/app/activities` — so the user can add and edit activities without leaving the wizard. The wizard SHALL NOT maintain its own bespoke activity editor.
 
-#### Scenario: Shows zero count on first visit
-- **WHEN** a new user is on step 2 of the onboarding wizard
-- **WHEN** no activities exist
-- **THEN** the UI shows "0 activities added" (or equivalent empty-state text)
-- **THEN** a CTA link to `/app/activities` is visible
+#### Scenario: Shows the activity editor in-flow
+- **WHEN** a user is on step 2 of the onboarding wizard
+- **THEN** the embedded `ActivityEditor` is visible with its add-activity control
+- **THEN** the user is not required to navigate to `/app/activities`
 
-#### Scenario: Reflects live activity count
-- **WHEN** the user has added activities via `/app/activities`
-- **WHEN** they return to the onboarding wizard step 2
-- **THEN** the count reflects the current number of active activities in the dataStore
+#### Scenario: Adding an activity in onboarding persists it
+- **WHEN** the user adds an activity via the embedded editor on step 2
+- **THEN** the activity is written through `dataStore` (localStorage for guests, Supabase for cloud users)
+- **THEN** the same activity is visible on `/app/activities` and in the embedded editor
+
+#### Scenario: Existing activities are listed
+- **WHEN** the user already has activities
+- **WHEN** they are on step 2 of the onboarding wizard
+- **THEN** those activities are listed in the embedded editor (not just a count)
 
 #### Scenario: Continue is always available
 - **WHEN** a user is on step 2 with zero activities
@@ -126,7 +138,7 @@ When a guest user signs up and the guest data is migrated to cloud, the `onboard
 ---
 
 ### Requirement: i18n coverage for new UI elements
-All new visible text (skip button label, count card text, CTA link labels) SHALL have translation keys in both `en.ts` and `es.ts`.
+All new visible text (skip button label, step intro/description text) SHALL have translation keys in both `en.ts` and `es.ts`. Text rendered by the embedded `ScheduleEditor`/`ActivityEditor` reuses those components' existing keys.
 
 #### Scenario: Skip button uses i18n key
 - **WHEN** the onboarding skip button is rendered

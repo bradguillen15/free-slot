@@ -17,7 +17,7 @@ The preferences step hard-codes `peakStart = "09:00"` and `peakEnd = "12:00"` re
 **Goals:**
 - Users can skip onboarding at any step and access the app immediately.
 - Onboarding reflects live data (block/activity counts) pulled via `dataStore` hooks rather than maintaining its own in-memory editors.
-- Step 1 (Schedule) and Step 2 (Activities) become lightweight "shortcut" cards that open SchedulePage/ActivitiesPage in-flow, replacing duplicated inline editors.
+- Step 1 (Schedule) and Step 2 (Activities) embed the same reusable editor components used by SchedulePage/ActivitiesPage, so users set up their data in-flow without leaving the wizard, replacing duplicated bespoke editors.
 - `finish()` is idempotent: safe to call multiple times without creating duplicates (for both guest and cloud).
 - Preferences step pre-populates from the user's current profile.
 - `OnboardingGate` lets users through when either `onboarding_completed` OR `onboarding_skipped` is true.
@@ -25,7 +25,7 @@ The preferences step hard-codes `peakStart = "09:00"` and `peakEnd = "12:00"` re
 **Non-Goals:**
 - Redesigning the visual look of the wizard (step indicator, animation stays the same).
 - Adding onboarding analytics or a progress-resume feature that persists partial wizard state.
-- Changing the Activities or Schedule pages themselves (they are the source of truth, not consumers of onboarding state).
+- Changing the *behaviour* of the Activities or Schedule editors (they remain the source of truth). Extracting `SchedulePage`'s body into a reusable `ScheduleEditor` is a pure refactor — the page renders identically afterward.
 - Adding a Supabase edge function (all changes are client-side + one migration).
 
 ---
@@ -45,15 +45,18 @@ The preferences step hard-codes `peakStart = "09:00"` and `peakEnd = "12:00"` re
 
 ---
 
-### Decision 2 — Count cards + navigation instead of inline editors
+### Decision 2 — Embed the shared page editors instead of bespoke inline editors
 
 **Options considered:**
-- A) Keep inline editors but import and reuse the shared `BlockRow` component from SchedulePage — reduces duplication but the page now renders two block lists and managing save state across wizard steps is complex.
-- B) Make onboarding Step 1 / Step 2 card-only: show a live count ("3 blocks added"), a "+ Add on Schedule page" CTA that links to `/app/schedule`, and a "Looks good, continue" button that is always enabled.
+- A) Make onboarding Step 1 / Step 2 card-only: show a live count ("3 blocks added") and a CTA that links to `/app/schedule`. The wizard never edits data itself.
+- B) Keep bespoke inline editors private to the wizard — the original problem, rejected because they drift out of sync with the real pages.
+- C) Extract the editor body of each page into a reusable component and render the *same* component in both the page and the wizard. The schedule editor becomes `ScheduleEditor` (extracted from `SchedulePage`); the activities editor already exists as `ActivityEditor` (the page is a thin wrapper around it).
 
-**Chosen:** B. It eliminates the duplication entirely. The wizard's job is to orient the user and prompt them to fill in data, not to be an alternative editor. Data ownership stays in the dedicated pages. `dataStore` hooks (`useScheduleBlocks`, `useActivities`) are used to read live counts — same pattern the rest of the app already uses.
+**Chosen:** C. Option A was implemented first but produced poor UX: the user is bounced to a separate page with no context, sees no list of what they have already created, and must use the browser back button to return — exactly the friction onboarding is supposed to remove. C keeps the single-implementation benefit of A (there is still only one editor per concept, owned by the page) while letting the user set everything up in-flow. Data ownership stays in `dataStore`; the wizard renders the component but adds no editing logic of its own.
 
-Trade-off: the user leaves the wizard flow to add blocks/activities. Mitigated by opening SchedulePage and ActivitiesPage in the same tab and relying on the browser back button, which the top nav supports.
+**Extraction note:** `SchedulePage` currently inlines the block list, preset chips, `SortableScheduleRow`, overlap warnings, `ScheduleBlockDialog` wiring, and the mini week preview. These move verbatim into `src/components/schedule/ScheduleEditor.tsx`. `SchedulePage` keeps only its `<header>` (title + description) and renders `<ScheduleEditor />`. `ActivitiesPage` already delegates to `<ActivityEditor>` + `<PriorityRanker>`, so Step 2 reuses `<ActivityEditor>` directly with no extraction. Because both editors already read/write through `dataStore` with the guest/cloud `mode` derived from `useAuth`, they work unchanged inside the wizard for both user types.
+
+Trade-off: the wizard steps are taller/heavier than count cards. Acceptable — the step still scrolls within the existing wizard layout, and the Skip/Continue buttons remain always-enabled so the editors stay optional.
 
 ---
 
