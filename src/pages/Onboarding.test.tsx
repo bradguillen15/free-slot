@@ -69,8 +69,20 @@ const mockProfile = vi.hoisted(() => ({ data: null as null | { peak_hours: { sta
 
 vi.mock("@/lib/dataStore", () => ({
   useScheduleBlocks: () => ({ data: mockBlocks.data }),
-  useActivities: () => ({ data: mockActivities.data }),
+  useActivities: () => ({ data: mockActivities.data, refresh: vi.fn() }),
+  useVisibleCategories: () => ({ data: [], all: [], refresh: vi.fn() }),
   useProfile: () => ({ data: mockProfile.data }),
+}));
+
+// The schedule/activity editors are heavy, separately-tested components. Onboarding's
+// contract is only that it embeds them, so we stub them with lightweight markers.
+vi.mock("@/components/schedule/ScheduleEditor", () => ({
+  ScheduleEditor: () => <div data-testid="schedule-editor" />,
+}));
+vi.mock("@/components/activities/ActivityEditor", () => ({
+  ActivityEditor: (props: { userId: string | null }) => (
+    <div data-testid="activity-editor" data-user-id={String(props.userId)} />
+  ),
 }));
 
 // ── localStore mock ────────────────────────────────────────────────────────
@@ -128,27 +140,32 @@ describe("Skip button", () => {
   });
 });
 
-describe("Step 1 — schedule count card", () => {
-  it("shows zero-count label when no blocks", () => {
+describe("Step 1 — embedded schedule editor", () => {
+  it("renders the shared ScheduleEditor in-flow", () => {
     render();
-    expect(screen.getByText("No blocks yet")).toBeInTheDocument();
-  });
-
-  it("shows count when blocks exist", () => {
-    mockBlocks.data = [{ id: "b1" }, { id: "b2" }];
-    render();
-    expect(screen.getByText("2 blocks added")).toBeInTheDocument();
-  });
-
-  it("shows CTA link to schedule page", () => {
-    render();
-    expect(screen.getByText("Set up on Schedule page")).toBeInTheDocument();
+    expect(screen.getByTestId("schedule-editor")).toBeInTheDocument();
   });
 
   it("Continue is always enabled regardless of block count", () => {
     render();
     const continueBtn = screen.getByText("Continue");
     expect(continueBtn).not.toBeDisabled();
+  });
+});
+
+describe("Step 2 — embedded activity editor", () => {
+  it("renders the shared ActivityEditor in-flow", async () => {
+    render();
+    fireEvent.click(screen.getByText("Continue"));
+    await waitFor(() => expect(screen.getByTestId("activity-editor")).toBeInTheDocument());
+  });
+
+  it("passes the guest userId (null) to the editor", async () => {
+    render();
+    fireEvent.click(screen.getByText("Continue"));
+    await waitFor(() =>
+      expect(screen.getByTestId("activity-editor")).toHaveAttribute("data-user-id", "null"),
+    );
   });
 });
 
