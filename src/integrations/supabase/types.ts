@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -56,6 +76,7 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          hidden: boolean
           id: string
           is_default: boolean
           name: string
@@ -65,6 +86,7 @@ export type Database = {
         Insert: {
           color?: string
           created_at?: string
+          hidden?: boolean
           id?: string
           is_default?: boolean
           name: string
@@ -74,6 +96,7 @@ export type Database = {
         Update: {
           color?: string
           created_at?: string
+          hidden?: boolean
           id?: string
           is_default?: boolean
           name?: string
@@ -114,6 +137,7 @@ export type Database = {
           id: string
           include_weekends: boolean
           onboarding_completed: boolean
+          onboarding_skipped: boolean
           peak_hours: Json | null
           updated_at: string
           weekly_review_day: number
@@ -125,6 +149,7 @@ export type Database = {
           id: string
           include_weekends?: boolean
           onboarding_completed?: boolean
+          onboarding_skipped?: boolean
           peak_hours?: Json | null
           updated_at?: string
           weekly_review_day?: number
@@ -136,6 +161,7 @@ export type Database = {
           id?: string
           include_weekends?: boolean
           onboarding_completed?: boolean
+          onboarding_skipped?: boolean
           peak_hours?: Json | null
           updated_at?: string
           weekly_review_day?: number
@@ -466,6 +492,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       block_type: ["fixed", "waste_expected"],
@@ -473,3 +502,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -147,7 +147,7 @@ describe("mutations — guest/cloud parity", () => {
   it("insertTimeLog returns the created row in both modes", async () => {
     const input = { date: "2026-06-10", start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" as const };
     const guestRow = await insertTimeLog("guest", null, input);
-    expect(guestRow.id).toBeTruthy();
+    expect((guestRow as { id: string }).id).toBeTruthy();
 
     queueTableResult("time_logs", { data: { id: "cloud-1", ...input } });
     const cloudRow = await insertTimeLog("cloud", "u1", input);

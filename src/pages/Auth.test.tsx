@@ -101,7 +101,9 @@ describe("Auth — Google sign-in", () => {
     const pendingOAuth = new Promise<{ data: { provider: string; url: string }; error: null }>((resolve) => {
       resolveOAuth = resolve;
     });
-    vi.mocked(supabase.auth.signInWithOAuth).mockReturnValue(pendingOAuth);
+    vi.mocked(supabase.auth.signInWithOAuth).mockReturnValue(
+      pendingOAuth as unknown as ReturnType<typeof supabase.auth.signInWithOAuth>,
+    );
 
     const user = userEvent.setup();
     renderAuth();
