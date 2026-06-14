@@ -26,6 +26,7 @@ export default defineConfig({
   testDir: "e2e/cloud",
   testMatch: "**/*.cloud.e2e.ts",
   globalSetup: "./e2e/cloud/global-setup.ts",
+  globalTeardown: "./e2e/cloud/global-teardown.ts",
   // Serialized: the specs share one Postgres instance. Per-test isolation comes
   // from a unique signup email (RLS scopes every row by auth.uid()), but running
   // serially keeps DB-state assertions deterministic and the output readable.
