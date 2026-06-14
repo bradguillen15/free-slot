@@ -47,12 +47,24 @@ describe("OnboardingGate — guest", () => {
     await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
   });
 
+  it("lets a skipped guest through to /app", async () => {
+    ensureBootstrap();
+    updateProfile({ onboarding_skipped: true });
+    renderAt("/app");
+    await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
+  });
+
   it("redirects an onboarded guest away from /onboarding", async () => {
     ensureBootstrap();
     updateProfile({ onboarding_completed: true });
     renderAt("/onboarding");
-    // Navigate to /app renders nothing here (no matching content), so assert
-    // the onboarding content did NOT render.
+    await waitFor(() => expect(screen.queryByText("ONBOARDING")).not.toBeInTheDocument());
+  });
+
+  it("redirects a skipped guest away from /onboarding", async () => {
+    ensureBootstrap();
+    updateProfile({ onboarding_skipped: true });
+    renderAt("/onboarding");
     await waitFor(() => expect(screen.queryByText("ONBOARDING")).not.toBeInTheDocument());
   });
 });
@@ -60,9 +72,23 @@ describe("OnboardingGate — guest", () => {
 describe("OnboardingGate — signed in", () => {
   it("lets an onboarded user through", async () => {
     authState.user = { id: "u1" };
-    queueTableResult("profiles", { data: { onboarding_completed: true } });
+    queueTableResult("profiles", { data: { onboarding_completed: true, onboarding_skipped: false } });
     renderAt("/app");
     await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
+  });
+
+  it("lets a user who skipped through", async () => {
+    authState.user = { id: "u1" };
+    queueTableResult("profiles", { data: { onboarding_completed: false, onboarding_skipped: true } });
+    renderAt("/app");
+    await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
+  });
+
+  it("sends a user with neither flag set to onboarding", async () => {
+    authState.user = { id: "u1" };
+    queueTableResult("profiles", { data: { onboarding_completed: false, onboarding_skipped: false } });
+    renderAt("/app");
+    await waitFor(() => expect(screen.getByText("ONBOARDING")).toBeInTheDocument());
   });
 
   it("sends a user without a completed profile to onboarding", async () => {

@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { MIN_PER_DAY, expandRange, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
+import { MIN_PER_DAY, fmtDuration, fmtTimeLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { segmentsForDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
 import type { Category } from "./QuickLogDialog";
 
 export type ScheduleBlock = {
@@ -32,16 +33,8 @@ const SNAP_MIN = 15;
 const LONG_PRESS_MS = 500;
 const DRAG_CANCEL_PX = 4;
 
-type Segment = { startMin: number; endMin: number };
-
 function snapMin(m: number): number {
   return Math.round(m / SNAP_MIN) * SNAP_MIN;
-}
-
-function segmentsForDay(start: string, end: string): Segment[] {
-  const s = toMin(start);
-  const e = toMin(end);
-  return expandRange(s, e).map(([a, b]) => ({ startMin: a, endMin: b }));
 }
 
 type ContextMenu = { x: number; y: number; startMin: number } | null;
@@ -67,7 +60,6 @@ export function DayTimeline({
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
 
-  // Long-press tracking
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressOriginRef = useRef<{ x: number; y: number; startMin: number } | null>(null);
 
@@ -138,10 +130,11 @@ export function DayTimeline({
           </div>
         ))}
 
-        {/* Schedule blocks — full width, z-10 */}
+        {/* Schedule blocks — full width, z-10. Clipped against logged time so the
+            planned guide only shows where nothing has been logged yet. */}
         <div className="absolute inset-y-0 left-16 right-0 z-[10]">
           {blocks.flatMap((b) =>
-            segmentsForDay(b.start_time, b.end_time).map((seg, i) => (
+            visibleBlockSegments(b, logs).map((seg, i) => (
               <BlockBar
                 key={`${b.id}-${i}`}
                 seg={seg}
@@ -229,8 +222,6 @@ export function DayTimeline({
     </div>
   );
 }
-
-// ── Sub-components ──────────────────────────────────────────────────────────
 
 /** Below this bar height two text rows don't fit — collapse to one line. */
 const COMPACT_BAR_PX = 36;
@@ -399,7 +390,6 @@ function ContextMenuPopover({
   onLog: () => void;
   onAddBlock: () => void;
 }) {
-  // Position relative to viewport using fixed
   return (
     <div
       className="fixed z-50 min-w-[180px] rounded-lg border border-border bg-surface shadow-lg py-1 text-sm"

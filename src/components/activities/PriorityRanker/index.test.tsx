@@ -5,13 +5,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/integrations/supabase/client", async () => {
-  const m = await import("../../test/supabaseMock");
+  const m = await import("../../../test/supabaseMock");
   return { supabase: m.mockSupabaseClient() };
 });
 
 import { setPriorities } from "@/lib/localStore";
 import { weekStartISO } from "@/lib/week";
-import { PriorityRanker } from "./PriorityRanker";
+import { PriorityRanker } from ".";
 
 const activities = [
   { id: "a-guitar", name: "Guitar", category_id: null, target_hours_per_week: 4, is_active: true },

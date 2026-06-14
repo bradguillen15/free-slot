@@ -18,11 +18,13 @@ import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
 import { AIPlanPanel, type WeeklyPlan, type ActivityLite } from "@/components/week/AIPlanPanel";
 import {
   useActivities,
-  useCategories,
+  useVisibleCategories,
+  pickerCategories,
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
 } from "@/lib/dataStore";
+import { StatCard } from "@/components/StatCard";
 
 const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -44,21 +46,18 @@ export default function WeekPage() {
   const [searchParams] = useSearchParams();
   const [weekStart, setWeekStart] = useState(() => weekFromSearchParams(searchParams));
 
-  // Quick-log dialog
   const [logOpen, setLogOpen] = useState(false);
   const [logCtx, setLogCtx] = useState<{
     date: string; start: string; end: string; editId?: string;
     defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
   }>({ date: todayISO(), start: "09:00", end: "10:00" });
 
-  // Schedule-block dialog
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockDialogTarget, setBlockDialogTarget] = useState<{
     block?: ScheduleBlock; defaultStartTime?: string; defaultWeekday?: number;
   }>({});
 
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
-  // Plan-vs-actual chooser when a block occurrence is clicked
   const [chooser, setChooser] = useState<{ block: ScheduleBlock; iso: string } | null>(null);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -67,13 +66,22 @@ export default function WeekPage() {
 
   const { data: blocksRaw, refresh: refreshBlocks } = useScheduleBlocks();
   const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(weekStart, weekEnd);
-  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
+  const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw } = useActivities();
   const { data: profileRaw } = useProfile();
 
   const blocks = blocksRaw as unknown as ScheduleBlock[];
   const logs = logsRaw as unknown as TimeLog[];
-  const categories = categoriesRaw as unknown as Category[];
+  const allCategories = allCategoriesRaw as unknown as Category[];
+  const visibleCategories = visibleCategoriesRaw as unknown as Category[];
+  const logPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories, allCategories, logCtx.defaultCategoryId),
+    [visibleCategories, allCategories, logCtx.defaultCategoryId]
+  );
+  const blockPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories, allCategories, blockDialogTarget.block?.category_id),
+    [visibleCategories, allCategories, blockDialogTarget.block?.category_id]
+  );
   const activities = useMemo(
     () => (activitiesRaw ?? []).filter((a) => (a as { is_active?: boolean }).is_active),
     [activitiesRaw]
@@ -81,17 +89,15 @@ export default function WeekPage() {
   const profile = profileRaw as unknown as { peak_hours: { start: string; end: string } | null } | null;
 
   const catMap = useMemo(
-    () => Object.fromEntries(categories.map((c) => [c.id, c])),
-    [categories]
+    () => Object.fromEntries(allCategories.map((c) => [c.id, c])),
+    [allCategories]
   );
 
-  // Map from block id to full ScheduleBlock for click-to-edit
   const blockById = useMemo(
     () => Object.fromEntries(blocks.map((b) => [b.id, b])),
     [blocks]
   );
 
-  // Map from log id to full TimeLog for click-to-edit
   const logById = useMemo(
     () => Object.fromEntries(logs.map((l) => [l.id, l])),
     [logs]
@@ -218,6 +224,7 @@ export default function WeekPage() {
   return (
     <>
       <CalendarViewHeader
+        testId="page-week"
         label="Week view"
         title={fmtWeekRange(weekStart)}
         actions={
@@ -243,11 +250,10 @@ export default function WeekPage() {
         }
       />
 
-      {/* Free-time summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-        <SummaryCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
-        <SummaryCard icon={<Zap className="h-4 w-4" />} label="Peak-hour free" value={fmtDuration(peakFree)} tone="accent" />
-        <SummaryCard icon={<CalendarDays className="h-4 w-4" />} label="Avg per day" value={fmtDuration(Math.round(totalWeekFree / 7))} tone="muted" />
+        <StatCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
+        <StatCard icon={<Zap className="h-4 w-4" />} label="Peak-hour free" value={fmtDuration(peakFree)} tone="accent" />
+        <StatCard icon={<CalendarDays className="h-4 w-4" />} label="Avg per day" value={fmtDuration(Math.round(totalWeekFree / 7))} tone="muted" />
       </div>
 
       {isGuest ? (
@@ -280,7 +286,7 @@ export default function WeekPage() {
           weekStart={weekStart}
           gaps={flatGaps}
           activities={activities as ActivityLite[]}
-          categories={categories}
+          categories={allCategories}
           onPlanChange={setAiPlan}
           onSlotAccepted={refreshLogs}
         />
@@ -315,7 +321,7 @@ export default function WeekPage() {
           if (!v) setLogCtx({ date: todayISO(), start: "09:00", end: "10:00" });
         }}
         date={logCtx.date}
-        categories={categories}
+        categories={logPickerCategories}
         defaultStart={logCtx.start}
         defaultEnd={logCtx.end}
         editId={logCtx.editId}
@@ -336,7 +342,7 @@ export default function WeekPage() {
         defaultWeekday={blockDialogTarget.defaultWeekday}
         onSaved={refreshBlocks}
         onDeleted={refreshBlocks}
-        categories={categories}
+        categories={blockPickerCategories}
         onCategoriesRefresh={refreshCats}
       />
 
@@ -355,16 +361,3 @@ export default function WeekPage() {
   );
 }
 
-function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: "primary" | "accent" | "muted" }) {
-  const ring = tone === "primary" ? "ring-primary/30" : tone === "accent" ? "ring-accent/30" : "ring-border";
-  const bg = tone === "primary" ? "bg-primary/10 text-primary" : tone === "accent" ? "bg-accent/15 text-accent-foreground" : "bg-muted/50 text-muted-foreground";
-  return (
-    <div className={`rounded-2xl border border-border bg-surface px-4 py-3 ring-1 ${ring}`}>
-      <div className="flex items-center gap-2 mb-1">
-        <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${bg}`}>{icon}</span>
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      </div>
-      <div className="font-display text-2xl font-semibold tracking-tight font-mono-num">{value}</div>
-    </div>
-  );
-}

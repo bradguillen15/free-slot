@@ -32,18 +32,55 @@ FreeSlot is a React SPA built with Vite and TypeScript. The most important archi
 src/
 ├── components/     # Feature + UI (ui/, day/, week/, activities/, dashboard/)
 ├── pages/          # Route components
+├── hooks/          # Reusable hooks shared across components (e.g. useNowMinute, useIsMobile)
 ├── lib/            # Pure logic & adapters (dataStore, localStore, gaps, schedule, time)
 ├── contexts/       # AuthContext
 ├── integrations/   # Generated Supabase client + types (do not edit)
 └── test/           # Vitest setup
 ```
 
+### Component hook co-location
+
+When a component accumulates substantial **component-specific** effect or derivation logic
+(large `useEffect`s, multi-`useMemo` stat derivations, async fetch/aggregate effects), extract it
+into named custom hooks instead of inlining:
+
+- Convert the component to a folder named after it: `Foo/index.tsx` (the component) plus one or
+  more `Foo/useX.ts` hook files **used only by that component**. The folder + `index.tsx` keeps
+  `import Foo from ".../Foo"` resolving, so consumer imports do not change.
+- A hook that is **reusable** across components goes in `src/hooks/` instead — a co-located hook is,
+  by definition, used by exactly one component.
+- Extract by lifting the existing logic verbatim and returning the exact shape the component already
+  consumes; keep behavior identical.
+
+Examples: `pages/DashboardPage/` (`useDashboardStats`, `useWeeklyReviewPrompt`),
+`components/dashboard/WeeklyReviewModal/` (`useWeeklyReviewData`),
+`components/activities/PriorityRanker/` (`usePriorityData`),
+`pages/CalendarPage/` (`useAutoScrollToHour`, `useAddBlockHereListener`); the reusable
+`useNowMinute` lives in `src/hooks/`.
+
 ## Data Access Rules
 
-1. **Pages and feature components** must use `dataStore` hooks (`useCategories`, `useActivities`, `useTimeLogsInRange`, etc.).
-2. **Never** call `supabase.from(...)` directly from a page that should work in guest mode.
-3. Account-only features (AI planner, dashboard, settings) may call Supabase or edge functions directly.
-4. New client-accessible tables need `localStore.ts` parity and a `dataStore` hook.
+1. **Pages and feature components** must use `dataStore` React Query hooks for reads (`useCategories`, `useActivities`, `useTimeLogsInRange`, `useProfile`, `useWeeklyPlan`, etc.).
+2. **Never** fetch data in `useEffect` — no hand-rolled `useState` + Supabase/localStorage reads in components.
+3. **Writes** go through `dataStore` async mutation functions or `use*Mutation` hooks; they invalidate query keys automatically — do not thread manual `refresh()` / `onSaved` callbacks.
+4. **Never** call `supabase.from(...)` from pages or components (ESLint enforced). Allowed locations: `src/lib/**`, `src/contexts/AuthContext.tsx`, `src/integrations/**`, and temporary overrides listed in `eslint.config.js` until Phase 3 stragglers migrate.
+5. Account-only features (AI planner, weekly reviews, settings) may use cloud-only hooks or edge functions via `dataStore` — not raw component fetches.
+6. New client-accessible tables need `localStore.ts` parity, a fetcher in `dataFetchers.ts`, query keys in `queryKeys.ts`, and a hook in `dataStore.ts`.
+
+### React Query cheat sheet
+
+| Task | Pattern |
+|---|---|
+| Read guest/cloud data | `useCategories()`, `useTimeLogsInRange(start, end)`, … |
+| Cloud-only read | `useWeeklyPlan(weekStart)` with `enabled: !!user` inside the hook |
+| Write + cache update | `await upsertCategory(mode, userId, input)` or `useUpsertCategoryMutation()` |
+| Manual refetch | `const { refresh } = useCategories(); await refresh()` (prefer mutation invalidation) |
+| Optimistic log insert | `setData` from `useTimeLogsInRange` → backed by `queryClient.setQueryData` |
+| Query keys | Always use `queryKeys.*` from `@/lib/queryKeys` — never string literals |
+| Tests | Wrap with `renderWithProviders()` or `createHookWrapper()` from `src/test/renderWithProviders.tsx` |
+
+Query client defaults live in `src/lib/queryClient.ts` (`staleTime: 30s`, `retry: 1`, `refetchOnWindowFocus: false`). Guest localStorage writes invalidate guest query keys via a global bridge — do not add per-hook storage listeners.
 
 ## UI / UX Standards
 
@@ -58,6 +95,30 @@ src/
 - Explicit TypeScript types for props and hook return shapes.
 - English for all identifiers, comments, and user-facing copy.
 - Prefer small, focused components; colocate feature code under `components/<feature>/`.
+- **Named imports only** — do not use `import * as`. Import the specific symbols you need:
+  - React: `import { forwardRef } from "react"` and `import type { HTMLAttributes } from "react"`.
+  - Radix / libraries: `import { Root, Trigger } from "@radix-ui/react-dialog"`.
+  - Internal modules: import functions and types by name; alias on conflict (e.g. `upsertCategory as localUpsertCategory` when a wrapper shares the same name).
+  - Enforced by ESLint (`no-restricted-syntax` on `ImportNamespaceSpecifier` in `eslint.config.js`).
+- **Comments** — default to none. Only comment *why* (invariants, guest/cloud semantics, workarounds, product/security decisions, non-obvious test intent). Do not restate variable names or “dialog state” labels. JSDoc on exported APIs when the contract is not obvious from the signature. See [comment-audit-plan.md](./comment-audit-plan.md).
+
+### Layout surfaces & variants
+
+- **Dashboard/calendar/schedule panels** → `Surface` ([src/components/Surface.tsx](../src/components/Surface.tsx)) with `elevation`, `radius`, and `padding` props.
+- **KPI / stat tiles** → `StatCard` + `toneClasses` ([src/components/StatCard.tsx](../src/components/StatCard.tsx)). Do not copy `rounded-2xl border border-border bg-surface` into pages.
+- **Settings / forms with titled sections** → shadcn `Card`.
+- Never define a local component named `Card` in a page file.
+
+### CVA decision matrix
+
+| Situation | Use |
+|---|---|
+| shadcn primitive with `variant` / `size` props | `cva` in `src/components/ui/` |
+| Shared layout with 2–3 enum props (`elevation`, `padding`) | Component with internal class map; CVA optional |
+| Shared layout, single shape | Plain component + `cn()` |
+| One page, unique layout | Inline Tailwind |
+| Tone colors for stats | `toneClasses()` until >3 tones or compound variants |
+| Merging caller `className` | Always `cn()` from `@/lib/utils` |
 
 ## Testing
 
@@ -65,6 +126,7 @@ src/
 - Run `bun run test` before completing a task.
 - Test pure logic in `src/lib/` (gaps, schedule, time) with focused unit tests.
 - Mock `dataStore` or `localStore` when testing pages — do not hit Supabase in unit tests.
+- Component tests that render `dataStore` consumers must wrap with `QueryClientProvider` via `renderWithProviders()` (`src/test/renderWithProviders.tsx`).
 
 ## Scripts
 

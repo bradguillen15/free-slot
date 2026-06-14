@@ -5,7 +5,8 @@ import { ChevronLeft, ChevronRight, Plus, CalendarDays, Sparkles } from "lucide-
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
+import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/lib/time";
+import { logDefaultsFromBlock } from "@/lib/schedule";
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
@@ -17,7 +18,10 @@ import {
 import { NotebookPen, CalendarRange } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
+import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
+import { useNowMinute } from "@/hooks/useNowMinute";
+import { useAutoScrollToHour } from "./useAutoScrollToHour";
+import { useAddBlockHereListener } from "./useAddBlockHereListener";
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -26,25 +30,20 @@ export default function CalendarPage() {
   const initialDate = searchParams.get("date") || todayISO();
   const [date, setDate] = useState<string>(initialDate);
 
-  // Quick-log dialog state
   const [logOpen, setLogOpen] = useState(false);
   const [logDefaults, setLogDefaults] = useState<{
     start: string; end: string; editId?: string;
     defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
   }>({ start: "09:00", end: "10:00" });
 
-  // Schedule-block dialog state
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockDialogTarget, setBlockDialogTarget] = useState<{
     block?: ScheduleBlock; defaultStartTime?: string; defaultWeekday?: number;
   }>({});
-  // Plan-vs-actual chooser when a block occurrence is clicked
   const [chooserBlock, setChooserBlock] = useState<ScheduleBlock | null>(null);
 
-  const [now, setNow] = useState(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Sync ?date= on change
   useEffect(() => {
     if (date === todayISO()) {
       if (searchParams.get("date")) {
@@ -57,13 +56,13 @@ export default function CalendarPage() {
       next.set("date", date);
       setSearchParams(next, { replace: true });
     }
-  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps -- searchParams in deps causes a sync loop
 
   const weekday = isoToWeekday(date);
   const isToday = date === todayISO();
 
   const { data: allBlocks, refresh: refreshBlocks } = useScheduleBlocks();
-  const { data: categories, refresh: refreshCats } = useCategories();
+  const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(date, date);
 
   const blocks = useMemo(
@@ -71,40 +70,30 @@ export default function CalendarPage() {
     [allBlocks, weekday]
   );
   const logs = dayLogs as unknown as TimeLog[];
-  const cats = categories as unknown as Category[];
+  const cats = allCategories as unknown as Category[];
+  const logPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories as Category[], cats, logDefaults.defaultCategoryId),
+    [visibleCategories, cats, logDefaults.defaultCategoryId]
+  );
+  const blockPickerCategories = useMemo(
+    () => pickerCategories(visibleCategories as Category[], cats, blockDialogTarget.block?.category_id),
+    [visibleCategories, cats, blockDialogTarget.block?.category_id]
+  );
 
-  // Tick "now" line
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
+  const currentMinute = useNowMinute(isToday);
 
-  // Auto-scroll to ~7am or "now" — only when the displayed day changes, not on
-  // every minute tick (that would yank the viewport away from the user's scroll).
-  useEffect(() => {
-    if (!scrollRef.current) return;
-    const current = new Date();
-    const minute = isToday ? current.getHours() * 60 + current.getMinutes() : 7 * 60;
-    const top = (minute / 60) * 56 - 120;
-    scrollRef.current.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  }, [date, isToday]);
+  useAutoScrollToHour(scrollRef, date, isToday);
 
-  const currentMinute = isToday ? now.getHours() * 60 + now.getMinutes() : null;
-
-  // Listen for "add-block-here" custom event from DayTimeline context menu
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { startMin } = (e as CustomEvent<{ startMin: number }>).detail;
+  // New blocks default to Weekdays (no defaultWeekday) — single-day blocks were a
+  // recurring source of confusion.
+  useAddBlockHereListener(
+    useCallback((startMin: number) => {
       const h = Math.floor(startMin / 60);
       const hStr = `${String(h).padStart(2, "0")}:00`;
-      // New blocks default to Weekdays (no defaultWeekday) — single-day blocks
-      // were a recurring source of confusion.
       setBlockDialogTarget({ defaultStartTime: hStr });
       setBlockDialogOpen(true);
-    };
-    document.addEventListener("add-block-here", handler);
-    return () => document.removeEventListener("add-block-here", handler);
-  }, [weekday]);
+    }, [])
+  );
 
   const openLogAt = (startMin: number) => {
     const snapped = Math.floor(startMin / 30) * 30;
@@ -113,20 +102,17 @@ export default function CalendarPage() {
   };
 
   const openQuickLog = () => {
-    const base = isToday ? now.getHours() * 60 + now.getMinutes() - 30 : 9 * 60;
+    // currentMinute is non-null exactly when the displayed day is today.
+    const base = currentMinute != null ? currentMinute - 30 : 9 * 60;
     openLogAt(Math.max(0, base));
   };
 
-  // Clicking a block occurrence asks: log actual time, or edit the template?
   const handleBlockClick = useCallback((block: ScheduleBlock) => {
     setChooserBlock(block);
   }, []);
 
   const logFromBlock = useCallback((block: ScheduleBlock) => {
-    const start = block.start_time.slice(0, 5);
-    const overnight = toMin(block.end_time) <= toMin(block.start_time);
-    const end = overnight ? fromMin(Math.min(toMin(start) + 60, 1439)) : block.end_time.slice(0, 5);
-    setLogDefaults({ start, end, defaultTitle: block.name, defaultCategoryId: undefined });
+    setLogDefaults({ ...logDefaultsFromBlock(block), defaultCategoryId: undefined });
     setLogOpen(true);
   }, []);
 
@@ -176,7 +162,7 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
+      <div data-testid="page-day" className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
         <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
@@ -245,12 +231,13 @@ export default function CalendarPage() {
               whileTap={{ scale: 0.95 }}
               className="fixed bottom-6 right-6 z-30 h-14 w-14 rounded-full gradient-primary text-primary-foreground shadow-glow flex items-center justify-center animate-pulse-glow"
               aria-label="Add"
+              data-testid="day-fab"
             >
               <Plus className="h-6 w-6" />
             </motion.button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="mb-2">
-            <DropdownMenuItem onClick={openQuickLog} className="gap-2">
+            <DropdownMenuItem onClick={openQuickLog} className="gap-2" data-testid="day-log-time">
               <NotebookPen className="h-4 w-4" /> {t("schedule.logTime")}
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -277,7 +264,7 @@ export default function CalendarPage() {
             if (!v) setLogDefaults({ start: "09:00", end: "10:00" });
           }}
           date={date}
-          categories={cats}
+          categories={logPickerCategories}
           defaultStart={logDefaults.start}
           defaultEnd={logDefaults.end}
           editId={logDefaults.editId}
@@ -300,7 +287,7 @@ export default function CalendarPage() {
           defaultWeekday={blockDialogTarget.defaultWeekday}
           onSaved={refreshBlocks}
           onDeleted={refreshBlocks}
-          categories={cats}
+          categories={blockPickerCategories}
           onCategoriesRefresh={refreshCats}
         />
       </div>

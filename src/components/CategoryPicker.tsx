@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,13 +13,6 @@ export type PickerCategory = {
   color: string;
   type: "productive" | "unproductive";
 };
-
-/** Color palette cycled for labels created on the fly. */
-const CREATE_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#06b6d4", "#84cc16", "#ef4444", "#14b8a6"];
-
-export function nextCreateColor(existingCount: number): string {
-  return CREATE_COLORS[existingCount % CREATE_COLORS.length];
-}
 
 /**
  * Searchable label picker with on-the-fly creation. Replaces the old chip rows,
@@ -42,7 +35,22 @@ export function CategoryPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
   const selected = categories.find((c) => c.id === value);
+
+  // Dialog scroll-lock (react-remove-scroll) swallows trackpad wheel events on portaled
+  // popovers unless we handle wheel locally on the list.
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current;
+    if (!el) return;
+    const onWheel = (event: WheelEvent) => {
+      event.stopPropagation();
+      el.scrollTop += event.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: true });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [open]);
 
   const productive = categories.filter((c) => c.type === "productive");
   const unproductive = categories.filter((c) => c.type === "unproductive");
@@ -75,7 +83,7 @@ export function CategoryPicker({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
           {selected ? (
@@ -89,10 +97,10 @@ export function CategoryPicker({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="z-[60] w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search or create…" value={query} onValueChange={setQuery} />
-          <CommandList>
+          <CommandList ref={listRef} className="overscroll-contain">
             <CommandEmpty>{onCreate ? "No label found — create it below." : "No label found."}</CommandEmpty>
             {allowNone && (
               <CommandGroup>

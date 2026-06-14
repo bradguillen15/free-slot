@@ -15,14 +15,14 @@ export function PublicHeader({ showAppLink = true }: { showAppLink?: boolean }) 
       </Link>
       <div className="flex items-center gap-1.5">
         <Link to="/">
-          <Button variant="ghost" size="sm" className="gap-1.5">
-            <Home className="h-3.5 w-3.5" /> {t("common.home")}
+          <Button variant="ghost" size="sm" className="gap-1.5" aria-label={t("common.home")}>
+            <Home className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("common.home")}</span>
           </Button>
         </Link>
         {showAppLink && (
           <Link to="/app">
-            <Button variant="ghost" size="sm" className="gap-1.5">
-              <LayoutGrid className="h-3.5 w-3.5" /> {t("common.openApp")}
+            <Button variant="ghost" size="sm" className="gap-1.5" aria-label={t("common.openApp")}>
+              <LayoutGrid className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("common.openApp")}</span>
             </Button>
           </Link>
         )}

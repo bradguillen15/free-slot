@@ -2,7 +2,7 @@ import { Target } from "lucide-react";
 import { ActivityEditor } from "@/components/activities/ActivityEditor";
 import { PriorityRanker } from "@/components/activities/PriorityRanker";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActivities, useCategories } from "@/lib/dataStore";
+import { useActivities, useVisibleCategories } from "@/lib/dataStore";
 import type { Category } from "@/components/day/QuickLogDialog";
 
 type Activity = {
@@ -15,10 +15,10 @@ type Activity = {
 
 export default function ActivitiesPage() {
   const { user } = useAuth();
-  const { data: categoriesRaw, refresh: refreshCats } = useCategories();
+  const { data: visibleRaw, all: allRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw, refresh: refreshActs } = useActivities();
 
-  const categories = (categoriesRaw ?? []) as unknown as Category[];
+  const categories = (allRaw ?? []) as unknown as Category[];
   const activities = (activitiesRaw ?? []) as unknown as Activity[];
 
   const reload = () => { refreshCats(); refreshActs(); };
@@ -26,7 +26,7 @@ export default function ActivitiesPage() {
   const totalHours = activities.filter((a) => a.is_active).reduce((s, a) => s + Number(a.target_hours_per_week), 0);
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
+    <div data-testid="page-activities" className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
       <header className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="font-display text-3xl font-semibold tracking-tight flex items-center gap-2">

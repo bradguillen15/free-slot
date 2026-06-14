@@ -81,7 +81,7 @@ Defined in `src/App.tsx`.
 
 Two wrapper components:
 
-- **`OnboardingGate`** — if onboarding isn't done (in cloud or guest profile), redirects to `/onboarding`.
+- **`OnboardingGate`** — redirects to `/onboarding` only when both `onboarding_completed` and `onboarding_skipped` are `false`. Either flag being `true` passes through. The gate also allows `/app/schedule` and `/app/activities` through regardless of flag state so the onboarding count-card links work. Two separate `key` props (`key="onboarding"` / `key="app"`) prevent React from reusing the same instance across the two route positions.
 - **`ProtectedRoute`** — redirects unauthenticated users to `/auth`. Used only on truly account-only pages.
 
 The mobile hamburger menu (top-right sheet, replaced the old bottom bar) and desktop sidebar show 🔒 next to gated entries for guests, and clicking them routes to `/auth` instead of the locked page.
@@ -94,7 +94,7 @@ The single source of truth is the Supabase schema (replicated by `localStore.ts`
 
 | Table | Purpose |
 |---|---|
-| `profiles` | Per-user prefs: `buffer_minutes`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`. Auto-created by `handle_new_user` trigger on signup. |
+| `profiles` | Per-user prefs: `buffer_minutes`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped`. Auto-created by `handle_new_user` trigger on signup. |
 | `categories` | Productive / unproductive labels (Deep work, Reading, Gaming…). 9 defaults seeded per user. |
 | `activities` | What the user wants to spend time on. Has `target_hours_per_week` and links to a category. |
 | `schedule_blocks` | Recurring fixed time (work, sleep, commute). Has `days_of_week` (0=Sun..6=Sat), `start_time`/`end_time` (supports overnight), `type: fixed | waste_expected`, and `sort_order` (user-defined order on the Schedule page). |
@@ -121,6 +121,17 @@ The core algorithm. Given:
 
 This is what powers the **"Total free time"** card on the week view, the dashed gap markers in `WeekGrid`, and the candidate slots fed to the AI planner.
 
+### Schedule guide vs. logged time (day view)
+
+The schedule is a **guide**, the log is the truth. In the day timeline (`DayTimeline`), planned
+schedule blocks are **clipped against logged time**: a block is rendered only for the minutes not
+covered by any `time_log` that day (`visibleBlockSegments` → `subtractIntervals` in `lib/time.ts`,
+overnight-aware). Logging a replacement activity is the override — the planned block recedes to the
+remaining, unaccounted-for time; there is no per-day "skip" mechanism. This clipping is
+**presentation-only** and does not change free-window detection (`gaps.ts` still treats both planned
+and logged time as busy). Time entries may also span midnight (`durationMinutes` wraps past
+midnight). Week and Month views are **not yet clipped** — a deliberate follow-up.
+
 ---
 
 ## 6. AI planner (`src/components/week/AIPlanPanel.tsx` + `supabase/functions/generate-weekly-plan/`)
@@ -139,7 +150,7 @@ Cloud-only. Flow:
 
 ## 7. Authentication (`src/contexts/AuthContext.tsx`)
 
-Standard Supabase auth. Email + password (Google OAuth can be enabled in the Supabase dashboard, but the UI currently only offers email/password). Email confirmation is **auto-confirmed** — users are signed in immediately on signup so the guest→account transition feels instant.
+Standard Supabase auth. Email + password and **Continue with Google** on the auth page (`src/pages/Auth.tsx`). Google OAuth uses identity scopes only (`openid`, `email`, `profile`) — no Calendar access. Email confirmation is **auto-confirmed** — users are signed in immediately on signup so the guest→account transition feels instant.
 
 The `AuthProvider` exposes `{ user, loading, signOut }`. **Crucial:** the provider sets up an `onAuthStateChange` listener *before* calling `getSession()` so it doesn't miss the initial event.
 

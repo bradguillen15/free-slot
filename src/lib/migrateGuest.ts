@@ -28,7 +28,7 @@ export async function migrateGuestToCloud(userId: string) {
     const { data: inserted, error: catInsErr } = await supabase
       .from("categories")
       .insert(newCats.map((c) => ({
-        user_id: userId, name: c.name, type: c.type, color: c.color, is_default: false,
+        user_id: userId, name: c.name, type: c.type, color: c.color, is_default: false, hidden: c.hidden ?? false,
       })))
       .select("id,name");
     if (catInsErr) throw catInsErr;
@@ -39,6 +39,20 @@ export async function migrateGuestToCloud(userId: string) {
     const cloudId = cloudCatByName.get(c.name);
     if (cloudId) catIdMap.set(c.id, cloudId);
   });
+
+  // Sync hidden flag for categories that already exist in the cloud (matched by name).
+  const hiddenSync = snap.categories.filter((c) => c.hidden && cloudCatByName.has(c.name));
+  if (hiddenSync.length) {
+    await Promise.all(
+      hiddenSync.map((c) =>
+        supabase
+          .from("categories")
+          .update({ hidden: true })
+          .eq("id", cloudCatByName.get(c.name)!)
+          .eq("user_id", userId)
+      )
+    );
+  }
 
   // 2. Activities — skip names that already exist in the cloud (retry safety).
   let activitiesCount = 0;
@@ -132,14 +146,30 @@ export async function migrateGuestToCloud(userId: string) {
     }
   }
 
-  // 5. Profile preferences
+  // 5. Profile flags + preferences.
+  // Rules:
+  //   - Only write a flag when it is true in the guest profile (never downgrade cloud true→false).
+  //   - Only push preference values when the guest completed the prefs step (onboarding_completed);
+  //     a skip-only guest never configured them, so pushing DEFAULT_PROFILE values would silently
+  //     overwrite legitimate cloud settings.
+  const profileUpdate: {
+    onboarding_completed?: boolean;
+    peak_hours?: typeof snap.profile.peak_hours;
+    include_weekends?: boolean;
+    weekly_review_day?: number;
+    onboarding_skipped?: boolean;
+  } = {};
   if (snap.profile.onboarding_completed) {
-    const { error: profErr } = await supabase.from("profiles").update({
-      peak_hours: snap.profile.peak_hours,
-      include_weekends: snap.profile.include_weekends,
-      weekly_review_day: snap.profile.weekly_review_day,
-      onboarding_completed: true,
-    }).eq("id", userId);
+    profileUpdate.onboarding_completed = true;
+    profileUpdate.peak_hours = snap.profile.peak_hours;
+    profileUpdate.include_weekends = snap.profile.include_weekends;
+    profileUpdate.weekly_review_day = snap.profile.weekly_review_day;
+  }
+  if (snap.profile.onboarding_skipped) {
+    profileUpdate.onboarding_skipped = true;
+  }
+  if (Object.keys(profileUpdate).length > 0) {
+    const { error: profErr } = await supabase.from("profiles").update(profileUpdate).eq("id", userId);
     if (profErr) throw profErr;
   }
 

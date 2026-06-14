@@ -27,14 +27,30 @@ beforeEach(() => {
 });
 
 describe("QuickLogDialog", () => {
-  it("rejects end <= start with an error toast and no insert", async () => {
+  it("rejects a zero-length entry (start === end) with no insert", async () => {
     const user = userEvent.setup();
-    render(<QuickLogDialog {...baseProps} defaultStart="10:00" defaultEnd="09:00" />);
+    render(<QuickLogDialog {...baseProps} defaultStart="09:00" defaultEnd="09:00" />);
 
     await user.click(screen.getByRole("button", { name: "Save log" }));
 
-    expect(toast.error).toHaveBeenCalledWith("End time must be after start");
+    expect(await screen.findByText("End time must be after start")).toBeInTheDocument();
     expect(insertTimeLog).not.toHaveBeenCalled();
+  });
+
+  it("accepts an overnight entry (end < start) and logs the wrapped duration", async () => {
+    const user = userEvent.setup();
+    vi.mocked(insertTimeLog).mockResolvedValue({ id: "row" });
+
+    render(<QuickLogDialog {...baseProps} defaultStart="23:00" defaultEnd="06:00" />);
+    await user.click(screen.getByRole("button", { name: "Save log" }));
+
+    await waitFor(() => expect(insertTimeLog).toHaveBeenCalled());
+    expect(vi.mocked(insertTimeLog).mock.calls[0][2]).toMatchObject({
+      start_time: "23:00",
+      end_time: "06:00",
+    });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Logged 7h"));
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("disables Save when there is no category to pick", () => {

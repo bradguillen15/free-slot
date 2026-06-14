@@ -1,42 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Plus, X, Check, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Check, ArrowRight, ArrowLeft, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
+import { plannerPrefsSchema, type PlannerPrefsValues } from "@/lib/formSchemas";
 import { toast } from "sonner";
-import { DAYS, BLOCK_PRESETS, ACTIVITY_PRESETS } from "@/lib/schedule";
+import { DAYS } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import { PublicHeader } from "@/components/PublicHeader";
+import { ScheduleEditor } from "@/components/schedule/ScheduleEditor";
+import { ActivityEditor } from "@/components/activities/ActivityEditor";
 import { useTranslation } from "react-i18next";
 import {
   ensureBootstrap,
-  listCategories as listLocalCategories,
-  upsertScheduleBlock as upsertLocalBlock,
-  upsertActivity as upsertLocalActivity,
   updateProfile as updateLocalProfile,
 } from "@/lib/localStore";
-
-type Block = {
-  name: string;
-  start_time: string;
-  end_time: string;
-  days_of_week: number[];
-  color: string;
-  type: "fixed" | "waste_expected";
-};
+import { useActivities, useVisibleCategories, useProfile } from "@/lib/dataStore";
+import type { Category } from "@/components/day/QuickLogDialog";
 
 type Activity = {
+  id: string;
   name: string;
+  category_id: string | null;
   target_hours_per_week: number;
-  category_id?: string | null;
+  is_active: boolean;
 };
-
-type Category = { id: string; name: string; type: "productive" | "unproductive"; color: string };
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -45,116 +41,75 @@ export default function Onboarding() {
   const STEPS = [t("onboarding.steps.schedule"), t("onboarding.steps.activities"), t("onboarding.steps.preferences")];
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
 
-  // Step 1
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  // Step 2
-  const [activities, setActivities] = useState<Activity[]>([]);
-  // Step 3
-  const [peakStart, setPeakStart] = useState("09:00");
-  const [peakEnd, setPeakEnd] = useState("12:00");
-  const [includeWeekends, setIncludeWeekends] = useState(true);
-  const [reviewDay, setReviewDay] = useState(0);
+  const { all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
+  const { data: activitiesRaw, refresh: refreshActs } = useActivities();
+  const { data: profile } = useProfile();
+
+  const categories = (allCategoriesRaw ?? []) as unknown as Category[];
+  const activities = (activitiesRaw ?? []) as unknown as Activity[];
+  const reloadActivities = () => { refreshCats(); refreshActs(); };
+
+  // Step 3 — preferences, pre-populated from saved profile on first load only
+  const form = useForm<PlannerPrefsValues>({
+    resolver: zodResolver(plannerPrefsSchema),
+    defaultValues: { peakStart: "09:00", peakEnd: "12:00", includeWeekends: true, weeklyReviewDay: 0 },
+  });
+  const prefsLoaded = useRef(false);
 
   useEffect(() => {
-    (async () => {
-      if (!user) {
-        ensureBootstrap();
-        const cats = listLocalCategories().map((c) => ({
-          id: c.id, name: c.name, type: c.type, color: c.color,
-        }));
-        setCategories(cats);
-        return;
-      }
-      const { data } = await supabase.from("categories").select("id,name,type,color").eq("user_id", user.id);
-      if (data) setCategories(data as Category[]);
-    })();
+    if (!user) ensureBootstrap();
   }, [user]);
 
-  const productiveCats = categories.filter((c) => c.type === "productive");
+  useEffect(() => {
+    if (prefsLoaded.current || !profile) return;
+    form.reset({
+      peakStart: profile.peak_hours?.start ?? "09:00",
+      peakEnd: profile.peak_hours?.end ?? "12:00",
+      includeWeekends: profile.include_weekends ?? true,
+      weeklyReviewDay: profile.weekly_review_day ?? 0,
+    });
+    prefsLoaded.current = true;
+  }, [profile, form]);
 
-  const addPreset = (p: typeof BLOCK_PRESETS[number]) => {
-    if (blocks.some((b) => b.name === p.name)) return;
-    setBlocks([...blocks, {
-      name: p.name, start_time: p.start, end_time: p.end,
-      days_of_week: p.days, color: p.color, type: p.type,
-    }]);
-  };
-
-  const addCustomBlock = () =>
-    setBlocks([...blocks, { name: "New block", start_time: "08:00", end_time: "09:00", days_of_week: [1,2,3,4,5], color: "#3b82f6", type: "fixed" }]);
-
-  const updateBlock = (i: number, patch: Partial<Block>) =>
-    setBlocks(blocks.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
-
-  const removeBlock = (i: number) => setBlocks(blocks.filter((_, idx) => idx !== i));
-
-  const addActivityPreset = (name: string) => {
-    if (activities.some((a) => a.name === name)) return;
-    setActivities([...activities, { name, target_hours_per_week: 3, category_id: productiveCats[0]?.id }]);
-  };
-
-  const addCustomActivity = () =>
-    setActivities([...activities, { name: "New activity", target_hours_per_week: 2, category_id: productiveCats[0]?.id }]);
-
-  const updateActivity = (i: number, patch: Partial<Activity>) =>
-    setActivities(activities.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
-
-  const removeActivity = (i: number) => setActivities(activities.filter((_, idx) => idx !== i));
-
-  const finish = async () => {
+  const skip = async () => {
     setSaving(true);
     try {
       if (!user) {
-        // Guest mode — persist to localStorage
-        for (const b of blocks) {
-          upsertLocalBlock({
-            name: b.name, start_time: b.start_time, end_time: b.end_time,
-            days_of_week: b.days_of_week, color: b.color, type: b.type,
-          });
-        }
-        for (const a of activities) {
-          upsertLocalActivity({
-            name: a.name,
-            target_hours_per_week: a.target_hours_per_week,
-            category_id: a.category_id ?? null,
-            is_active: true,
-          });
-        }
-        updateLocalProfile({
-          peak_hours: { start: peakStart, end: peakEnd },
-          include_weekends: includeWeekends,
-          weekly_review_day: reviewDay,
-          onboarding_completed: true,
-        });
-        toast.success(t("onboarding.allSet"));
-        navigate("/app", { replace: true });
-        return;
+        updateLocalProfile({ onboarding_skipped: true });
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ onboarding_skipped: true })
+          .eq("id", user.id);
+        if (error) throw error;
       }
+      navigate("/app", { replace: true });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : t("common.somethingWrong"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-      if (blocks.length) {
-        const { error: bErr } = await supabase.from("schedule_blocks").insert(
-          blocks.map((b) => ({ ...b, user_id: user.id }))
-        );
-        if (bErr) throw bErr;
+  const finish = async (values: PlannerPrefsValues) => {
+    setSaving(true);
+    try {
+      const prefs = {
+        peak_hours: { start: values.peakStart, end: values.peakEnd },
+        include_weekends: values.includeWeekends,
+        weekly_review_day: values.weeklyReviewDay,
+        onboarding_completed: true,
+      };
+      if (!user) {
+        updateLocalProfile(prefs);
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update(prefs)
+          .eq("id", user.id);
+        if (error) throw error;
       }
-      if (activities.length) {
-        const { error: aErr } = await supabase.from("activities").insert(
-          activities.map((a) => ({ ...a, user_id: user.id, is_active: true }))
-        );
-        if (aErr) throw aErr;
-      }
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({
-          peak_hours: { start: peakStart, end: peakEnd },
-          include_weekends: includeWeekends,
-          weekly_review_day: reviewDay,
-          onboarding_completed: true,
-        })
-        .eq("id", user.id);
-      if (pErr) throw pErr;
       toast.success(t("onboarding.allSet"));
       navigate("/app", { replace: true });
     } catch (e: unknown) {
@@ -173,9 +128,8 @@ export default function Onboarding() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto w-full">
-      <div className="max-w-3xl mx-auto px-6 py-6">
+      <div className="max-w-5xl mx-auto px-6 py-6">
 
-        {/* Progress */}
         <div className="flex items-center gap-3 mb-6">
           {STEPS.map((label, i) => (
             <div key={label} className="flex-1">
@@ -212,93 +166,7 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.schedule.subtitle")}</p>
                 </header>
 
-                <div className="flex flex-wrap gap-2">
-                  {BLOCK_PRESETS.map((p) => {
-                    const added = blocks.some((b) => b.name === p.name);
-                    return (
-                      <button
-                        key={p.name}
-                        onClick={() => addPreset(p)}
-                        disabled={added}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                          added
-                            ? "bg-primary/10 border-primary/40 text-primary cursor-default"
-                            : "bg-surface border-border hover:border-primary/40 hover:text-foreground text-muted-foreground"
-                        )}
-                      >
-                        {added ? "✓ " : "+ "}{p.name}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={addCustomBlock}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                  >
-                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />{t("onboarding.schedule.custom")}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {blocks.length === 0 && (
-                    <div className="glass border border-dashed border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                      {t("onboarding.schedule.empty")}
-                    </div>
-                  )}
-                  {blocks.map((b, i) => (
-                    <motion.div
-                      key={i}
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="glass rounded-xl border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-                    >
-                      <div className="h-8 w-1 rounded-full" style={{ backgroundColor: b.color }} />
-                      <Input
-                        value={b.name}
-                        onChange={(e) => updateBlock(i, { name: e.target.value })}
-                        className="bg-input border-border w-full sm:w-40"
-                      />
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="time"
-                          value={b.start_time}
-                          onChange={(e) => updateBlock(i, { start_time: e.target.value })}
-                          className="bg-input border-border w-28 font-mono"
-                        />
-                        <span className="text-muted-foreground text-xs">→</span>
-                        <Input
-                          type="time"
-                          value={b.end_time}
-                          onChange={(e) => updateBlock(i, { end_time: e.target.value })}
-                          className="bg-input border-border w-28 font-mono"
-                        />
-                      </div>
-                      <div className="flex flex-1 gap-1 flex-wrap">
-                        {DAYS.map((d) => {
-                          const active = b.days_of_week.includes(d.idx);
-                          return (
-                            <button
-                              key={d.idx}
-                              onClick={() => updateBlock(i, {
-                                days_of_week: active ? b.days_of_week.filter((x) => x !== d.idx) : [...b.days_of_week, d.idx].sort(),
-                              })}
-                              className={cn(
-                                "h-7 w-8 rounded-md text-[10px] font-semibold transition-colors",
-                                active ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground hover:text-foreground border border-border"
-                              )}
-                            >
-                              {d.short.slice(0,1)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <button onClick={() => removeBlock(i)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
+                <ScheduleEditor />
               </section>
             )}
 
@@ -309,78 +177,12 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.activities.subtitle")}</p>
                 </header>
 
-                <div className="flex flex-wrap gap-2">
-                  {ACTIVITY_PRESETS.map((name) => {
-                    const added = activities.some((a) => a.name === name);
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => addActivityPreset(name)}
-                        disabled={added}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                          added
-                            ? "bg-primary/10 border-primary/40 text-primary cursor-default"
-                            : "bg-surface border-border hover:border-primary/40 hover:text-foreground text-muted-foreground"
-                        )}
-                      >
-                        {added ? "✓ " : "+ "}{name}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={addCustomActivity}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                  >
-                    <Plus className="h-3 w-3 inline -mt-0.5 mr-1" />{t("onboarding.schedule.custom")}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {activities.length === 0 && (
-                    <div className="glass border border-dashed border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                      {t("onboarding.activities.empty")}
-                    </div>
-                  )}
-                  {activities.map((a, i) => (
-                    <motion.div
-                      key={i}
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="glass rounded-xl border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-                    >
-                      <Input
-                        value={a.name}
-                        onChange={(e) => updateActivity(i, { name: e.target.value })}
-                        className="bg-input border-border flex-1"
-                      />
-                      <select
-                        value={a.category_id ?? ""}
-                        onChange={(e) => updateActivity(i, { category_id: e.target.value || null })}
-                        className="bg-input border border-border rounded-md px-3 py-2 text-sm h-10"
-                      >
-                        {productiveCats.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0.5}
-                          step={0.5}
-                          value={a.target_hours_per_week}
-                          onChange={(e) => updateActivity(i, { target_hours_per_week: Number(e.target.value) })}
-                          className="bg-input border-border w-20 font-mono text-right"
-                        />
-                        <span className="text-xs text-muted-foreground">{t("onboarding.activities.hrsWk")}</span>
-                      </div>
-                      <button onClick={() => removeActivity(i)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
+                <ActivityEditor
+                  userId={user?.id ?? null}
+                  categories={categories}
+                  activities={activities}
+                  onChange={reloadActivities}
+                />
               </section>
             )}
 
@@ -391,45 +193,86 @@ export default function Onboarding() {
                   <p className="text-muted-foreground text-sm mt-1">{t("onboarding.preferences.subtitle")}</p>
                 </header>
 
-                <div className="glass rounded-xl border border-border p-5 space-y-5">
-                  <div>
-                    <Label className="mb-2 block">{t("onboarding.preferences.peak")}</Label>
-                    <div className="flex items-center gap-2">
-                      <Input type="time" value={peakStart} onChange={(e) => setPeakStart(e.target.value)} className="bg-input border-border w-32 font-mono" />
-                      <span className="text-muted-foreground text-xs">→</span>
-                      <Input type="time" value={peakEnd} onChange={(e) => setPeakEnd(e.target.value)} className="bg-input border-border w-32 font-mono" />
-                      <span className="text-sm text-muted-foreground ml-2">{t("onboarding.preferences.peakHint")}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
+                <Form {...form}>
+                  <div className="glass rounded-xl border border-border p-5 space-y-5">
                     <div>
-                      <Label className="block">{t("onboarding.preferences.weekends")}</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">{t("onboarding.preferences.weekendsHint")}</p>
-                    </div>
-                    <Switch checked={includeWeekends} onCheckedChange={setIncludeWeekends} />
-                  </div>
-
-                  <div>
-                    <Label className="mb-2 block">{t("onboarding.preferences.reviewDay")}</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {DAYS.map((d) => (
-                        <button
-                          key={d.idx}
-                          onClick={() => setReviewDay(d.idx)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
-                            reviewDay === d.idx
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-surface border-border text-muted-foreground hover:text-foreground"
+                      <Label className="mb-2 block">{t("onboarding.preferences.peak")}</Label>
+                      <div className="flex items-center gap-2">
+                        <FormField
+                          control={form.control}
+                          name="peakStart"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="time" className="bg-input border-border w-32 font-mono" {...field} />
+                              </FormControl>
+                            </FormItem>
                           )}
-                        >
-                          {d.short}
-                        </button>
-                      ))}
+                        />
+                        <span className="text-muted-foreground text-xs">→</span>
+                        <FormField
+                          control={form.control}
+                          name="peakEnd"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="time" className="bg-input border-border w-32 font-mono" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <span className="text-sm text-muted-foreground ml-2">{t("onboarding.preferences.peakHint")}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="block">{t("onboarding.preferences.weekends")}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t("onboarding.preferences.weekendsHint")}</p>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="includeWeekends"
+                        render={({ field }) => (
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        )}
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="mb-2 block">{t("onboarding.preferences.reviewDay")}</Label>
+                      <FormField
+                        control={form.control}
+                        name="weeklyReviewDay"
+                        render={({ field }) => (
+                          <div className="flex flex-wrap gap-1.5">
+                            {DAYS.map((d) => (
+                              <button
+                                key={d.idx}
+                                type="button"
+                                data-testid={`onboarding-review-day-${d.idx}`}
+                                onClick={() => field.onChange(d.idx)}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
+                                  field.value === d.idx
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-surface border-border text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                {d.short}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Settings2 className="h-4 w-4 shrink-0" />
+                      <p className="text-xs">{t("onboarding.preferences.settingsHint")}</p>
                     </div>
                   </div>
-                </div>
+                </Form>
               </section>
             )}
           </motion.div>
@@ -443,17 +286,30 @@ export default function Onboarding() {
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> {t("common.back")}
           </Button>
+
+          <Button
+            variant="ghost"
+            onClick={skip}
+            disabled={saving}
+            data-testid="onboarding-skip"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {t("onboarding.skip")}
+          </Button>
+
           {step < STEPS.length - 1 ? (
             <Button
               onClick={() => setStep(step + 1)}
+              data-testid="onboarding-continue"
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >
               {t("common.continue")} <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
           ) : (
             <Button
-              onClick={finish}
+              onClick={form.handleSubmit(finish)}
               disabled={saving}
+              data-testid="onboarding-finish"
               className="gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>{t("common.finish")} <Check className="h-4 w-4 ml-1" /></>}

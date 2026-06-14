@@ -1,11 +1,10 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { renderWithProviders } from "@/test/renderWithProviders";
 import "@/i18n";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/integrations/supabase/client", async () => {
-  const m = await import("../test/supabaseMock");
+  const m = await import("../../test/supabaseMock");
   return { supabase: m.mockSupabaseClient() };
 });
 vi.mock("@/contexts/AuthContext", () => ({
@@ -13,7 +12,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 import { ensureBootstrap } from "@/lib/localStore";
-import CalendarPage from "./CalendarPage";
+import CalendarPage from ".";
 
 beforeEach(() => {
   localStorage.clear();
@@ -23,11 +22,7 @@ beforeEach(() => {
 
 describe("CalendarPage — day timeline sizing", () => {
   it("uses flex sizing instead of calc(100vh) on the timeline root", () => {
-    render(
-      <MemoryRouter>
-        <CalendarPage />
-      </MemoryRouter>
-    );
+    renderWithProviders(<CalendarPage />);
 
     const timeline = document.getElementById("day-timeline-root");
     expect(timeline).toBeTruthy();

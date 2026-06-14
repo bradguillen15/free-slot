@@ -28,7 +28,7 @@ Environment variables (`.env` — copy from `.env.example`):
 
 | Table | Key columns | Purpose |
 |---|---|---|
-| `profiles` | `id (= auth.uid)`, `buffer_minutes`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed` | Per-user preferences. Created by trigger on signup. |
+| `profiles` | `id (= auth.uid)`, `buffer_minutes`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | Per-user preferences. Created by trigger on signup. `onboarding_skipped` is an alternative pass-through flag — either flag set to `true` lets the user past `OnboardingGate`. |
 | `categories` | `id`, `user_id`, `name`, `type` (productive/unproductive), `color`, `is_default` | Tags for activities and logs. 9 defaults seeded per user. |
 | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | What the user wants to spend time on. |
 | `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week int[]`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time. |

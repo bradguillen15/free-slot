@@ -17,8 +17,23 @@ coverage
 .env
 .env.*
 !.env.example
+# Committed placeholder env for guest E2E (no real secrets — boots app in guest mode)
+!.env.e2e
+# Committed env for cloud E2E (local Supabase demo keys only — not secrets)
+!.env.e2e-cloud
 *.pem
 *.key
+
+# Playwright E2E
+test-results/
+playwright-report/
+e2e/.cache/
+# Cloud E2E: local Supabase status (URL + service-role key) captured at runtime
+e2e/cloud/.supabase-status.json
+
+# Supabase local stack artifacts
+supabase/.branches
+supabase/.temp
 
 # Editor directories and files
 .vscode/*
@@ -30,6 +45,10 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+# Graphify knowledge graph output (generated locally)
+graphify-out/
+.graphify_*.json
 
 # Harness runtime paths
 tmp/

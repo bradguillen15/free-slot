@@ -6,7 +6,7 @@ Canonical detail also lives in `docs/CLOUD.md`. Update this file when entities o
 
 | Entity | Storage | Key fields | Purpose |
 |---|---|---|---|
-| Profile | `profiles` | `id` (= auth.uid), `buffer_minutes`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed` | User preferences |
+| Profile | `profiles` | `id` (= auth.uid), `buffer_minutes`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | User preferences. Either `onboarding_completed` or `onboarding_skipped` being `true` passes the `OnboardingGate`. |
 | Category | `categories` | `id`, `user_id`, `name`, `type`, `color`, `is_default` | Tags for activities and logs |
 | Activity | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | Goals / time targets |
 | ScheduleBlock | `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time |
