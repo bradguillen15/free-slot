@@ -177,6 +177,7 @@ export default function Auth() {
                         id="email"
                         type="email"
                         autoComplete="email"
+                        data-testid="auth-email"
                         className="bg-input border-border"
                         {...field}
                       />
@@ -196,6 +197,7 @@ export default function Auth() {
                         id="password"
                         type="password"
                         autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                        data-testid="auth-password"
                         className="bg-input border-border"
                         {...field}
                       />
@@ -204,7 +206,7 @@ export default function Auth() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={form.formState.isSubmitting || googleLoading} className="w-full gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
+              <Button type="submit" data-testid="auth-submit" disabled={form.formState.isSubmitting || googleLoading} className="w-full gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
                 {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signup" ? t("auth.submitSignup") : t("auth.submitSignin")}
               </Button>
             </form>
@@ -240,6 +242,7 @@ export default function Auth() {
             {mode === "signup" ? t("auth.haveAccount") : t("auth.newHere")}{" "}
             <button
               onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
+              data-testid="auth-mode-toggle"
               className="text-primary hover:text-primary-glow transition-colors font-medium"
             >
               {mode === "signup" ? t("auth.submitSignin") : t("auth.createOne")}
@@ -260,8 +263,8 @@ export default function Auth() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={startFresh} disabled={migrating}>{t("auth.migrate.startFresh")}</AlertDialogCancel>
-            <AlertDialogAction onClick={importNow} disabled={migrating}>
+            <AlertDialogCancel onClick={startFresh} disabled={migrating} data-testid="migrate-start-fresh">{t("auth.migrate.startFresh")}</AlertDialogCancel>
+            <AlertDialogAction onClick={importNow} disabled={migrating} data-testid="migrate-import">
               {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("auth.migrate.import")}
             </AlertDialogAction>
           </AlertDialogFooter>

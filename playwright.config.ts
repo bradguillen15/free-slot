@@ -26,6 +26,9 @@ const isUIMode = process.argv.includes("--ui");
 export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
+  // The cloud lane (e2e/cloud/*.cloud.e2e.ts) needs local Supabase and runs via
+  // playwright.cloud.config.ts — keep it out of the backend-free guest lane.
+  testIgnore: "**/cloud/**",
   fullyParallel: !isUIMode,
   forbidOnly: isCI,
   // One local retry keeps the pre-push hook from spuriously blocking on the

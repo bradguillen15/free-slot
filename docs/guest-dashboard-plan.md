@@ -1,6 +1,6 @@
 # UX Plan — Guest Dashboard (local-data analytics)
 
-**Status:** draft (2026-06-12)
+**Status:** implemented (2026-06-13) — guest dashboard shipped in `f83ba4d`; kept as the design record. AI sections remain signed-in-only upsells.
 **Date:** 2026-06-12
 **Origin:** user question — "It's feasible to enable the dashboard with only the current (local) data, right? And if you want to track across multiple months you need the database."
 **Related:** [ux-schedule-editing-and-labels-plan.md](./ux-schedule-editing-and-labels-plan.md) (labels/hidden-flag work this builds on)
