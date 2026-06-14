@@ -34,7 +34,7 @@ The `delete-account` function has no AI call and SHALL require no AI-related cha
 #### Scenario: config.toml does not reference the Lovable project ID
 
 - **WHEN** a developer opens `supabase/config.toml`
-- **THEN** `project_id` equals `"<YOUR_PROJECT_REF>"` (placeholder string, not `"legacy-managed-project"`)
+- **THEN** `project_id` equals `"<YOUR_PROJECT_REF>"` (a placeholder string, not a live project ref)
 
 ---
 

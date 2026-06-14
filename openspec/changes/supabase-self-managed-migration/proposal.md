@@ -1,6 +1,6 @@
 ## Why
 
-FreeSlot's backend is currently provisioned and managed by Lovable Cloud, which hard-couples the project to a third-party platform (project `legacy-managed-project`). The developer cannot manage secrets, billing, database access, or deploy edge functions independently. Migrating to a self-managed Supabase project restores full ownership.
+FreeSlot's backend was previously provisioned and managed by a third-party hosted platform, which hard-coupled the project to external infrastructure. The developer could not manage secrets, billing, database access, or deploy edge functions independently. Migrating to a self-managed Supabase project restores full ownership.
 
 ## What Changes
 

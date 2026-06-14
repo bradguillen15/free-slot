@@ -56,3 +56,6 @@ tmp/
 .mcp.json
 **/.claude/settings.json
 **/.claude/settings.local.json
+
+# Local planning docs — kept on disk only, not published with the repo
+docs/*-plan.md

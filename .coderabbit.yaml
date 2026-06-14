@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+early_access: false
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_filters:
+    - "!src/integrations/supabase/**"
+    - "!coverage/**"
+    - "!playwright-report/**"
+    - "!test-results/**"
+  path_instructions:
+    - path: "src/**/*.{ts,tsx}"
+      instructions: |
+        FreeSlot is a React 18 + Vite + TypeScript SPA with guest (localStorage) and cloud (Supabase) modes.
+        - Pages and features must use dataStore hooks — do not call Supabase or localStorage directly from UI code.
+        - Prefer incremental, focused changes; flag unrelated refactors.
+        - Require full TypeScript typing; avoid `any`.
+        - Extract substantial component-specific logic into co-located hooks (Component/useX.ts pattern).
+        - Match existing shadcn/ui + Tailwind patterns; do not introduce new UI libraries.
+    - path: "src/lib/dataStore.ts"
+      instructions: |
+        This is the guest/cloud abstraction layer. Verify new data access preserves parity between
+        localStorage and Supabase paths, and that hooks remain the single entry point for pages.
+    - path: "src/lib/localStore.ts"
+      instructions: |
+        Mirror Supabase schema changes here. Flag missing guest-mode support when cloud tables or fields change.
+    - path: "src/lib/migrateGuest.ts"
+      instructions: |
+        Guest-to-cloud migration must remain idempotent and cover any new user-owned data added elsewhere.
+    - path: "supabase/**"
+      instructions: |
+        Backend is self-managed Supabase (Postgres + RLS + Deno edge functions), not a separate Node API.
+        - Every user-owned table needs user_id, RLS enabled, and own-data policies.
+        - ANTHROPIC_API_KEY and service-role usage must stay server-side only (edge functions).
+        - Update docs/api-spec.yml when edge function contracts change.
+    - path: "**/*.{test,spec}.{ts,tsx}"
+      instructions: |
+        Tests use Vitest + Testing Library. Prefer behavior-focused assertions over implementation details.
+        Flag missing coverage for guest/cloud parity, timezone edge cases, and optimistic UI rollback paths.
+    - path: "e2e/**"
+      instructions: |
+        Playwright E2E tests. Prefer stable selectors (roles, labels) over brittle CSS. Keep guest vs cloud
+        scenarios explicit when auth or sync behavior is involved.
+  tools:
+    github-checks:
+      enabled: true
+      timeout_ms: 300000
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "docs/base-standards.md"
+      - "docs/backend-standards.md"
+      - "docs/frontend-standards.md"
+      - "docs/documentation-standards.md"
+
+chat:
+  auto_reply: true
