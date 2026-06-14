@@ -84,7 +84,7 @@ History: this step was first built as a count card + link to `/app/activities` (
 
 - [x] 12.1 Guest mode: open the app fresh, verify redirect to `/onboarding`; click Skip → lands on `/app`; refresh → stays on `/app` (not redirected again)
 - [x] 12.2 Guest mode: complete all 3 steps → Finish → lands on `/app`; verify `freeslot.guest.profile` in localStorage has `onboarding_completed: true`
-- [ ] 12.3 Authenticated mode: sign in with a fresh account → redirect to `/onboarding`; click Skip → lands on `/app`; reload → not redirected
+- [x] 12.3 Authenticated mode: sign in with a fresh account → redirect to `/onboarding`; click Skip → lands on `/app`; reload → not redirected — now covered automatically by the cloud E2E lane (`e2e/cloud/onboarding.cloud.e2e.ts`: skip writes `onboarding_skipped`; completed user not redirected on reload)
 - [x] 12.4 Step 1 count card: add a block on SchedulePage; navigate back to onboarding step 1 → count shows 1
 - [x] 12.7 (Decision 2) Onboarding step 1 (guest, browser): embedded editor shows existing blocks (Work, Sleep) with day toggles + edit/duplicate/delete; preset chips and "Add block" button present; "Add block" opens the shared `ScheduleBlockDialog`. No console errors.
 - [x] 12.8 (Decision 2) Onboarding step 2 (guest, browser): embedded `ActivityEditor` ("Goal stack") shows presets + add form in-flow.
