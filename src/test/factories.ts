@@ -31,6 +31,7 @@ export function seedGuestData(): GuestSeed {
     type: "productive",
     color: "#aa00ff",
     is_default: false,
+    hidden: false,
     created_at: new Date().toISOString(),
   };
   localStorage.setItem(

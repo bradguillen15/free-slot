@@ -152,7 +152,13 @@ export async function migrateGuestToCloud(userId: string) {
   //   - Only push preference values when the guest completed the prefs step (onboarding_completed);
   //     a skip-only guest never configured them, so pushing DEFAULT_PROFILE values would silently
   //     overwrite legitimate cloud settings.
-  const profileUpdate: Record<string, unknown> = {};
+  const profileUpdate: {
+    onboarding_completed?: boolean;
+    peak_hours?: typeof snap.profile.peak_hours;
+    include_weekends?: boolean;
+    weekly_review_day?: number;
+    onboarding_skipped?: boolean;
+  } = {};
   if (snap.profile.onboarding_completed) {
     profileUpdate.onboarding_completed = true;
     profileUpdate.peak_hours = snap.profile.peak_hours;
