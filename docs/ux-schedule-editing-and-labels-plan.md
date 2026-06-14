@@ -1,6 +1,6 @@
 # UX Plan — Schedule Block Editing & Label Management Page
 
-**Status:** approved, not started (2026-06-12)
+**Status:** implemented (2026-06-13) — schedule block editing and the dedicated Labels page shipped in `93ceae9`; kept as the design record.
 **Date:** 2026-06-12
 **Origin:** user feedback — "I'd like to edit these schedule activities more easily — add a pencil that opens the modal. The copy button needs a tooltip. And a page to manage labels: the app should ship general defaults (meals, sleep, movies/series/anime…), users add their own on top, and can hide the ones they don't use."
 **Previous round:** [ux-schedule-management-plan.md](./ux-schedule-management-plan.md) (implemented 2026-06-10–12; this plan builds on the `/app/schedule` page and CategoryPicker it introduced)

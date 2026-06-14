@@ -1,6 +1,6 @@
 # Tech Plan — Shared surface components & CVA usage
 
-**Status:** draft (2026-06-13)  
+**Status:** implemented (2026-06-13) — `Surface` and `StatCard` primitives shipped in `c235d17`; kept as the design record.  
 **Date:** 2026-06-13  
 **Origin:** discussion — avoid project-wide CVA adoption; deduplicate repeated Tailwind surface/stat patterns instead.  
 **Related:** [DESIGN.md](./DESIGN.md) (tokens, motion, shadcn/CVA guidance), [frontend-standards.md](./frontend-standards.md), [ARCHITECTURE.md](./ARCHITECTURE.md) (ui primitives)

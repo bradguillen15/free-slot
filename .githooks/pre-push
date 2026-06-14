@@ -3,7 +3,11 @@
 # reach the remote. E2E does not run on every PR commit in CI (only at deploy
 # time, see .github/workflows/e2e.yml), so this hook is the per-developer guard.
 #
-# Bypass for exceptional cases with:  git push --no-verify
+# After the guest suite, run the CLOUD E2E suite (real local Supabase) when the
+# environment supports it. It is skipped gracefully — never blocking the push —
+# when Docker or the Supabase CLI is unavailable, or when SKIP_CLOUD_E2E=1.
+#
+# Bypass everything for exceptional cases with:  git push --no-verify
 
 echo "▶ Running guest E2E suite before push (pnpm test:e2e) — bypass with 'git push --no-verify'"
 
@@ -17,6 +21,31 @@ status=$?
 
 if [ "$status" -ne 0 ]; then
   echo "✖ Guest E2E failed — push aborted. Fix the tests or re-run with 'git push --no-verify'." >&2
+  exit "$status"
+fi
+
+# ── Cloud E2E (local Supabase) ──────────────────────────────────────────────
+if [ "$SKIP_CLOUD_E2E" = "1" ]; then
+  echo "⏭ Skipping cloud E2E (SKIP_CLOUD_E2E=1)."
+  exit 0
+fi
+
+if ! command -v supabase >/dev/null 2>&1; then
+  echo "⏭ Skipping cloud E2E: Supabase CLI not found. (Install it to run the cloud lane.)"
+  exit 0
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  echo "⏭ Skipping cloud E2E: Docker is not running. (Start Docker to run the cloud lane.)"
+  exit 0
+fi
+
+echo "▶ Running cloud E2E suite (pnpm test:e2e:cloud) against local Supabase…"
+pnpm test:e2e:cloud
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "✖ Cloud E2E failed — push aborted. Fix the tests, set SKIP_CLOUD_E2E=1, or use 'git push --no-verify'." >&2
 fi
 
 exit "$status"

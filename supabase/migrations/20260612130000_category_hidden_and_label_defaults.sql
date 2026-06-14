@@ -6,7 +6,10 @@ ALTER TABLE public.categories
 
 -- Top-up new defaults for existing users (insert-if-name-missing).
 INSERT INTO public.categories (user_id, name, type, color, is_default, hidden)
-SELECT p.id, v.name, v.type, v.color, true, false
+-- v.type comes from a VALUES list, so it is inferred as `text`; cast it to the
+-- enum or the INSERT fails on a fresh database ("column type is category_type
+-- but expression is text").
+SELECT p.id, v.name, v.type::public.category_type, v.color, true, false
 FROM public.profiles p
 CROSS JOIN (VALUES
   ('Sleep',           'productive',   '#6366f1'),

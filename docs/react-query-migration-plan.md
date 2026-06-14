@@ -1,6 +1,6 @@
 # Tech Plan — Adopt React Query for All Data Fetching
 
-**Status:** in progress (2026-06-12) — Phases 0–2 and partial Phase 3/4 implemented
+**Status:** implemented (2026-06-13) — dataStore reads/mutations migrated to React Query and enforcement documented (`a34da5b`); `useWeeklyPlan` added. Remaining direct-`supabase` callers are the documented exceptions (auth handlers, edge-function invokes). Kept as the design record.
 **Date:** 2026-06-12
 **Origin:** user request — "Check if we're correctly using React Query. We should enforce it in pretty much all scenarios; it's barely more than a package.json entry and requests are using useEffect."
 **Related:** [guest-dashboard-plan.md](./guest-dashboard-plan.md) (DashboardPage refactor should ride on the migrated hooks — see Sequencing)

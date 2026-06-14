@@ -1,6 +1,6 @@
 # Tech Plan — Comment audit & noise reduction
 
-**Status:** draft (2026-06-13)  
+**Status:** implemented (2026-06-13) — comment policy added to `frontend-standards.md` (§7) and Phases 0–5 completed in `c235d17`; Phase 6 (shadcn `ui/` sweep) is intentionally deferred. Kept as the design record.  
 **Date:** 2026-06-13  
 **Origin:** user request — review project comments, remove noise, keep only comments that add real value.  
 **Related:** [frontend-standards.md](./frontend-standards.md), [documentation-standards.md](./documentation-standards.md), [code-review-plan.md](./code-review-plan.md) (Unit 7 — misleading comments in `ActivityEditor`), [ui-surface-components-plan.md](./ui-surface-components-plan.md) (separate UI refactor track)
