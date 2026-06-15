@@ -50,6 +50,12 @@ Three files cooperate:
 | `src/lib/dataStore.ts` | Hooks like `useCategories()`, `useActivities()`, `useTimeLogsInRange()`, `useProfile()`. They look at `useAuth()` and dispatch to either the Supabase client or `localStore`. Same return shape either way. |
 | `src/lib/migrateGuest.ts` | On signup, snapshots all guest data and inserts it into the new user's tables. |
 
+> **Post-migration cache refresh:** after `migrateGuestToCloud` resolves, `Auth.tsx::importNow`
+> invalidates the React Query cache (`queryKeys.root`) via `getQueryClient()` and awaits the refetch
+> **before** navigating to `/app`. The migrate dialog's redirect effect is also gated on `!migrating`,
+> so the app does not navigate while migration is in flight. Together this guarantees the first
+> authenticated render shows migrated data with no manual reload.
+
 ### Rule for contributors
 
 > **Pages and feature components must use `dataStore` hooks.** Never call `supabase.from(...)` directly from a page that should also work in guest mode.
