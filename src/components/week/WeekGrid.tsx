@@ -30,23 +30,9 @@ function heightFor(seg: Seg) {
   return ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
 }
 
-export type AISlotSeg = { seg: Seg; name: string; rationale?: string };
-
-export type DayCellBlock = { id?: string; seg: Seg; name: string; color: string };
-export type DayCellLog   = { id?: string; seg: Seg; name: string; color: string };
-
-export type DayCellData = {
-  iso: string;
-  weekday: number;
-  label: string;
-  short: string;
-  isToday: boolean;
-  blocks: DayCellBlock[];
-  logs: DayCellLog[];
-  gaps: GapWindow[];
-  aiSlots?: AISlotSeg[];
-  totalFree: number;
-};
+// Types are canonical in @/lib/calendarDays; imported for internal use and re-exported for back-compat.
+import type { AISlotSeg, DayCellBlock, DayCellLog, DayCellData } from "@/lib/calendarDays";
+export type { AISlotSeg, DayCellBlock, DayCellLog, DayCellData };
 
 export function WeekGrid({
   days,

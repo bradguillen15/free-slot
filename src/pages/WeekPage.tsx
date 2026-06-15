@@ -9,10 +9,11 @@ import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { useAuth } from "@/contexts/AuthContext";
-import { addDaysISO, expandRange, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
+import { addDaysISO, fmtDuration, fromMin, todayISO, toMin } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
-import { findFreeWindows, totalFreeMinutes, type GapWindow } from "@/lib/gaps";
-import { WeekGrid, type DayCellData, type DayCellBlock, type DayCellLog } from "@/components/week/WeekGrid";
+import { type GapWindow } from "@/lib/gaps";
+import { buildDayCells, type DayCellData, type DayCellBlock, type DayCellLog } from "@/lib/calendarDays";
+import { WeekGrid } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { BlockActionChooser } from "@/components/day/BlockActionChooser";
@@ -27,9 +28,6 @@ import {
   useTimeLogsInRange,
 } from "@/lib/dataStore";
 import { StatCard } from "@/components/StatCard";
-
-const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -90,11 +88,6 @@ export default function WeekPage() {
   );
   const profile = profileRaw as unknown as { peak_hours: { start: string; end: string } | null } | null;
 
-  const catMap = useMemo(
-    () => Object.fromEntries(allCategories.map((c) => [c.id, c])),
-    [allCategories]
-  );
-
   const blockById = useMemo(
     () => Object.fromEntries(blocks.map((b) => [b.id, b])),
     [blocks]
@@ -105,68 +98,18 @@ export default function WeekPage() {
     [logs]
   );
 
-  const dayCells: DayCellData[] = useMemo(() => {
-    const peak = profile?.peak_hours ?? null;
-
-    return days.map((iso) => {
-      const weekday = isoToWeekday(iso);
-      const dayBlocks = blocks.filter((b) => b.days_of_week?.includes(weekday));
-      const dayLogs = logs.filter((l) => l.date === iso);
-
-      const gaps: GapWindow[] = findFreeWindows({
-        // Full list, not dayBlocks: blocksOnDay attributes an overnight block's
-        // post-midnight segment to the following day, so it needs the previous
-        // day's blocks too.
-        blocks,
-        logs: dayLogs,
-        weekday,
-        minWindowMinutes: 30,
-        peakStart: peak?.start,
-        peakEnd: peak?.end,
-      });
-
-      const blockSegs: DayCellBlock[] = dayBlocks.flatMap((b) =>
-        expandRange(toMin(b.start_time), toMin(b.end_time)).map(([a, c]) => ({
-          id: b.id,
-          seg: { startMin: a, endMin: c },
-          name: b.name,
-          color: b.color,
-        }))
-      );
-
-      const logSegs: DayCellLog[] = dayLogs.flatMap((l) => {
-        const cat = l.category_id ? catMap[l.category_id] : undefined;
-        const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
-        return expandRange(toMin(l.start_time), toMin(l.end_time)).map(([a, c]) => ({
-          id: l.id,
-          seg: { startMin: a, endMin: c },
-          name: l.title || (cat?.name ?? l.type),
-          color,
-        }));
-      });
-
-      const aiSlots = (aiPlan?.slots ?? [])
-        .filter((s) => s.day === iso)
-        .map((s) => ({
-          seg: { startMin: toMin(s.start), endMin: toMin(s.end) },
-          name: s.activity_name,
-          rationale: s.rationale,
-        }));
-
-      return {
-        iso,
-        weekday,
-        label: FULL[(weekday + 6) % 7],
-        short: SHORT[(weekday + 6) % 7],
-        isToday: iso === today,
-        blocks: blockSegs,
-        logs: logSegs,
-        gaps,
-        aiSlots,
-        totalFree: totalFreeMinutes(gaps),
-      };
-    });
-  }, [days, blocks, logs, catMap, profile, today, aiPlan]);
+  const dayCells: DayCellData[] = useMemo(
+    () => buildDayCells({
+      days,
+      blocks: blocks as unknown as Parameters<typeof buildDayCells>[0]["blocks"],
+      logs: logs as unknown as Parameters<typeof buildDayCells>[0]["logs"],
+      categories: allCategories as unknown as Parameters<typeof buildDayCells>[0]["categories"],
+      profile: profile as unknown as Parameters<typeof buildDayCells>[0]["profile"],
+      today,
+      aiPlan,
+    }),
+    [days, blocks, logs, allCategories, profile, today, aiPlan]
+  );
 
   const flatGaps = useMemo(
     () => dayCells.flatMap((d) => d.gaps.map((g) => ({
