@@ -1,5 +1,8 @@
-## ADDED Requirements
+# overnight-time-logging Specification
 
+## Purpose
+TBD - created by archiving change schedule-actual-precedence. Update Purpose after archive.
+## Requirements
 ### Requirement: Time entries may span midnight
 
 The log dialog SHALL accept time entries whose end time is at or before the start time, treating
@@ -39,9 +42,9 @@ SHALL reflect this wrapped value.
 
 ### Requirement: Logging from an overnight block prefills its real span
 
-When the user chooses "log here" on a schedule block whose end time is at or before its start time
-(an overnight block), the log dialog SHALL prefill the start and end with the block's actual span,
-not a truncated window.
+The log dialog SHALL prefill the start and end with the block's actual span when the user chooses
+"log here" on a schedule block whose end time is at or before its start time (an overnight block),
+rather than a truncated window.
 
 #### Scenario: Log actual from an overnight sleep block
 
@@ -52,3 +55,4 @@ not a truncated window.
 
 - **WHEN** the user clicks a Work block of 09:00–17:00 and chooses "log here"
 - **THEN** the log dialog opens prefilled with start 09:00 and end 17:00
+
