@@ -17,6 +17,7 @@ import {
   listLogsInRange,
   listScheduleBlocks,
   reorderScheduleBlocks as localReorderScheduleBlocks,
+  moveLog as localMoveLog,
   updateLog as localUpdateLog,
   updateProfile as localUpdateProfile,
   upsertActivity as localUpsertActivity,
@@ -303,11 +304,17 @@ export async function updateTimeLog(
     type: "productive" | "unproductive";
     title?: string | null;
     notes?: string | null;
+    date?: string;
   },
 ) {
   let result: unknown;
   if (mode === "guest") {
-    result = localUpdateLog(id, input);
+    const { date, ...patch } = input;
+    if (date) {
+      result = localMoveLog(id, date, patch);
+    } else {
+      result = localUpdateLog(id, patch);
+    }
   } else {
     result = await resources.timeLogs.update(userId!, id, input);
   }

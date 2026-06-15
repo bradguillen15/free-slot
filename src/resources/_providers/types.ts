@@ -19,6 +19,7 @@ export type TimeLogPatch = {
   type: "productive" | "unproductive";
   title?: string | null;
   notes?: string | null;
+  date?: string;
 };
 
 export type ActivityInput = {

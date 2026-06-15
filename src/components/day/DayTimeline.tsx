@@ -41,14 +41,16 @@ type ContextMenu = { x: number; y: number; startMin: number } | null;
 
 export function DayTimeline({
   blocks, logs, categories, onSlotClick, currentMinute, onLogReschedule,
-  onBlockClick, onLogClick,
+  onBlockClick, onLogClick, date,
 }: {
   blocks: ScheduleBlock[];
   logs: TimeLog[];
   categories: Category[];
   onSlotClick: (startMin: number) => void;
   currentMinute: number | null;
-  onLogReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
+  /** The ISO date this timeline is showing — passed through to `onLogReschedule`. */
+  date?: string;
+  onLogReschedule?: (logId: string, newDate: string, newStartMin: number, newEndMin: number) => void;
   onBlockClick?: (block: ScheduleBlock) => void;
   onLogClick?: (log: TimeLog) => void;
 }) {
@@ -179,7 +181,9 @@ export function DayTimeline({
                 name={l.title || (cat?.name ?? l.type)}
                 index={idx}
                 draggable={!!onLogReschedule && segs.length === 1 && !!l.category_id}
-                onReschedule={onLogReschedule}
+                onReschedule={onLogReschedule && date
+                  ? (logId, start, end) => onLogReschedule(logId, date, start, end)
+                  : undefined}
                 onClick={onLogClick ? () => onLogClick(l) : undefined}
               />
             ));

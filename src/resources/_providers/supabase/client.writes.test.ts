@@ -52,6 +52,18 @@ describe("createSupabaseProvider — writes", () => {
       expect(call?.methods.some(([m, args]) => m === "eq" && args[0] === "id" && args[1] === "l1")).toBe(true);
       expect(call?.methods.some(([m, args]) => m === "eq" && args[0] === "user_id")).toBe(true);
     });
+
+    it("includes date in the supabase update payload when provided", async () => {
+      const row = { id: "l1", date: "2026-07-01", start_time: "10:00", end_time: "11:00", category_id: "c1", type: "productive" };
+      queueTableResult("time_logs", { data: row });
+      await provider.timeLogs.update(USER_ID, "l1", {
+        date: "2026-07-01",
+        start_time: "10:00", end_time: "11:00", category_id: "c1", type: "productive",
+      });
+      const call = fromCalls.find((c) => c.table === "time_logs");
+      const updateArgs = call?.methods.find(([m]) => m === "update")?.[1][0];
+      expect(updateArgs).toMatchObject({ date: "2026-07-01" });
+    });
   });
 
   describe("timeLogs.delete", () => {

@@ -158,6 +158,52 @@ describe("mutations — guest/cloud parity", () => {
     queueTableResult("schedule_blocks", { error: { message: "denied" } });
     await expect(deleteScheduleBlock("cloud", "u1", "b1")).rejects.toMatchObject({ message: "denied" });
   });
+
+  it("updateTimeLog — guest same-month: updates the date in-place", async () => {
+    const row = await insertTimeLog("guest", null, {
+      date: "2026-06-10", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+    const id = (row as { id: string }).id;
+
+    await updateTimeLog("guest", null, id, {
+      date: "2026-06-15", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+
+    const jun = listLogsForMonth("2026-06");
+    expect(jun.some((l) => l.id === id && l.date === "2026-06-15")).toBe(true);
+  });
+
+  it("updateTimeLog — guest cross-month: log exists in exactly one bucket after move", async () => {
+    const row = await insertTimeLog("guest", null, {
+      date: "2026-06-15", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+    const id = (row as { id: string }).id;
+
+    await updateTimeLog("guest", null, id, {
+      date: "2026-07-01", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+
+    const jun = listLogsForMonth("2026-06");
+    const jul = listLogsForMonth("2026-07");
+    expect(jun.some((l) => l.id === id)).toBe(false);
+    expect(jul.some((l) => l.id === id && l.date === "2026-07-01")).toBe(true);
+  });
+
+  it("updateTimeLog — cloud: passes date to resources.timeLogs.update", async () => {
+    queueTableResult("time_logs", {
+      data: { id: "l1", date: "2026-07-01", start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" },
+    });
+    await expect(
+      updateTimeLog("cloud", "u1", "l1", {
+        date: "2026-07-01", start_time: "09:00", end_time: "10:00",
+        category_id: "c1", type: "productive",
+      })
+    ).resolves.toBeDefined();
+  });
 });
 
 describe("remaining hooks — same error contract", () => {

@@ -10,7 +10,7 @@ type Seg = { startMin: number; endMin: number };
 
 export type AISlotSeg = { seg: Seg; name: string; rationale?: string };
 export type DayCellBlock = { id?: string; seg: Seg; name: string; color: string };
-export type DayCellLog   = { id?: string; seg: Seg; name: string; color: string };
+export type DayCellLog   = { id?: string; seg: Seg; name: string; color: string; category_id?: string | null };
 
 export type DayCellData = {
   iso: string;
@@ -116,6 +116,7 @@ export function buildDayCells({
         seg: { startMin: a, endMin: c },
         name: l.title || (cat?.name ?? l.type),
         color,
+        category_id: l.category_id,
       }));
     });
 

@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
+import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
 import { Surface } from "@/components/Surface";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { GapWindow } from "@/lib/gaps";
@@ -12,6 +12,9 @@ const HOURS_START = 0;
 const HOURS_END = 24;
 const TOTAL_HOURS = HOURS_END - HOURS_START;
 const TOTAL_HEIGHT = TOTAL_HOURS * PX_PER_HOUR;
+const SNAP_MIN = 15;
+const DRAG_CANCEL_PX = 4;
+const HOUR_RAIL_PX = 48;
 
 type Seg = { startMin: number; endMin: number };
 
@@ -40,17 +43,20 @@ export function WeekGrid({
   onSlotClick,
   onBlockClick,
   onLogClick,
+  onLogReschedule,
 }: {
   days: DayCellData[];
   onGapClick: (iso: string, gap: GapWindow) => void;
   onSlotClick: (iso: string, startMin: number) => void;
   onBlockClick?: (iso: string, block: DayCellBlock) => void;
   onLogClick?: (iso: string, log: DayCellLog) => void;
+  onLogReschedule?: (logId: string, newDate: string, newStartMin: number, newEndMin: number) => void;
 }) {
   const hours = useMemo(
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
     []
   );
+  const gridBodyRef = useRef<HTMLDivElement>(null);
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -81,6 +87,7 @@ export function WeekGrid({
 
       {/* Grid body */}
       <div
+        ref={gridBodyRef}
         className="relative grid border-t border-border/40"
         style={{ gridTemplateColumns: `48px repeat(7, 1fr)`, height: TOTAL_HEIGHT }}
       >
@@ -193,29 +200,18 @@ export function WeekGrid({
             })}
 
             {/* Time logs — full width, z-20 (on top of blocks) */}
-            {d.logs.map((l, i) => {
-              const c = clamp(l.seg);
-              if (!c) return null;
-              return (
-                <motion.div
-                  key={`${l.id ?? "l"}-${i}`}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className={cn(
-                    "absolute left-0.5 right-0.5 rounded-sm px-1 overflow-hidden shadow-soft z-[20]",
-                    onLogClick ? "cursor-pointer hover:brightness-90 transition-[filter]" : "pointer-events-none"
-                  )}
-                  style={{
-                    top: topFor(c.startMin),
-                    height: Math.max(heightFor(c), 10),
-                    backgroundColor: l.color,
-                  }}
-                  onClick={onLogClick ? (e) => { e.stopPropagation(); onLogClick(d.iso, l); } : undefined}
-                >
-                  <div className="text-[9px] font-semibold truncate text-white">{l.name}</div>
-                </motion.div>
-              );
-            })}
+            {d.logs.map((l, i) => (
+              <WeekLogBar
+                key={`${l.id ?? "l"}-${i}`}
+                log={l}
+                dayISO={d.iso}
+                days={days}
+                gridBodyRef={gridBodyRef}
+                draggable={!!onLogReschedule && !!l.category_id}
+                onReschedule={onLogReschedule}
+                onClick={onLogClick ? () => onLogClick(d.iso, l) : undefined}
+              />
+            ))}
 
             {/* AI suggested slots (z-25, dashed primary) */}
             {(d.aiSlots ?? []).map((s, i) => {
@@ -260,5 +256,118 @@ export function WeekGrid({
       </div>
     </Surface>
     </TooltipProvider>
+  );
+}
+
+function snapMin(m: number): number {
+  return Math.round(m / SNAP_MIN) * SNAP_MIN;
+}
+
+function WeekLogBar({
+  log, dayISO, days, gridBodyRef, draggable, onReschedule, onClick,
+}: {
+  log: DayCellLog;
+  dayISO: string;
+  days: DayCellData[];
+  gridBodyRef: React.RefObject<HTMLDivElement>;
+  draggable: boolean;
+  onReschedule?: (logId: string, newDate: string, newStartMin: number, newEndMin: number) => void;
+  onClick?: () => void;
+}) {
+  const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
+  const dragRef = useRef<{
+    startX: number; startY: number;
+    origStart: number; origEnd: number;
+    moved: boolean;
+  } | null>(null);
+
+  const c = clamp(log.seg);
+  if (!c) return null;
+
+  const top = topFor(c.startMin);
+  const height = Math.max(heightFor(c), 10);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!draggable || !onReschedule) return;
+    e.stopPropagation();
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origStart: c.startMin, origEnd: c.endMin, moved: false };
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* jsdom */ }
+    setDragOffset({ dx: 0, dy: 0 });
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    if (Math.abs(dx) > DRAG_CANCEL_PX || Math.abs(dy) > DRAG_CANCEL_PX) dragRef.current.moved = true;
+    setDragOffset({ dx, dy });
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragRef.current || !onReschedule) {
+      dragRef.current = null;
+      setDragOffset({ dx: 0, dy: 0 });
+      return;
+    }
+    const { startX, startY, origStart, origEnd, moved } = dragRef.current;
+    dragRef.current = null;
+    setDragOffset({ dx: 0, dy: 0 });
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+
+    if (!moved) {
+      onClick?.();
+      return;
+    }
+
+    const dur = origEnd - origStart;
+    const deltaMin = snapMin(Math.round(((e.clientY - startY) / PX_PER_HOUR) * 60));
+    let newStart = snapMin(origStart + deltaMin);
+    let newEnd = newStart + dur;
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+    if (newEnd > MIN_PER_DAY) {
+      const over = newEnd - MIN_PER_DAY;
+      newStart = Math.max(0, newStart - over);
+      newEnd = MIN_PER_DAY;
+    }
+
+    let newDate = dayISO;
+    if (gridBodyRef.current) {
+      const rect = gridBodyRef.current.getBoundingClientRect();
+      const availWidth = rect.width - HOUR_RAIL_PX;
+      if (availWidth > 0) {
+        const colWidth = availWidth / days.length;
+        const colIdx = Math.floor((e.clientX - rect.left - HOUR_RAIL_PX) / colWidth);
+        const clamped = Math.max(0, Math.min(days.length - 1, colIdx));
+        newDate = days[clamped].iso;
+      }
+    }
+
+    if (log.id) onReschedule(log.id, newDate, newStart, newEnd);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1, x: dragOffset.dx, y: dragOffset.dy }}
+      transition={{ opacity: {}, scale: {}, x: { duration: 0 }, y: { duration: 0 } }}
+      className={cn(
+        "absolute left-0.5 right-0.5 rounded-sm px-1 overflow-hidden shadow-soft z-[20] select-none",
+        draggable
+          ? "cursor-grab touch-none active:cursor-grabbing"
+          : onClick
+          ? "cursor-pointer hover:brightness-90 transition-[filter]"
+          : "pointer-events-none"
+      )}
+      style={{ top, height, backgroundColor: log.color }}
+      aria-label={`Log: ${log.name}`}
+      onPointerDown={draggable ? onPointerDown : undefined}
+      onPointerMove={draggable ? onPointerMove : undefined}
+      onPointerUp={draggable ? endDrag : undefined}
+      onPointerCancel={draggable ? endDrag : undefined}
+      onClick={!draggable && onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
+    >
+      <div className="text-[9px] font-semibold truncate text-white">{log.name}</div>
+    </motion.div>
   );
 }

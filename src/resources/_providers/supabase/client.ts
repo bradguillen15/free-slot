@@ -245,6 +245,7 @@ export function createSupabaseProvider(): ResourcesProvider {
             end_time: patch.end_time,
             category_id: patch.category_id,
             type: patch.type,
+            ...(patch.date !== undefined ? { date: patch.date } : {}),
             ...(patch.title !== undefined ? { title: patch.title } : {}),
             notes: patch.notes ?? null,
           })

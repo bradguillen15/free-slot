@@ -128,7 +128,7 @@ export default function CalendarPage() {
   }, []);
 
   const handleLogReschedule = useCallback(
-    async (logId: string, newStartMin: number, newEndMin: number) => {
+    async (logId: string, newDate: string, newStartMin: number, newEndMin: number) => {
       const log = logs.find((l) => l.id === logId);
       if (!log?.category_id) {
         toast.error("Assign a category before dragging this block.");
@@ -136,6 +136,7 @@ export default function CalendarPage() {
       }
       try {
         await updateTimeLog(mode, user?.id ?? null, logId, {
+          date: newDate,
           start_time: fromMin(newStartMin),
           end_time: fromMin(newEndMin),
           category_id: log.category_id,
@@ -189,6 +190,7 @@ export default function CalendarPage() {
                 categories={cats}
                 onSlotClick={openLogAt}
                 currentMinute={currentMinute}
+                date={date}
                 onLogReschedule={handleLogReschedule}
                 onBlockClick={handleBlockClick}
                 onLogClick={handleLogClick}

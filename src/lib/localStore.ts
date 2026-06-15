@@ -381,6 +381,35 @@ export function updateLog(id: string, patch: Partial<Omit<LocalTimeLog, "id" | "
   throw new Error("Time log not found");
 }
 
+/** Move a log to a new date; handles cross-month bucket changes atomically. */
+export function moveLog(id: string, newDate: string, patch: Partial<Omit<LocalTimeLog, "id" | "date" | "created_at">>) {
+  if (typeof window === "undefined") throw new Error("Time log not found");
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(`${PREFIX}.time_logs.`)) continue;
+    const arr = readArray<LocalTimeLog>(k);
+    const idx = arr.findIndex((l) => l.id === id);
+    if (idx === -1) continue;
+
+    const log = arr[idx];
+    const oldMonth = log.date.slice(0, 7);
+    const newMonth = newDate.slice(0, 7);
+    const updated: LocalTimeLog = { ...log, ...patch, date: newDate };
+
+    if (oldMonth === newMonth) {
+      const next = [...arr];
+      next[idx] = updated;
+      write(k, next);
+    } else {
+      write(k, arr.filter((l) => l.id !== id));
+      const newKey = logsKey(newMonth);
+      write(newKey, [...readArray<LocalTimeLog>(newKey), updated]);
+    }
+    return updated;
+  }
+  throw new Error("Time log not found");
+}
+
 // ---------- Snapshot for migration ----------
 export type LocalPriority = { week_start: string; activity_id: string; rank: number };
 

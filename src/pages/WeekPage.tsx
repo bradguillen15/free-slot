@@ -9,6 +9,7 @@ import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { addDaysISO, fmtDuration, fromMin, todayISO, toMin } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { type GapWindow } from "@/lib/gaps";
@@ -26,6 +27,7 @@ import {
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
+  updateTimeLog,
 } from "@/lib/dataStore";
 import { StatCard } from "@/components/StatCard";
 
@@ -159,6 +161,29 @@ export default function WeekPage() {
     setLogOpen(true);
   };
 
+  const handleLogReschedule = async (logId: string, newDate: string, newStartMin: number, newEndMin: number) => {
+    const log = (logsRaw ?? []).find((l) => (l as { id?: string }).id === logId);
+    if (!(log as { category_id?: string | null } | undefined)?.category_id) {
+      toast.error("Assign a category before dragging this block.");
+      return;
+    }
+    try {
+      const mode = isGuest ? "guest" as const : "cloud" as const;
+      await updateTimeLog(mode, user?.id ?? null, logId, {
+        date: newDate,
+        start_time: fromMin(newStartMin),
+        end_time: fromMin(newEndMin),
+        category_id: (log as { category_id: string }).category_id,
+        type: (log as { type: "productive" | "unproductive" }).type,
+        notes: (log as { notes: string | null }).notes,
+      });
+      toast.success("Block rescheduled");
+      await refreshLogs();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not reschedule");
+    }
+  };
+
   const onLogClick = (iso: string, cellLog: DayCellLog) => {
     const full = cellLog.id ? logById[cellLog.id] : undefined;
     if (!full) return;
@@ -252,6 +277,7 @@ export default function WeekPage() {
               onSlotClick={onSlotClick}
               onBlockClick={onBlockClick}
               onLogClick={onLogClick}
+              onLogReschedule={handleLogReschedule}
             />
           </div>
         </div>
