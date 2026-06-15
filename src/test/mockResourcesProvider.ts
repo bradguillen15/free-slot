@@ -12,25 +12,37 @@ export function createMockResourcesProvider(
     weeklyPlans: Partial<ResourcesProvider["weeklyPlans"]>;
   }> = {}
 ): ResourcesProvider {
+  const stub = { id: "stub" } as never;
   return {
     categories: {
       list: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue(stub),
+      delete: vi.fn().mockResolvedValue(undefined),
       ...overrides.categories,
     },
     activities: {
       list: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue(stub),
+      delete: vi.fn().mockResolvedValue(undefined),
       ...overrides.activities,
     },
     scheduleBlocks: {
       list: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue(stub),
+      delete: vi.fn().mockResolvedValue(undefined),
+      reorder: vi.fn().mockResolvedValue(undefined),
       ...overrides.scheduleBlocks,
     },
     timeLogs: {
       listInRange: vi.fn().mockResolvedValue([]),
+      insert: vi.fn().mockResolvedValue(stub),
+      update: vi.fn().mockResolvedValue(stub),
+      delete: vi.fn().mockResolvedValue(undefined),
       ...overrides.timeLogs,
     },
     profiles: {
       get: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue(undefined),
       ...overrides.profiles,
     },
     weeklyPlans: {

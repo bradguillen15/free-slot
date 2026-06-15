@@ -2,7 +2,6 @@
 // Reads go through React Query; mutations invalidate the relevant query keys.
 import { useCallback, useMemo, useState, type SetStateAction } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { LocalActivity, LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import {
@@ -278,22 +277,7 @@ export async function insertTimeLog(
   if (mode === "guest") {
     result = localInsertLog(input);
   } else {
-    const { data, error } = await supabase
-      .from("time_logs")
-      .insert({
-        user_id: userId!,
-        date: input.date,
-        start_time: input.start_time,
-        end_time: input.end_time,
-        category_id: input.category_id,
-        type: input.type,
-        title: input.title ?? null,
-        notes: input.notes ?? null,
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    result = data;
+    result = await resources.timeLogs.insert(userId!, input);
   }
   invalidateTimeLogs(mode, userId);
   return result;
@@ -303,8 +287,7 @@ export async function deleteTimeLog(mode: Mode, userId: string | null, id: strin
   if (mode === "guest") {
     localDeleteLog(id);
   } else {
-    const { error } = await supabase.from("time_logs").delete().eq("id", id).eq("user_id", userId!);
-    if (error) throw error;
+    await resources.timeLogs.delete(userId!, id);
   }
   invalidateTimeLogs(mode, userId);
 }
@@ -326,22 +309,7 @@ export async function updateTimeLog(
   if (mode === "guest") {
     result = localUpdateLog(id, input);
   } else {
-    const { data, error } = await supabase
-      .from("time_logs")
-      .update({
-        start_time: input.start_time,
-        end_time: input.end_time,
-        category_id: input.category_id,
-        type: input.type,
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        notes: input.notes ?? null,
-      })
-      .eq("id", id)
-      .eq("user_id", userId!)
-      .select()
-      .single();
-    if (error) throw error;
-    result = data;
+    result = await resources.timeLogs.update(userId!, id, input);
   }
   invalidateTimeLogs(mode, userId);
   return result;
@@ -361,25 +329,8 @@ export async function upsertActivity(
   let result: unknown;
   if (mode === "guest") {
     result = localUpsertActivity(input);
-  } else if (input.id) {
-    const { data, error } = await supabase.from("activities").update({
-      name: input.name,
-      category_id: input.category_id,
-      target_hours_per_week: input.target_hours_per_week,
-      is_active: input.is_active,
-    }).eq("id", input.id).eq("user_id", userId!).select().single();
-    if (error) throw error;
-    result = data;
   } else {
-    const { data, error } = await supabase.from("activities").insert({
-      user_id: userId!,
-      name: input.name,
-      category_id: input.category_id,
-      target_hours_per_week: input.target_hours_per_week,
-      is_active: input.is_active,
-    }).select().single();
-    if (error) throw error;
-    result = data;
+    result = await resources.activities.upsert(userId!, input);
   }
   invalidateActivities(mode, userId);
   return result;
@@ -389,8 +340,7 @@ export async function deleteActivity(mode: Mode, userId: string | null, id: stri
   if (mode === "guest") {
     localDeleteActivity(id);
   } else {
-    const { error } = await supabase.from("activities").delete().eq("id", id).eq("user_id", userId!);
-    if (error) throw error;
+    await resources.activities.delete(userId!, id);
   }
   invalidateActivities(mode, userId);
 }
@@ -410,31 +360,8 @@ export async function upsertScheduleBlock(
   let result: unknown;
   if (mode === "guest") {
     result = localUpsertScheduleBlock(input);
-  } else if (input.id) {
-    const { data, error } = await supabase.from("schedule_blocks").update({
-      name: input.name, start_time: input.start_time, end_time: input.end_time,
-      days_of_week: input.days_of_week, color: input.color, type: input.type,
-      category_id: input.category_id ?? null,
-    }).eq("id", input.id).eq("user_id", userId!).select().single();
-    if (error) throw error;
-    result = data;
   } else {
-    const { data: existing } = await supabase
-      .from("schedule_blocks")
-      .select("sort_order")
-      .eq("user_id", userId!)
-      .order("sort_order", { ascending: false })
-      .limit(1);
-    const nextSort = ((existing?.[0] as { sort_order?: number } | undefined)?.sort_order ?? -1) + 1;
-    const { data, error } = await supabase.from("schedule_blocks").insert({
-      user_id: userId!,
-      name: input.name, start_time: input.start_time, end_time: input.end_time,
-      days_of_week: input.days_of_week, color: input.color, type: input.type,
-      category_id: input.category_id ?? null,
-      sort_order: nextSort,
-    }).select().single();
-    if (error) throw error;
-    result = data;
+    result = await resources.scheduleBlocks.upsert(userId!, input);
   }
   invalidateScheduleBlocks(mode, userId);
   return result;
@@ -444,8 +371,7 @@ export async function deleteScheduleBlock(mode: Mode, userId: string | null, id:
   if (mode === "guest") {
     localDeleteScheduleBlock(id);
   } else {
-    const { error } = await supabase.from("schedule_blocks").delete().eq("id", id).eq("user_id", userId!);
-    if (error) throw error;
+    await resources.scheduleBlocks.delete(userId!, id);
   }
   invalidateScheduleBlocks(mode, userId);
 }
@@ -454,13 +380,7 @@ export async function reorderScheduleBlocks(mode: Mode, userId: string | null, o
   if (mode === "guest") {
     localReorderScheduleBlocks(orderedIds);
   } else {
-    const results = await Promise.all(
-      orderedIds.map((id, i) =>
-        supabase.from("schedule_blocks").update({ sort_order: i }).eq("id", id).eq("user_id", userId!),
-      ),
-    );
-    const err = results.find((r) => r.error)?.error;
-    if (err) throw err;
+    await resources.scheduleBlocks.reorder(userId!, orderedIds);
   }
   invalidateScheduleBlocks(mode, userId);
 }
@@ -473,35 +393,8 @@ export async function upsertCategory(
   let result: unknown;
   if (mode === "guest") {
     result = localUpsertCategory(input);
-  } else if (input.id) {
-    const patch: { name?: string; color?: string; type?: "productive" | "unproductive"; hidden?: boolean } = {};
-    if (input.name !== undefined) patch.name = input.name;
-    if (input.color !== undefined) patch.color = input.color;
-    if (input.type !== undefined) patch.type = input.type;
-    if (input.hidden !== undefined) patch.hidden = input.hidden;
-    const { data, error } = await supabase
-      .from("categories")
-      .update(patch)
-      .eq("id", input.id)
-      .eq("user_id", userId!)
-      .select()
-      .single();
-    if (error) throw error;
-    result = data;
   } else {
-    const { data, error } = await supabase
-      .from("categories")
-      .insert({
-        user_id: userId!,
-        name: input.name ?? "Untitled",
-        color: input.color ?? "#3b82f6",
-        type: input.type ?? "productive",
-        hidden: input.hidden ?? false,
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    result = data;
+    result = await resources.categories.upsert(userId!, input);
   }
   invalidateCategories(mode, userId);
   return result;
@@ -511,16 +404,7 @@ export async function deleteCategory(mode: Mode, userId: string | null, id: stri
   if (mode === "guest") {
     await localDeleteCategory(id);
   } else {
-    const { data: cat, error: selErr } = await supabase
-      .from("categories")
-      .select("is_default")
-      .eq("id", id)
-      .eq("user_id", userId!)
-      .single();
-    if (selErr) throw selErr;
-    if (cat?.is_default) throw new Error("Default labels cannot be deleted");
-    const { error } = await supabase.from("categories").delete().eq("id", id).eq("user_id", userId!);
-    if (error) throw error;
+    await resources.categories.delete(userId!, id);
   }
   invalidateCategories(mode, userId);
 }
@@ -533,8 +417,7 @@ export async function updateProfile(
   if (mode === "guest") {
     localUpdateProfile(patch);
   } else {
-    const { error } = await supabase.from("profiles").update(patch).eq("id", userId!);
-    if (error) throw error;
+    await resources.profiles.update(userId!, patch);
   }
   invalidateProfile(mode, userId);
 }
