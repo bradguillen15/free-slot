@@ -66,7 +66,7 @@ Examples: `pages/DashboardPage/` (`useDashboardStats`, `useWeeklyReviewPrompt`),
 3. **Writes** go through `dataStore` async mutation functions or `use*Mutation` hooks; they invalidate query keys automatically — do not thread manual `refresh()` / `onSaved` callbacks.
 4. **Never** call `supabase.from(...)` from pages or components (ESLint enforced). Allowed locations: `src/lib/**`, `src/contexts/AuthContext.tsx`, `src/integrations/**`, and temporary overrides listed in `eslint.config.js` until Phase 3 stragglers migrate.
 5. Account-only features (AI planner, weekly reviews, settings) may use cloud-only hooks or edge functions via `dataStore` — not raw component fetches.
-6. New client-accessible tables need `localStore.ts` parity, a fetcher in `dataFetchers.ts`, query keys in `queryKeys.ts`, and a hook in `dataStore.ts`.
+6. Cloud reads now live in `src/resources/_providers/supabase/` (via `ResourcesProvider`); `dataFetchers.ts` has been deleted. New cloud reads go into the provider, not `dataStore` directly. See `src/resources/README.md` for the full pattern. Full ESLint enforcement comes in resources Phase 5.
 
 ### React Query cheat sheet
 

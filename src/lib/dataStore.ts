@@ -10,7 +10,13 @@ import {
   deleteCategory as localDeleteCategory,
   deleteLog as localDeleteLog,
   deleteScheduleBlock as localDeleteScheduleBlock,
+  ensureBootstrap,
+  getProfile as localGetProfile,
   insertLog as localInsertLog,
+  listActivities,
+  listCategories,
+  listLogsInRange,
+  listScheduleBlocks,
   reorderScheduleBlocks as localReorderScheduleBlocks,
   updateLog as localUpdateLog,
   updateProfile as localUpdateProfile,
@@ -18,15 +24,8 @@ import {
   upsertCategory as localUpsertCategory,
   upsertScheduleBlock as localUpsertScheduleBlock,
 } from "@/lib/localStore";
-import {
-  fetchActivities,
-  fetchCategories,
-  fetchProfile,
-  fetchScheduleBlocks,
-  fetchTimeLogsInRange,
-  fetchWeeklyPlan,
-  type WeeklyPlanRow,
-} from "@/lib/dataFetchers";
+import { resources } from "@/resources";
+import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
 import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys, type Mode } from "@/lib/queryKeys";
 
@@ -126,7 +125,10 @@ export function useCategories() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
     queryKey: queryKeys.categories(mode, userId),
-    queryFn: () => fetchCategories(mode, userId),
+    queryFn: () => {
+      if (mode === "guest") { ensureBootstrap(); return Promise.resolve(listCategories()); }
+      return resources.categories.list(userId!);
+    },
     enabled: mode === "guest" || !!userId,
   });
 
@@ -160,7 +162,10 @@ export function useActivities() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
     queryKey: queryKeys.activities(mode, userId),
-    queryFn: () => fetchActivities(mode, userId),
+    queryFn: () => {
+      if (mode === "guest") { ensureBootstrap(); return Promise.resolve(listActivities()); }
+      return resources.activities.list(userId!);
+    },
     enabled: mode === "guest" || !!userId,
   });
 
@@ -172,7 +177,10 @@ export function useScheduleBlocks() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
     queryKey: queryKeys.scheduleBlocks(mode, userId),
-    queryFn: () => fetchScheduleBlocks(mode, userId),
+    queryFn: () => {
+      if (mode === "guest") { ensureBootstrap(); return Promise.resolve(listScheduleBlocks()); }
+      return resources.scheduleBlocks.list(userId!);
+    },
     enabled: mode === "guest" || !!userId,
   });
 
@@ -187,7 +195,10 @@ export function useTimeLogsInRange(startISO: string, endISO: string) {
 
   const { query, fetchError, refresh } = useDataQuery({
     queryKey,
-    queryFn: () => fetchTimeLogsInRange(mode, userId, startISO, endISO),
+    queryFn: () => {
+      if (mode === "guest") { ensureBootstrap(); return Promise.resolve(listLogsInRange(startISO, endISO)); }
+      return resources.timeLogs.listInRange(userId!, startISO, endISO);
+    },
     enabled: mode === "guest" || !!userId,
   });
 
@@ -215,7 +226,10 @@ export function useProfile() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
     queryKey: queryKeys.profile(mode, userId),
-    queryFn: () => fetchProfile(mode, userId),
+    queryFn: () => {
+      if (mode === "guest") { ensureBootstrap(); return Promise.resolve(localGetProfile()); }
+      return resources.profiles.get(userId!);
+    },
     enabled: mode === "guest" || !!userId,
   });
 
@@ -233,13 +247,13 @@ export function useWeeklyPlan(weekStart: string) {
   const userId = user?.id ?? null;
   const query = useQuery({
     queryKey: queryKeys.weeklyPlan(userId ?? "", weekStart),
-    queryFn: () => fetchWeeklyPlan(userId!, weekStart),
+    queryFn: () => resources.weeklyPlans.getForWeek(userId!, weekStart),
     enabled: !!userId,
   });
 
   return {
     data: query.data ?? null,
-    slots: (query.data?.slots ?? []) as WeeklyPlanRow["slots"],
+    slots: (query.data?.slots ?? []) as WeeklyPlan["slots"],
     error: toErrorMessage(query.error),
     isLoading: query.isLoading,
   };
