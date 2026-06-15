@@ -36,7 +36,6 @@ export default function DashboardPage() {
     isCurrentWeek,
     ratio: totals.ratio,
     total: totals.total,
-    user,
     openReview: (week) => { setReviewWeek(week); setReviewOpen(true); },
   });
 

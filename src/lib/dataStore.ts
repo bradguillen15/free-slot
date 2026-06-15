@@ -116,6 +116,11 @@ function invalidateWeeklyPlan(userId: string, weekStart: string) {
   getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyPlan(userId, weekStart) });
 }
 
+function invalidateWeeklyReview(userId: string | null, weekStart: string) {
+  if (!userId) return;
+  getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyReview(userId, weekStart) });
+}
+
 // ---------- Categories ----------
 export function filterVisibleCategories(categories: LocalCategory[]): LocalCategory[] {
   return categories.filter((c) => !c.hidden);
@@ -239,6 +244,32 @@ export function useProfile() {
     refresh,
     mode,
   };
+}
+
+// ---------- Cloud-only weekly review ----------
+export function useWeeklyReview(weekStart: string) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const query = useQuery({
+    queryKey: queryKeys.weeklyReview(userId ?? "", weekStart),
+    queryFn: () => resources.weeklyReviews.getForWeek(userId!, weekStart),
+    enabled: !!userId,
+  });
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+  };
+}
+
+export function useGenerateWeeklyReviewMutation() {
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof resources.functions.generateWeeklyReview>[0]) =>
+      resources.functions.generateWeeklyReview(body),
+    onSuccess: (_data, vars) => {
+      invalidateWeeklyReview(user?.id ?? null, vars.week_start);
+    },
+  });
 }
 
 // ---------- Cloud-only weekly plan ----------

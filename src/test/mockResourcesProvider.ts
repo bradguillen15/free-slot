@@ -10,6 +10,9 @@ export function createMockResourcesProvider(
     timeLogs: Partial<ResourcesProvider["timeLogs"]>;
     profiles: Partial<ResourcesProvider["profiles"]>;
     weeklyPlans: Partial<ResourcesProvider["weeklyPlans"]>;
+    weeklyReviews: Partial<ResourcesProvider["weeklyReviews"]>;
+    weeklyPriorities: Partial<ResourcesProvider["weeklyPriorities"]>;
+    functions: Partial<ResourcesProvider["functions"]>;
   }> = {}
 ): ResourcesProvider {
   const stub = { id: "stub" } as never;
@@ -18,12 +21,14 @@ export function createMockResourcesProvider(
       list: vi.fn().mockResolvedValue([]),
       upsert: vi.fn().mockResolvedValue(stub),
       delete: vi.fn().mockResolvedValue(undefined),
+      insertMany: vi.fn().mockResolvedValue([]),
       ...overrides.categories,
     },
     activities: {
       list: vi.fn().mockResolvedValue([]),
       upsert: vi.fn().mockResolvedValue(stub),
       delete: vi.fn().mockResolvedValue(undefined),
+      insertMany: vi.fn().mockResolvedValue([]),
       ...overrides.activities,
     },
     scheduleBlocks: {
@@ -31,6 +36,7 @@ export function createMockResourcesProvider(
       upsert: vi.fn().mockResolvedValue(stub),
       delete: vi.fn().mockResolvedValue(undefined),
       reorder: vi.fn().mockResolvedValue(undefined),
+      insertMany: vi.fn().mockResolvedValue([]),
       ...overrides.scheduleBlocks,
     },
     timeLogs: {
@@ -38,6 +44,7 @@ export function createMockResourcesProvider(
       insert: vi.fn().mockResolvedValue(stub),
       update: vi.fn().mockResolvedValue(stub),
       delete: vi.fn().mockResolvedValue(undefined),
+      insertMany: vi.fn().mockResolvedValue([]),
       ...overrides.timeLogs,
     },
     profiles: {
@@ -47,7 +54,23 @@ export function createMockResourcesProvider(
     },
     weeklyPlans: {
       getForWeek: vi.fn().mockResolvedValue(null),
+      delete: vi.fn().mockResolvedValue(undefined),
       ...overrides.weeklyPlans,
+    },
+    weeklyReviews: {
+      getForWeek: vi.fn().mockResolvedValue(null),
+      ...overrides.weeklyReviews,
+    },
+    weeklyPriorities: {
+      listForWeek: vi.fn().mockResolvedValue([]),
+      upsertMany: vi.fn().mockResolvedValue([]),
+      ...overrides.weeklyPriorities,
+    },
+    functions: {
+      generateWeeklyReview: vi.fn().mockResolvedValue({ review: { insights: "" } }),
+      generateWeeklyPlan: vi.fn().mockResolvedValue({ slots: [] }),
+      deleteAccount: vi.fn().mockResolvedValue(undefined),
+      ...overrides.functions,
     },
   };
 }

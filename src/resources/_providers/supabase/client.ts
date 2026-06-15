@@ -66,6 +66,13 @@ export function createSupabaseProvider(): ResourcesProvider {
           .eq("user_id", userId);
         if (error) throw error;
       },
+
+      async insertMany(userId, items) {
+        const rows = items.map((c) => ({ ...c, user_id: userId }));
+        const { data, error } = await supabase.from("categories").insert(rows).select();
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r) => mapCategory(r as Record<string, unknown>));
+      },
     },
 
     activities: {
@@ -118,6 +125,13 @@ export function createSupabaseProvider(): ResourcesProvider {
           .eq("id", id)
           .eq("user_id", userId);
         if (error) throw error;
+      },
+
+      async insertMany(userId, items) {
+        const rows = items.map((a) => ({ ...a, user_id: userId }));
+        const { data, error } = await supabase.from("activities").insert(rows).select();
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r) => mapActivity(r as Record<string, unknown>));
       },
     },
 
@@ -202,6 +216,13 @@ export function createSupabaseProvider(): ResourcesProvider {
         const err = results.find((r) => r.error)?.error;
         if (err) throw new Error(err.message);
       },
+
+      async insertMany(userId, items) {
+        const rows = items.map((b) => ({ ...b, user_id: userId }));
+        const { data, error } = await supabase.from("schedule_blocks").insert(rows).select();
+        if (error) throw new Error(error.message);
+        return sortScheduleBlocks((data ?? []).map((r) => mapScheduleBlock(r as Record<string, unknown>)));
+      },
     },
 
     timeLogs: {
@@ -265,6 +286,13 @@ export function createSupabaseProvider(): ResourcesProvider {
           .eq("user_id", userId);
         if (error) throw error;
       },
+
+      async insertMany(userId, items) {
+        const rows = items.map((l) => ({ ...l, user_id: userId }));
+        const { data, error } = await supabase.from("time_logs").insert(rows).select();
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r) => mapTimeLog(r as Record<string, unknown>));
+      },
     },
 
     profiles: {
@@ -299,6 +327,93 @@ export function createSupabaseProvider(): ResourcesProvider {
           .maybeSingle();
         if (error) throw new Error(error.message);
         return data ? mapWeeklyPlan(data as Record<string, unknown>) : null;
+      },
+
+      async delete(userId, weekStart) {
+        const { error } = await supabase
+          .from("weekly_plans")
+          .delete()
+          .eq("user_id", userId)
+          .eq("week_start", weekStart);
+        if (error) throw new Error(error.message);
+      },
+    },
+
+    weeklyReviews: {
+      async getForWeek(userId, weekStart) {
+        const { data, error } = await supabase
+          .from("weekly_reviews")
+          .select("id,week_start,insights,planned_vs_actual,completed_at")
+          .eq("user_id", userId)
+          .eq("week_start", weekStart)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        if (!data) return null;
+        const r = data as Record<string, unknown>;
+        return {
+          id: r.id as string,
+          week_start: r.week_start as string,
+          insights: (r.insights ?? null) as string | null,
+          planned_vs_actual: r.planned_vs_actual ?? null,
+          completed_at: r.completed_at as string,
+        };
+      },
+    },
+
+    weeklyPriorities: {
+      async listForWeek(userId, weekStart) {
+        const { data, error } = await supabase
+          .from("weekly_priorities")
+          .select("id,activity_id,rank,week_start")
+          .eq("user_id", userId)
+          .eq("week_start", weekStart)
+          .order("rank");
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r) => ({
+          id: r.id as string,
+          activity_id: r.activity_id as string,
+          rank: r.rank as number,
+          week_start: r.week_start as string,
+        }));
+      },
+
+      async upsertMany(userId, weekStart, priorities) {
+        const rows = priorities.map((p, i) => ({
+          user_id: userId,
+          week_start: weekStart,
+          activity_id: p.activity_id,
+          rank: p.rank ?? i,
+        }));
+        const { data, error } = await supabase
+          .from("weekly_priorities")
+          .upsert(rows, { onConflict: "user_id,week_start,activity_id" })
+          .select("id,activity_id,rank,week_start");
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r) => ({
+          id: r.id as string,
+          activity_id: r.activity_id as string,
+          rank: r.rank as number,
+          week_start: r.week_start as string,
+        }));
+      },
+    },
+
+    functions: {
+      async generateWeeklyReview(body) {
+        const { data, error } = await supabase.functions.invoke("weekly-review", { body });
+        if (error) throw error;
+        return data as { review: { insights: string } };
+      },
+
+      async generateWeeklyPlan(body) {
+        const { data, error } = await supabase.functions.invoke("generate-weekly-plan", { body });
+        if (error) throw error;
+        return data as { slots: unknown[] };
+      },
+
+      async deleteAccount(_userId) {
+        const { error } = await supabase.functions.invoke("delete-account");
+        if (error) throw error;
       },
     },
   };

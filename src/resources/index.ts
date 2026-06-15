@@ -8,6 +8,8 @@ export type { ScheduleBlock } from "./types/scheduleBlock";
 export type { TimeLog } from "./types/timeLog";
 export type { Profile } from "./types/profile";
 export type { WeeklyPlan, WeeklyPlanSlot } from "./types/weeklyPlan";
+export type { WeeklyReview } from "./types/weeklyReview";
+export type { WeeklyPriority } from "./types/weeklyPriority";
 
 let _provider: ResourcesProvider = createSupabaseProvider();
 

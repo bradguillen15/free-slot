@@ -1,5 +1,7 @@
 import type { LocalActivity, LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
+import type { WeeklyReview } from "@/resources/types/weeklyReview";
+import type { WeeklyPriority } from "@/resources/types/weeklyPriority";
 
 export type TimeLogInput = {
   id?: string;
@@ -52,23 +54,27 @@ export interface ResourcesProvider {
     list(userId: string): Promise<LocalCategory[]>;
     upsert(userId: string, input: CategoryInput): Promise<LocalCategory>;
     delete(userId: string, id: string): Promise<void>;
+    insertMany(userId: string, items: Omit<LocalCategory, "id" | "created_at">[]): Promise<LocalCategory[]>;
   };
   activities: {
     list(userId: string): Promise<LocalActivity[]>;
     upsert(userId: string, input: ActivityInput): Promise<LocalActivity>;
     delete(userId: string, id: string): Promise<void>;
+    insertMany(userId: string, items: Omit<LocalActivity, "id" | "created_at">[]): Promise<LocalActivity[]>;
   };
   scheduleBlocks: {
     list(userId: string): Promise<LocalScheduleBlock[]>;
     upsert(userId: string, input: ScheduleBlockInput): Promise<LocalScheduleBlock>;
     delete(userId: string, id: string): Promise<void>;
     reorder(userId: string, orderedIds: string[]): Promise<void>;
+    insertMany(userId: string, items: Omit<LocalScheduleBlock, "id" | "created_at">[]): Promise<LocalScheduleBlock[]>;
   };
   timeLogs: {
     listInRange(userId: string, startISO: string, endISO: string): Promise<LocalTimeLog[]>;
     insert(userId: string, input: TimeLogInput): Promise<LocalTimeLog>;
     update(userId: string, id: string, patch: TimeLogPatch): Promise<LocalTimeLog>;
     delete(userId: string, id: string): Promise<void>;
+    insertMany(userId: string, items: Omit<LocalTimeLog, "id" | "created_at">[]): Promise<LocalTimeLog[]>;
   };
   profiles: {
     get(userId: string): Promise<LocalProfile | null>;
@@ -76,5 +82,28 @@ export interface ResourcesProvider {
   };
   weeklyPlans: {
     getForWeek(userId: string, weekStart: string): Promise<WeeklyPlan | null>;
+    delete(userId: string, weekStart: string): Promise<void>;
+  };
+  weeklyReviews: {
+    getForWeek(userId: string, weekStart: string): Promise<WeeklyReview | null>;
+  };
+  weeklyPriorities: {
+    listForWeek(userId: string, weekStart: string): Promise<WeeklyPriority[]>;
+    upsertMany(userId: string, weekStart: string, priorities: { activity_id: string; rank: number }[]): Promise<WeeklyPriority[]>;
+  };
+  functions: {
+    generateWeeklyReview(body: {
+      week_start: string;
+      planned: { name: string; minutes: number }[];
+      actual: { name: string; minutes: number }[];
+      productive_ratio: number;
+      total_tracked: number;
+    }): Promise<{ review: { insights: string } }>;
+    generateWeeklyPlan(body: {
+      week_start: string;
+      gaps: unknown[];
+      activities: unknown[];
+    }): Promise<{ slots: unknown[] }>;
+    deleteAccount(userId: string): Promise<void>;
   };
 }

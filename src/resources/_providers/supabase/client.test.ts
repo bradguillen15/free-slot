@@ -8,6 +8,7 @@ vi.mock("@/integrations/supabase/client", async () => {
 
 // Import after mock so the supabase singleton is already replaced
 const { createSupabaseProvider } = await import("./client");
+const { supabase } = await import("@/integrations/supabase/client");
 
 const USER_ID = "user-abc";
 
@@ -99,6 +100,44 @@ describe("createSupabaseProvider", () => {
       queueTableResult("weekly_plans", { data: null });
       const result = await provider.weeklyPlans.getForWeek(USER_ID, "2024-06-03");
       expect(result).toBeNull();
+    });
+  });
+
+  describe("weeklyReviews.getForWeek", () => {
+    it("queries weekly_reviews filtered by user_id and week_start", async () => {
+      const review = { id: "r1", week_start: "2024-06-03", insights: "Great week!", planned_vs_actual: null, completed_at: "2024-06-09T10:00:00Z" };
+      queueTableResult("weekly_reviews", { data: review });
+      const result = await provider.weeklyReviews.getForWeek(USER_ID, "2024-06-03");
+      expect(result?.id).toBe("r1");
+      expect(result?.insights).toBe("Great week!");
+      const call = fromCalls.find((c) => c.table === "weekly_reviews");
+      expect(call?.methods.some(([m, args]) => m === "eq" && args[0] === "week_start")).toBe(true);
+    });
+
+    it("returns null when no review found", async () => {
+      queueTableResult("weekly_reviews", { data: null });
+      const result = await provider.weeklyReviews.getForWeek(USER_ID, "2024-06-03");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("functions.generateWeeklyReview", () => {
+    it("invokes the weekly-review edge function and returns the result", async () => {
+      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+        data: { review: { insights: "Productive week!" } },
+        error: null,
+      });
+      const body = { week_start: "2024-06-03", planned: [], actual: [], productive_ratio: 80, total_tracked: 300 };
+      const result = await provider.functions.generateWeeklyReview(body);
+      expect(result.review.insights).toBe("Productive week!");
+      expect(supabase.functions.invoke).toHaveBeenCalledWith("weekly-review", { body });
+    });
+
+    it("throws when the edge function returns an error", async () => {
+      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: new Error("Function failed") });
+      await expect(
+        provider.functions.generateWeeklyReview({ week_start: "2024-06-03", planned: [], actual: [], productive_ratio: 0, total_tracked: 0 })
+      ).rejects.toThrow();
     });
   });
 });

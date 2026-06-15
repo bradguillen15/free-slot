@@ -44,7 +44,10 @@ import {
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
+  useWeeklyReview,
+  useGenerateWeeklyReviewMutation,
 } from "./dataStore";
+import { supabase } from "@/integrations/supabase/client";
 
 const CAT = { id: "c1", name: "Deep work", color: "#000", type: "productive" as const, is_default: true, hidden: false, created_at: "" };
 
@@ -320,5 +323,40 @@ describe("mutations — remaining happy paths (both modes)", () => {
     const log = await insertTimeLog("guest", null, { date: "2026-06-10", start_time: "09:00", end_time: "10:00", category_id: "c", type: "productive" });
     await deleteTimeLog("guest", null, (log as { id: string }).id);
     expect(listLogsForMonth("2026-06")).toHaveLength(0);
+  });
+});
+
+describe("useWeeklyReview", () => {
+  it("returns saved review data for the given week", async () => {
+    const review = { id: "r1", week_start: "2026-06-09", insights: "Great week!", planned_vs_actual: null, completed_at: "2026-06-15T10:00:00Z" };
+    queueTableResult("weekly_reviews", { data: review });
+    const { result } = renderDataHook(() => useWeeklyReview("2026-06-09"));
+    await waitFor(() => expect(result.current.data?.id).toBe("r1"));
+    expect(result.current.data?.insights).toBe("Great week!");
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("returns null when no review exists for the week", async () => {
+    queueTableResult("weekly_reviews", { data: null });
+    const { result } = renderDataHook(() => useWeeklyReview("2026-06-09"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toBeNull();
+  });
+});
+
+describe("useGenerateWeeklyReviewMutation", () => {
+  it("invokes the weekly-review edge function and invalidates the review cache", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+      data: { review: { insights: "AI insights!" } },
+      error: null,
+    });
+    const { result } = renderDataHook(() => useGenerateWeeklyReviewMutation());
+    const body = { week_start: "2026-06-09", planned: [], actual: [], productive_ratio: 75, total_tracked: 240 };
+    let outcome: { review: { insights: string } } | undefined;
+    await act(async () => {
+      outcome = await result.current.mutateAsync(body);
+    });
+    expect(outcome?.review.insights).toBe("AI insights!");
+    expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith("weekly-review", { body });
   });
 });

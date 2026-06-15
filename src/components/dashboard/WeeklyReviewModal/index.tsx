@@ -4,7 +4,6 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
 import { fmtDuration } from "@/lib/time";
 import { fmtWeekRange } from "@/lib/week";
 import { useWeeklyReviewData } from "./useWeeklyReviewData";
@@ -16,9 +15,8 @@ type Props = {
 };
 
 export function WeeklyReviewModal({ open, onOpenChange, weekStart }: Props) {
-  const { user } = useAuth();
   const { loading, insights, ratio, total, existing, merged, generate } =
-    useWeeklyReviewData({ open, user, weekStart });
+    useWeeklyReviewData({ open, weekStart });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
