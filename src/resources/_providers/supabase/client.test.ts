@@ -140,4 +140,62 @@ describe("createSupabaseProvider", () => {
       ).rejects.toThrow();
     });
   });
+
+  describe("weeklyPriorities.listForWeek", () => {
+    it("queries weekly_priorities filtered by user_id and week_start ordered by rank", async () => {
+      queueTableResult("weekly_priorities", {
+        data: [
+          { id: "p1", activity_id: "a1", rank: 0, week_start: "2024-06-03" },
+          { id: "p2", activity_id: "a2", rank: 1, week_start: "2024-06-03" },
+        ],
+      });
+      const result = await provider.weeklyPriorities.listForWeek(USER_ID, "2024-06-03");
+      expect(result).toHaveLength(2);
+      expect(result[0].activity_id).toBe("a1");
+      const call = fromCalls.find((c) => c.table === "weekly_priorities");
+      expect(call?.methods.some(([m, args]) => m === "eq" && args[0] === "week_start")).toBe(true);
+      expect(call?.methods.some(([m]) => m === "order")).toBe(true);
+    });
+
+    it("returns empty array when no priorities found", async () => {
+      queueTableResult("weekly_priorities", { data: [] });
+      const result = await provider.weeklyPriorities.listForWeek(USER_ID, "2024-06-03");
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("weeklyPriorities.upsertMany", () => {
+    it("upserts priority rows and returns the saved list", async () => {
+      queueTableResult("weekly_priorities", {
+        data: [{ id: "p1", activity_id: "a1", rank: 0, week_start: "2024-06-03" }],
+      });
+      const result = await provider.weeklyPriorities.upsertMany(USER_ID, "2024-06-03", [{ activity_id: "a1", rank: 0 }]);
+      expect(result[0].activity_id).toBe("a1");
+      const call = fromCalls.find((c) => c.table === "weekly_priorities");
+      expect(call?.methods.some(([m]) => m === "upsert")).toBe(true);
+    });
+  });
+
+  describe("weeklyPlans.delete", () => {
+    it("deletes the plan for the given user and week", async () => {
+      queueTableResult("weekly_plans", { data: null });
+      await provider.weeklyPlans.delete(USER_ID, "2024-06-03");
+      const call = fromCalls.find((c) => c.table === "weekly_plans");
+      expect(call?.methods.some(([m]) => m === "delete")).toBe(true);
+      expect(call?.methods.some(([m, args]) => m === "eq" && args[0] === "week_start")).toBe(true);
+    });
+  });
+
+  describe("functions.generateWeeklyPlan", () => {
+    it("invokes the generate-weekly-plan edge function", async () => {
+      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+        data: { plan: { id: "wp1", week_start: "2024-06-03", generated_at: "", slots: [] }, summary: "Done" },
+        error: null,
+      });
+      const body = { week_start: "2024-06-03", gaps: [], activities: [] };
+      const result = await provider.functions.generateWeeklyPlan(body);
+      expect(result).toBeDefined();
+      expect(supabase.functions.invoke).toHaveBeenCalledWith("generate-weekly-plan", { body });
+    });
+  });
 });

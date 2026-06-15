@@ -19,6 +19,8 @@ export const queryKeys = {
     ["freeslot", "weeklyPlan", userId, weekStart] as const,
   weeklyReview: (userId: string, weekStart: string) =>
     ["freeslot", "weeklyReview", userId, weekStart] as const,
+  weeklyPriorities: (userId: string | null, weekStart: string) =>
+    ["freeslot", "weeklyPriorities", userId, weekStart] as const,
 };
 
 export function isGuestQueryKey(key: readonly unknown[]): boolean {

@@ -22,7 +22,7 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: m.mockSupabaseClient() };
 });
 
-import { queueTableResult, resetSupabaseMock, setTableResult } from "../test/supabaseMock";
+import { queueTableResult, resetSupabaseMock, setTableResult, fromCalls } from "../test/supabaseMock";
 import { createTestQueryClient, setQueryClientForTests, setupGuestQueryInvalidation } from "./queryClient";
 import { createHookWrapper } from "../test/renderWithProviders";
 import {
@@ -46,6 +46,10 @@ import {
   useTimeLogsInRange,
   useWeeklyReview,
   useGenerateWeeklyReviewMutation,
+  useWeeklyPriorities,
+  useUpsertWeeklyPrioritiesMutation,
+  useGenerateWeeklyPlanMutation,
+  useDeleteWeeklyPlanMutation,
 } from "./dataStore";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -358,5 +362,78 @@ describe("useGenerateWeeklyReviewMutation", () => {
     });
     expect(outcome?.review.insights).toBe("AI insights!");
     expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith("weekly-review", { body });
+  });
+});
+
+describe("useWeeklyPriorities", () => {
+  it("returns priorities from cloud for signed-in user", async () => {
+    queueTableResult("weekly_priorities", {
+      data: [{ id: "p1", activity_id: "a1", rank: 0, week_start: "2026-06-09" }],
+    });
+    const { result } = renderDataHook(() => useWeeklyPriorities("2026-06-09"));
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.data[0].activity_id).toBe("a1");
+  });
+
+  it("returns priorities from localStore in guest mode", async () => {
+    authState.user = null;
+    const { setPriorities } = await import("./localStore");
+    setPriorities("2026-06-09", [{ activity_id: "a-x", rank: 0 }]);
+    const { result } = renderDataHook(() => useWeeklyPriorities("2026-06-09"));
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.data[0].activity_id).toBe("a-x");
+  });
+});
+
+describe("useUpsertWeeklyPrioritiesMutation", () => {
+  it("upserts priorities for cloud user and invalidates cache", async () => {
+    queueTableResult("weekly_priorities", {
+      data: [{ id: "p1", activity_id: "a1", rank: 0, week_start: "2026-06-09" }],
+    });
+    const { result } = renderDataHook(() => useUpsertWeeklyPrioritiesMutation());
+    await act(async () => {
+      await result.current.mutateAsync({ weekStart: "2026-06-09", items: [{ activity_id: "a1", rank: 0 }] });
+    });
+    const call = fromCalls.find((c) => c.table === "weekly_priorities");
+    expect(call?.methods.some(([m]) => m === "upsert")).toBe(true);
+  });
+
+  it("saves priorities to localStore in guest mode", async () => {
+    authState.user = null;
+    const { result } = renderDataHook(() => useUpsertWeeklyPrioritiesMutation());
+    await act(async () => {
+      await result.current.mutateAsync({ weekStart: "2026-06-09", items: [{ activity_id: "a-g", rank: 0 }] });
+    });
+    const { listPriorities } = await import("./localStore");
+    expect(listPriorities("2026-06-09")[0].activity_id).toBe("a-g");
+  });
+});
+
+describe("useGenerateWeeklyPlanMutation", () => {
+  it("invokes the generate-weekly-plan edge function", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+      data: { plan: { id: "wp1", week_start: "2026-06-09", generated_at: "", slots: [] }, summary: "Done" },
+      error: null,
+    });
+    const { result } = renderDataHook(() => useGenerateWeeklyPlanMutation());
+    await act(async () => {
+      await result.current.mutateAsync({ week_start: "2026-06-09", gaps: [], activities: [] });
+    });
+    expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith(
+      "generate-weekly-plan",
+      expect.objectContaining({ body: expect.objectContaining({ week_start: "2026-06-09" }) })
+    );
+  });
+});
+
+describe("useDeleteWeeklyPlanMutation", () => {
+  it("deletes the plan for the week and invalidates the weekly plan cache", async () => {
+    queueTableResult("weekly_plans", { data: null });
+    const { result } = renderDataHook(() => useDeleteWeeklyPlanMutation());
+    await act(async () => {
+      await result.current.mutateAsync("2026-06-09");
+    });
+    const call = fromCalls.find((c) => c.table === "weekly_plans");
+    expect(call?.methods.some(([m]) => m === "delete")).toBe(true);
   });
 });

@@ -15,9 +15,11 @@ import {
   listActivities,
   listCategories,
   listLogsInRange,
+  listPriorities,
   listScheduleBlocks,
   reorderScheduleBlocks as localReorderScheduleBlocks,
   moveLog as localMoveLog,
+  setPriorities,
   updateLog as localUpdateLog,
   updateProfile as localUpdateProfile,
   upsertActivity as localUpsertActivity,
@@ -104,7 +106,7 @@ function invalidateScheduleBlocks(mode: Mode, userId: string | null) {
   getQueryClient().invalidateQueries({ queryKey: queryKeys.scheduleBlocks(mode, userId) });
 }
 
-function invalidateTimeLogs(mode: Mode, userId: string | null) {
+export function invalidateTimeLogs(mode: Mode, userId: string | null) {
   getQueryClient().invalidateQueries({ queryKey: queryKeys.timeLogsPrefix(mode, userId) });
 }
 
@@ -119,6 +121,10 @@ function invalidateWeeklyPlan(userId: string, weekStart: string) {
 function invalidateWeeklyReview(userId: string | null, weekStart: string) {
   if (!userId) return;
   getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyReview(userId, weekStart) });
+}
+
+function invalidateWeeklyPriorities(mode: Mode, userId: string | null, weekStart: string) {
+  getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyPriorities(mode === "guest" ? null : userId, weekStart) });
 }
 
 // ---------- Categories ----------
@@ -268,6 +274,60 @@ export function useGenerateWeeklyReviewMutation() {
       resources.functions.generateWeeklyReview(body),
     onSuccess: (_data, vars) => {
       invalidateWeeklyReview(user?.id ?? null, vars.week_start);
+    },
+  });
+}
+
+// ---------- Weekly priorities (guest + cloud) ----------
+const EMPTY_PRIORITIES: import("@/lib/localStore").LocalPriority[] = [];
+
+export function useWeeklyPriorities(weekStart: string) {
+  const { mode, userId } = useAuthScope();
+  const { query } = useDataQuery({
+    queryKey: queryKeys.weeklyPriorities(mode === "guest" ? null : userId, weekStart),
+    queryFn: () => {
+      if (mode === "guest") return Promise.resolve(listPriorities(weekStart));
+      return resources.weeklyPriorities.listForWeek(userId!, weekStart);
+    },
+    enabled: mode === "guest" || !!userId,
+  });
+  return { data: query.data ?? EMPTY_PRIORITIES, isLoading: query.isLoading };
+}
+
+export function useUpsertWeeklyPrioritiesMutation() {
+  const { mode, userId } = useAuthScope();
+  return useMutation<void, Error, { weekStart: string; items: { activity_id: string; rank: number }[] }>({
+    mutationFn: async ({ weekStart, items }) => {
+      if (mode === "guest") {
+        setPriorities(weekStart, items);
+        return;
+      }
+      await resources.weeklyPriorities.upsertMany(userId!, weekStart, items);
+    },
+    onSuccess: (_data, vars) => {
+      invalidateWeeklyPriorities(mode, userId, vars.weekStart);
+    },
+  });
+}
+
+// ---------- Cloud-only weekly plan mutations ----------
+export function useGenerateWeeklyPlanMutation() {
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof resources.functions.generateWeeklyPlan>[0]) =>
+      resources.functions.generateWeeklyPlan(body),
+    onSuccess: (_data, vars) => {
+      if (user?.id) invalidateWeeklyPlan(user.id, vars.week_start);
+    },
+  });
+}
+
+export function useDeleteWeeklyPlanMutation() {
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (weekStart: string) => resources.weeklyPlans.delete(user!.id, weekStart),
+    onSuccess: (_data, weekStart) => {
+      if (user?.id) invalidateWeeklyPlan(user.id, weekStart);
     },
   });
 }

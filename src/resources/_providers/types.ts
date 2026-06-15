@@ -103,6 +103,7 @@ export interface ResourcesProvider {
       week_start: string;
       gaps: unknown[];
       activities: unknown[];
+      priorities?: unknown[];
     }): Promise<{ slots: unknown[] }>;
     deleteAccount(userId: string): Promise<void>;
   };
