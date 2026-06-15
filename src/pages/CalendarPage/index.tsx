@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/lib/time";
 import { logDefaultsFromBlock } from "@/lib/schedule";
@@ -12,11 +10,8 @@ import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { BlockActionChooser } from "@/components/day/BlockActionChooser";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { NotebookPen, CalendarRange } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { CalendarNav } from "@/components/calendar/CalendarNav";
+import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { toast } from "sonner";
 import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
 import { useNowMinute } from "@/hooks/useNowMinute";
@@ -25,7 +20,6 @@ import { useAddBlockHereListener } from "./useAddBlockHereListener";
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date") || todayISO();
   const [date, setDate] = useState<string>(initialDate);
@@ -168,18 +162,13 @@ export default function CalendarPage() {
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
             <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, -1))} aria-label="Previous day">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setDate(todayISO())} className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" />
-              Today
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setDate(addDaysISO(date, 1))} aria-label="Next day">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <CalendarNav
+            onToday={() => setDate(todayISO())}
+            onPrev={() => setDate(addDaysISO(date, -1))}
+            onNext={() => setDate(addDaysISO(date, 1))}
+            prevLabel="Previous day"
+            nextLabel="Next day"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:flex-1 lg:min-h-0">
@@ -223,31 +212,11 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* Split FAB: log time (the common case) or add a recurring block */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="fixed bottom-6 right-6 z-30 h-14 w-14 rounded-full gradient-primary text-primary-foreground shadow-glow flex items-center justify-center animate-pulse-glow"
-              aria-label="Add"
-              data-testid="day-fab"
-            >
-              <Plus className="h-6 w-6" />
-            </motion.button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="mb-2">
-            <DropdownMenuItem onClick={openQuickLog} className="gap-2" data-testid="day-log-time">
-              <NotebookPen className="h-4 w-4" /> {t("schedule.logTime")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => { setBlockDialogTarget({}); setBlockDialogOpen(true); }}
-              className="gap-2"
-            >
-              <CalendarRange className="h-4 w-4" /> {t("schedule.addBlock")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <CalendarCreateMenu
+          viewId="day"
+          onLogTime={openQuickLog}
+          onAddBlock={() => { setBlockDialogTarget({}); setBlockDialogOpen(true); }}
+        />
 
         <BlockActionChooser
           open={!!chooserBlock}

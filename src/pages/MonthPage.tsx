@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
+import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { useVisibleCategories, pickerCategories, useTimeLogsInRange } from "@/lib/dataStore";
 import { durationMinutes, fmtDuration, fromMin, todayISO } from "@/lib/time";
@@ -128,17 +127,13 @@ export default function MonthPage() {
         label="Month view"
         title={`${MONTHS[month0]} ${year}`}
         actions={
-          <>
-            <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Previous month">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setYearMonth(today.slice(0, 7))} className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" /> This month
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Next month">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </>
+          <CalendarNav
+            onToday={() => setYearMonth(today.slice(0, 7))}
+            onPrev={() => shift(-1)}
+            onNext={() => shift(1)}
+            prevLabel="Previous month"
+            nextLabel="Next month"
+          />
         }
       />
 

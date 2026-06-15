@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CalendarDays, Plus, Sparkles, Zap, CalendarRange, Lock } from "lucide-react";
+import { CalendarDays, Sparkles, Zap, CalendarRange, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
+import { CalendarNav } from "@/components/calendar/CalendarNav";
+import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, expandRange, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
@@ -183,6 +185,14 @@ export default function WeekPage() {
     [dayCells]
   );
 
+  const openQuickLog = () => {
+    // Default a new log to today when today is in the displayed week, else the week's first day.
+    const inWeek = today >= weekStart && today <= addDaysISO(weekStart, 6);
+    setLogCtx({ date: inWeek ? today : weekStart, start: "09:00", end: "10:00" });
+    setLogOpen(true);
+  };
+  const openAddBlock = () => { setBlockDialogTarget({}); setBlockDialogOpen(true); };
+
   const onGapClick = (iso: string, gap: GapWindow) => {
     setLogCtx({ date: iso, start: fromMin(gap.start), end: fromMin(Math.min(gap.start + 60, gap.end)) });
     setLogOpen(true);
@@ -228,27 +238,17 @@ export default function WeekPage() {
         label="Week view"
         title={fmtWeekRange(weekStart)}
         actions={
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 mr-1"
-              onClick={() => { setBlockDialogTarget({}); setBlockDialogOpen(true); }}
-            >
-              <Plus className="h-3.5 w-3.5" /> {t("schedule.addBlock")}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())} className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" /> This week
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </>
+          <CalendarNav
+            onToday={() => setWeekStart(weekStartISO())}
+            onPrev={() => setWeekStart(addDaysISO(weekStart, -7))}
+            onNext={() => setWeekStart(addDaysISO(weekStart, 7))}
+            prevLabel="Previous week"
+            nextLabel="Next week"
+          />
         }
       />
+
+      <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} onAddBlock={openAddBlock} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
         <StatCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
