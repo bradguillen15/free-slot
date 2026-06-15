@@ -10,6 +10,17 @@ describe("CalendarCreateMenu", () => {
     expect(screen.getByTestId("week-fab")).toBeInTheDocument();
   });
 
+  it("fires onLogSleep when the Sleep preset item is clicked", async () => {
+    const onLogSleep = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CalendarCreateMenu viewId="day" onLogTime={vi.fn()} onAddBlock={vi.fn()} onLogSleep={onLogSleep} />
+    );
+    await user.click(screen.getByTestId("day-fab"));
+    await user.click(screen.getByTestId("day-log-sleep"));
+    expect(onLogSleep).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves the day-fab / day-log-time selectors for the Day view", async () => {
     const onLogTime = vi.fn();
     const user = userEvent.setup();

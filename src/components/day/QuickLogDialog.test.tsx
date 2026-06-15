@@ -103,4 +103,9 @@ describe("QuickLogDialog", () => {
     render(<QuickLogDialog {...baseProps} />);
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
+
+  it('shows a "next day" hint near the end time when the range wraps past midnight', () => {
+    render(<QuickLogDialog {...baseProps} defaultStart="23:00" defaultEnd="06:00" />);
+    expect(screen.getByText(/next day/i)).toBeInTheDocument();
+  });
 });

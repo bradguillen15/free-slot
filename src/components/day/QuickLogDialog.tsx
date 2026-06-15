@@ -101,6 +101,7 @@ export function QuickLogDialog({
   const end = form.watch("end");
   const categoryId = form.watch("categoryId");
   const duration = durationMinutes(start, end);
+  const isOvernight = end !== "" && start !== "" && toMin(end) < toMin(start);
 
   const save = async (values: QuickLogValues) => {
     const selected = categories.find((c) => c.id === values.categoryId);
@@ -230,6 +231,9 @@ export function QuickLogDialog({
                     <FormControl>
                       <Input type="time" className="font-mono-num" data-testid="quicklog-end" {...field} />
                     </FormControl>
+                    {isOvernight && (
+                      <p className="text-[10px] text-muted-foreground">next day</p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

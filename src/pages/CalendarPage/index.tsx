@@ -13,7 +13,7 @@ import { BlockActionChooser } from "@/components/day/BlockActionChooser";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { toast } from "sonner";
-import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog } from "@/lib/dataStore";
+import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog, upsertCategory } from "@/lib/dataStore";
 import { useNowMinute } from "@/hooks/useNowMinute";
 import { useAutoScrollToHour } from "./useAutoScrollToHour";
 import { useAddBlockHereListener } from "./useAddBlockHereListener";
@@ -100,6 +100,19 @@ export default function CalendarPage() {
     const base = currentMinute != null ? currentMinute - 30 : 9 * 60;
     openLogAt(Math.max(0, base));
   };
+
+  const openSleepLog = useCallback(async () => {
+    let sleepCat = cats.find((c) => c.name === "Sleep");
+    if (!sleepCat) {
+      const created = await upsertCategory(user ? "cloud" : "guest", user?.id ?? null, {
+        name: "Sleep", type: "productive", color: "#6366f1",
+      });
+      await refreshCats();
+      sleepCat = created as Category;
+    }
+    setLogDefaults({ start: "23:00", end: "07:00", defaultCategoryId: sleepCat?.id, defaultTitle: "Sleep" });
+    setLogOpen(true);
+  }, [cats, user, refreshCats]);
 
   const handleBlockClick = useCallback((block: ScheduleBlock) => {
     setChooserBlock(block);
@@ -218,6 +231,7 @@ export default function CalendarPage() {
           viewId="day"
           onLogTime={openQuickLog}
           onAddBlock={() => { setBlockDialogTarget({}); setBlockDialogOpen(true); }}
+          onLogSleep={openSleepLog}
         />
 
         <BlockActionChooser

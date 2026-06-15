@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Plus, NotebookPen, CalendarRange } from "lucide-react";
+import { Plus, NotebookPen, CalendarRange, Moon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -10,14 +10,17 @@ type CalendarCreateMenuProps = {
   viewId: string;
   onLogTime: () => void;
   onAddBlock: () => void;
+  /** Opens the log dialog pre-filled as an overnight Sleep entry. */
+  onLogSleep?: () => void;
 };
 
 /**
  * Shared floating create affordance for calendar views: a split FAB offering
- * "Log time" (the common case) and "Add block" (a recurring schedule block).
+ * "Log time" (the common case), "Sleep" preset (overnight one-action), and
+ * "Add block" (a recurring schedule block).
  * Reused by Day and Week so their create UX is identical.
  */
-export function CalendarCreateMenu({ viewId, onLogTime, onAddBlock }: CalendarCreateMenuProps) {
+export function CalendarCreateMenu({ viewId, onLogTime, onAddBlock, onLogSleep }: CalendarCreateMenuProps) {
   const { t } = useTranslation();
   return (
     <DropdownMenu>
@@ -36,6 +39,11 @@ export function CalendarCreateMenu({ viewId, onLogTime, onAddBlock }: CalendarCr
         <DropdownMenuItem onClick={onLogTime} className="gap-2" data-testid={`${viewId}-log-time`}>
           <NotebookPen className="h-4 w-4" /> {t("schedule.logTime")}
         </DropdownMenuItem>
+        {onLogSleep && (
+          <DropdownMenuItem onClick={onLogSleep} className="gap-2" data-testid={`${viewId}-log-sleep`}>
+            <Moon className="h-4 w-4" /> Log sleep
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={onAddBlock} className="gap-2" data-testid={`${viewId}-add-block`}>
           <CalendarRange className="h-4 w-4" /> {t("schedule.addBlock")}
         </DropdownMenuItem>

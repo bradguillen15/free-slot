@@ -28,6 +28,7 @@ import {
   useScheduleBlocks,
   useTimeLogsInRange,
   updateTimeLog,
+  upsertCategory,
 } from "@/lib/dataStore";
 import { StatCard } from "@/components/StatCard";
 
@@ -138,6 +139,28 @@ export default function WeekPage() {
   };
   const openAddBlock = () => { setBlockDialogTarget({}); setBlockDialogOpen(true); };
 
+  const openSleepLog = async () => {
+    const inWeek = today >= weekStart && today <= addDaysISO(weekStart, 6);
+    const targetDate = inWeek ? today : weekStart;
+    let sleepCat = allCategories.find((c) => (c as { name?: string }).name === "Sleep");
+    if (!sleepCat) {
+      const mode = isGuest ? "guest" as const : "cloud" as const;
+      const created = await upsertCategory(mode, user?.id ?? null, {
+        name: "Sleep", type: "productive", color: "#6366f1",
+      });
+      await refreshCats();
+      sleepCat = created as typeof allCategories[0];
+    }
+    setLogCtx({
+      date: targetDate,
+      start: "23:00",
+      end: "07:00",
+      defaultCategoryId: (sleepCat as { id: string }).id,
+      defaultTitle: "Sleep",
+    });
+    setLogOpen(true);
+  };
+
   const onGapClick = (iso: string, gap: GapWindow) => {
     setLogCtx({ date: iso, start: fromMin(gap.start), end: fromMin(Math.min(gap.start + 60, gap.end)) });
     setLogOpen(true);
@@ -216,7 +239,7 @@ export default function WeekPage() {
         }
       />
 
-      <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} onAddBlock={openAddBlock} />
+      <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} onAddBlock={openAddBlock} onLogSleep={openSleepLog} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
         <StatCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
