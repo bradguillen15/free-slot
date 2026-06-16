@@ -71,6 +71,7 @@ describe("MonthPage", () => {
           seg: { startMin: 540, endMin: 600 },
           name: "Deep work",
           color: "#3b82f6",
+          type: "productive",
           category_id: "c1",
         }],
       }),
@@ -81,6 +82,23 @@ describe("MonthPage", () => {
     expect(miniBar).toBeTruthy();
     const segments = miniBar!.querySelectorAll("span[style]");
     expect(segments.length).toBeGreaterThan(0);
+  });
+
+  it("does not count categorized unproductive logs as productive by color", () => {
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 540, endMin: 600 },
+          name: "Social media",
+          color: "#ef4444",
+          type: "unproductive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
+    renderMonth();
+    expect(screen.getByText("Productive").parentElement).toHaveTextContent("0m");
   });
 
   it("renders a colored block segment in the mini-bar", () => {

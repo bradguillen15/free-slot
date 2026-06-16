@@ -90,7 +90,7 @@ export default function MonthPage() {
       let prod = 0, unprod = 0;
       for (const l of cell.logs) {
         const dur = l.seg.endMin - l.seg.startMin;
-        if (l.color === "hsl(var(--unproductive))") unprod += dur;
+        if (l.type === "unproductive") unprod += dur;
         else prod += dur;
       }
       if (prod + unprod > 0) {

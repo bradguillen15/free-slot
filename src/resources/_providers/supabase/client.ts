@@ -299,7 +299,7 @@ export function createSupabaseProvider(): ResourcesProvider {
       async get(userId) {
         const { data, error } = await supabase
           .from("profiles")
-          .select("peak_hours,include_weekends,weekly_review_day,onboarding_completed")
+          .select("peak_hours,include_weekends,weekly_review_day,onboarding_completed,onboarding_skipped")
           .eq("id", userId)
           .maybeSingle();
         if (error) throw new Error(error.message);
@@ -308,7 +308,13 @@ export function createSupabaseProvider(): ResourcesProvider {
 
       async update(userId, patch) {
         // LocalProfile.peak_hours is { start, end } | null; Supabase types it as Json — cast required.
-        const dbPatch: { peak_hours?: Json; include_weekends?: boolean; weekly_review_day?: number; onboarding_completed?: boolean } = {
+        const dbPatch: {
+          peak_hours?: Json;
+          include_weekends?: boolean;
+          weekly_review_day?: number;
+          onboarding_completed?: boolean;
+          onboarding_skipped?: boolean;
+        } = {
           ...patch,
           ...(patch.peak_hours !== undefined ? { peak_hours: patch.peak_hours as Json } : {}),
         };

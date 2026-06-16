@@ -79,10 +79,13 @@ describe("createSupabaseProvider", () => {
     });
 
     it("returns profile when found", async () => {
-      const profile = { peak_hours: null, include_weekends: false, weekly_review_day: 0, onboarding_completed: true };
+      const profile = { peak_hours: null, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, onboarding_skipped: true };
       queueTableResult("profiles", { data: profile });
       const result = await provider.profiles.get(USER_ID);
       expect(result).toEqual(profile);
+      const call = fromCalls.find((c) => c.table === "profiles");
+      const selectArgs = call?.methods.find(([m]) => m === "select")?.[1][0] as string | undefined;
+      expect(selectArgs).toContain("onboarding_skipped");
     });
   });
 
