@@ -198,4 +198,17 @@ describe("createSupabaseProvider", () => {
       expect(supabase.functions.invoke).toHaveBeenCalledWith("generate-weekly-plan", { body });
     });
   });
+
+  describe("functions.deleteAccount", () => {
+    it("invokes the delete-account edge function", async () => {
+      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: null });
+      await provider.functions.deleteAccount(USER_ID);
+      expect(supabase.functions.invoke).toHaveBeenCalledWith("delete-account");
+    });
+
+    it("throws when edge function returns error", async () => {
+      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: new Error("forbidden") });
+      await expect(provider.functions.deleteAccount(USER_ID)).rejects.toThrow();
+    });
+  });
 });

@@ -29,6 +29,20 @@ pages / components
 | `resources/index.ts` | `_providers/types`, `_providers/supabase` | supabase client directly |
 | `_providers/supabase/*` | `@/integrations/supabase/client` | localStore, hooks |
 
+## Batch inserts (`insertMany`)
+
+Each entity resource exposes `insertMany(userId, rows[])` for bulk cloud writes. Used by `migrateGuest.ts` to flush local guest data to the cloud on sign-up without N+1 round-trips. The provider implementation does a single `supabase.from(table).insert(rows).select()` and returns the saved rows (with server-assigned IDs).
+
+## Edge-function calls (`functions.*`)
+
+`resources.functions` wraps `supabase.functions.invoke` calls:
+
+| Method | Edge function | Notes |
+|--------|--------------|-------|
+| `generateWeeklyReview(body)` | `weekly-review` | Returns `{ review }` |
+| `generateWeeklyPlan(body)` | `generate-weekly-plan` | Returns `{ plan, summary }` |
+| `deleteAccount(userId)` | `delete-account` | Deletes all user data server-side |
+
 ## Adding a new read entity
 
 1. Define the DTO type in `types/<entity>.ts` (alias the `localStore` shape where it exists).
@@ -56,5 +70,5 @@ The Supabase provider is the default singleton. Tests that mock supabase directl
 - Phase 0 (this file): cloud reads via provider interface, `dataFetchers.ts` deleted.
 - Phase 1: mutations migrated from `dataStore.ts` inline calls to `resources`.
 - Phase 2–3: feature-specific reads (weekly review, AI priorities) through resources.
-- Phase 4: onboarding / settings / migrateGuest.
+- Phase 4 ✅: onboarding / settings / migrateGuest — all direct supabase imports removed from those files.
 - Phase 5: ESLint enforcement (`no-restricted-imports`), full docs sweep.

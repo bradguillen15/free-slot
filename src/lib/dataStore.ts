@@ -249,6 +249,7 @@ export function useProfile() {
     error: fetchError,
     refresh,
     mode,
+    isLoading: query.isLoading,
   };
 }
 
@@ -329,6 +330,13 @@ export function useDeleteWeeklyPlanMutation() {
     onSuccess: (_data, weekStart) => {
       if (user?.id) invalidateWeeklyPlan(user.id, weekStart);
     },
+  });
+}
+
+export function useDeleteAccountMutation() {
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: () => resources.functions.deleteAccount(user!.id),
   });
 }
 

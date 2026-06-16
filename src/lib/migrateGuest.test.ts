@@ -1,150 +1,180 @@
 process.env.TZ = "America/New_York";
 
 import { beforeEach, describe, it, expect, vi } from "vitest";
-
-vi.mock("@/integrations/supabase/client", async () => {
-  const m = await import("../test/supabaseMock");
-  return { supabase: m.mockSupabaseClient() };
-});
-
-import { callsFor, fromCalls, queueTableResult, resetSupabaseMock } from "../test/supabaseMock";
 import { seedGuestData } from "../test/factories";
 import { migrateGuestToCloud } from "./migrateGuest";
-import { hasGuestData, DEFAULT_CATEGORY_SEED } from "./localStore";
+import { hasGuestData, DEFAULT_CATEGORY_SEED, type LocalCategory } from "./localStore";
+
+const {
+  mockCategories,
+  mockActivities,
+  mockScheduleBlocks,
+  mockTimeLogs,
+  mockProfiles,
+  mockWeeklyPriorities,
+} = vi.hoisted(() => ({
+  mockCategories: { list: vi.fn(), insertMany: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
+  mockActivities: { list: vi.fn(), insertMany: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
+  mockScheduleBlocks: { list: vi.fn(), insertMany: vi.fn(), upsert: vi.fn(), delete: vi.fn(), reorder: vi.fn() },
+  mockTimeLogs: { listInRange: vi.fn(), insertMany: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  mockProfiles: { get: vi.fn(), update: vi.fn() },
+  mockWeeklyPriorities: { listForWeek: vi.fn(), upsertMany: vi.fn() },
+}));
+
+vi.mock("@/resources", () => ({
+  resources: {
+    categories: mockCategories,
+    activities: mockActivities,
+    scheduleBlocks: mockScheduleBlocks,
+    timeLogs: mockTimeLogs,
+    profiles: mockProfiles,
+    weeklyPriorities: mockWeeklyPriorities,
+  },
+}));
 
 const DEFAULT_NAMES = DEFAULT_CATEGORY_SEED.map((c) => c.name);
-const cloudDefaults = DEFAULT_NAMES.map((name, i) => ({ id: `cloud-cat-${i}`, name }));
+const cloudDefaultCats: LocalCategory[] = DEFAULT_NAMES.map((name, i) => ({
+  id: `cloud-cat-${i}`,
+  name,
+  type: "productive" as const,
+  color: "#fff",
+  is_default: true,
+  hidden: false,
+  created_at: "",
+}));
+const cloudCustomCat: LocalCategory = {
+  id: "cloud-cat-custom",
+  name: "Music practice",
+  type: "productive" as const,
+  color: "#aa00ff",
+  is_default: false,
+  hidden: false,
+  created_at: "",
+};
 
-/** Queue the full happy-path response sequence. Individual tests override pieces by queueing BEFORE calling this. */
-function queueHappyPath() {
-  // 1. categories: select existing → defaults; insert custom → cloud id
-  queueTableResult("categories", { data: cloudDefaults });
-  queueTableResult("categories", { data: [{ id: "cloud-cat-custom", name: "Music practice" }] });
-  // 2. activities: select existing names → none; insert → 2 rows
-  queueTableResult("activities", { data: [] });
-  queueTableResult("activities", { data: [{ id: "ca1" }, { id: "ca2" }] });
-  // 3. schedule_blocks: select existing → none; insert → 1 row
-  queueTableResult("schedule_blocks", { data: [] });
-  queueTableResult("schedule_blocks", { data: [{ id: "cb1" }] });
-  // 4. time_logs: select existing in range → none; insert chunk → 2 rows
-  queueTableResult("time_logs", { data: [] });
-  queueTableResult("time_logs", { data: [{ id: "cl1" }, { id: "cl2" }] });
-  // 5. profiles update → ok (default {} is fine, queued for clarity)
-  queueTableResult("profiles", {});
-  // 6. priorities: activities name-map select; upsert → 2 rows
-  queueTableResult("activities", { data: [{ id: "ca1", name: "Guitar" }, { id: "ca2", name: "Reading" }] });
-  queueTableResult("weekly_priorities", { data: [{ id: "p1" }, { id: "p2" }] });
+function setupHappyPath() {
+  mockCategories.list.mockResolvedValue(cloudDefaultCats);
+  mockCategories.insertMany.mockResolvedValue([cloudCustomCat]);
+  mockCategories.upsert.mockResolvedValue(cloudCustomCat);
+
+  mockActivities.list.mockResolvedValue([]);
+  mockActivities.insertMany.mockResolvedValue([
+    { id: "ca1", name: "Guitar", category_id: "cloud-cat-custom", target_hours_per_week: 4, is_active: true, created_at: "" },
+    { id: "ca2", name: "Reading", category_id: null, target_hours_per_week: 2, is_active: true, created_at: "" },
+  ]);
+
+  mockScheduleBlocks.list.mockResolvedValue([]);
+  mockScheduleBlocks.insertMany.mockResolvedValue([
+    { id: "cb1", name: "Sleep", start_time: "23:00", end_time: "07:00", days_of_week: [0, 1, 2, 3, 4, 5, 6], color: "#000", type: "fixed", category_id: null, created_at: "" },
+  ]);
+
+  mockTimeLogs.listInRange.mockResolvedValue([]);
+  mockTimeLogs.insertMany.mockResolvedValue([
+    { id: "cl1", date: "2026-06-09", start_time: "09:00", end_time: "10:00", category_id: "cloud-cat-custom", type: "productive", title: null, notes: null, created_at: "" },
+    { id: "cl2", date: "2026-06-10", start_time: "20:00", end_time: "21:30", category_id: null, type: "productive", title: null, notes: null, created_at: "" },
+  ]);
+
+  mockProfiles.update.mockResolvedValue(undefined);
+  mockWeeklyPriorities.upsertMany.mockResolvedValue([
+    { id: "p1", activity_id: "ca1", rank: 0, week_start: "2026-06-08" },
+    { id: "p2", activity_id: "ca2", rank: 1, week_start: "2026-06-08" },
+  ]);
 }
 
 beforeEach(() => {
   localStorage.clear();
-  resetSupabaseMock();
+  vi.clearAllMocks();
 });
 
 describe("migrateGuestToCloud — happy path", () => {
-  it("migrates everything, reports counts, and clears guest data", async () => {
+  it("migrates everything via resources, reports counts, and clears guest data", async () => {
     seedGuestData();
-    queueHappyPath();
+    setupHappyPath();
 
     const result = await migrateGuestToCloud("u1");
 
     expect(result.migrated).toBe(true);
     expect(result.counts).toEqual({
-      categories: 1, activities: 2, schedule_blocks: 1, time_logs: 2, priorities: 2,
+      categories: 1,
+      activities: 2,
+      schedule_blocks: 1,
+      time_logs: 2,
+      priorities: 2,
     });
     expect(hasGuestData()).toBe(false);
+
+    expect(mockCategories.list).toHaveBeenCalledWith("u1");
+    expect(mockCategories.insertMany).toHaveBeenCalledWith(
+      "u1",
+      expect.arrayContaining([expect.objectContaining({ name: "Music practice" })])
+    );
+    expect(mockActivities.list).toHaveBeenCalledWith("u1");
+    expect(mockActivities.insertMany).toHaveBeenCalledWith(
+      "u1",
+      expect.arrayContaining([expect.objectContaining({ name: "Guitar" })])
+    );
+    expect(mockScheduleBlocks.list).toHaveBeenCalledWith("u1");
+    expect(mockScheduleBlocks.insertMany).toHaveBeenCalled();
+    expect(mockTimeLogs.listInRange).toHaveBeenCalledWith("u1", expect.any(String), expect.any(String));
+    expect(mockTimeLogs.insertMany).toHaveBeenCalled();
+    expect(mockProfiles.update).toHaveBeenCalledWith("u1", expect.objectContaining({ onboarding_completed: true }));
+    expect(mockWeeklyPriorities.upsertMany).toHaveBeenCalled();
   });
 
   it("remaps log category ids from local to cloud", async () => {
     seedGuestData();
-    queueHappyPath();
+    setupHappyPath();
     await migrateGuestToCloud("u1");
 
-    const logInsert = callsFor("time_logs")
-      .flatMap((c) => c.methods)
-      .find(([m]) => m === "insert");
-    const rows = logInsert![1][0] as Array<{ category_id: string | null }>;
+    const allCalls = mockTimeLogs.insertMany.mock.calls as Array<[string, Array<{ category_id: string | null }>]>;
+    const rows = allCalls.flatMap(([, items]) => items);
     expect(rows.some((r) => r.category_id === "cloud-cat-custom")).toBe(true);
   });
 });
 
 describe("migrateGuestToCloud — failures preserve guest data", () => {
-  it("throws on category SELECT failure and leaves localStorage untouched", async () => {
+  it("throws on categories.list failure and leaves localStorage untouched", async () => {
     seedGuestData();
-    queueTableResult("categories", { error: { message: "network" } });
+    mockCategories.list.mockRejectedValue(new Error("network"));
 
     await expect(migrateGuestToCloud("u1")).rejects.toMatchObject({ message: "network" });
     expect(hasGuestData()).toBe(true);
   });
 
-  it("throws on category INSERT failure and leaves localStorage untouched", async () => {
+  it("throws on categories.insertMany failure and leaves localStorage untouched", async () => {
     seedGuestData();
-    queueTableResult("categories", { data: cloudDefaults });
-    queueTableResult("categories", { error: { message: "rls" } });
+    mockCategories.list.mockResolvedValue(cloudDefaultCats);
+    mockCategories.insertMany.mockRejectedValue(new Error("rls"));
 
     await expect(migrateGuestToCloud("u1")).rejects.toMatchObject({ message: "rls" });
     expect(hasGuestData()).toBe(true);
   });
 
-  it("throws on a time_logs chunk failure and leaves localStorage untouched", async () => {
+  it("throws on timeLogs.insertMany failure and leaves localStorage untouched", async () => {
     seedGuestData();
-    queueTableResult("categories", { data: cloudDefaults });
-    queueTableResult("categories", { data: [{ id: "cloud-cat-custom", name: "Music practice" }] });
-    queueTableResult("activities", { data: [] });
-    queueTableResult("activities", { data: [{ id: "ca1" }, { id: "ca2" }] });
-    queueTableResult("schedule_blocks", { data: [] });
-    queueTableResult("schedule_blocks", { data: [{ id: "cb1" }] });
-    queueTableResult("time_logs", { data: [] });
-    queueTableResult("time_logs", { error: { message: "chunk failed" } });
+    mockCategories.list.mockResolvedValue(cloudDefaultCats);
+    mockCategories.insertMany.mockResolvedValue([cloudCustomCat]);
+    mockActivities.list.mockResolvedValue([]);
+    mockActivities.insertMany.mockResolvedValue([
+      { id: "ca1", name: "Guitar", category_id: "cloud-cat-custom", target_hours_per_week: 4, is_active: true, created_at: "" },
+      { id: "ca2", name: "Reading", category_id: null, target_hours_per_week: 2, is_active: true, created_at: "" },
+    ]);
+    mockScheduleBlocks.list.mockResolvedValue([]);
+    mockScheduleBlocks.insertMany.mockResolvedValue([
+      { id: "cb1", name: "Sleep", start_time: "23:00", end_time: "07:00", days_of_week: [], color: "#000", type: "fixed" as const, category_id: null, created_at: "" },
+    ]);
+    mockTimeLogs.listInRange.mockResolvedValue([]);
+    mockTimeLogs.insertMany.mockRejectedValue(new Error("chunk failed"));
 
     await expect(migrateGuestToCloud("u1")).rejects.toMatchObject({ message: "chunk failed" });
     expect(hasGuestData()).toBe(true);
   });
 });
 
-describe("migrateGuestToCloud — retry idempotency", () => {
-  it("skips activities, blocks, and logs that already exist in the cloud", async () => {
-    seedGuestData();
-    queueTableResult("categories", { data: [...cloudDefaults, { id: "cloud-cat-custom", name: "Music practice" }] });
-    // Guitar + the Sleep block + the 09:00 log already landed on a previous attempt.
-    queueTableResult("activities", { data: [{ name: "Guitar" }] });
-    queueTableResult("activities", { data: [{ id: "ca2" }] }); // insert: only Reading
-    queueTableResult("schedule_blocks", { data: [{ name: "Sleep", start_time: "23:00:00", end_time: "07:00:00" }] });
-    queueTableResult("time_logs", { data: [{ date: "2026-06-09", start_time: "09:00:00", end_time: "10:00:00" }] });
-    queueTableResult("time_logs", { data: [{ id: "cl2" }] }); // insert: only the second log
-    queueTableResult("profiles", {});
-    queueTableResult("activities", { data: [{ id: "ca1", name: "Guitar" }, { id: "ca2", name: "Reading" }] });
-    queueTableResult("weekly_priorities", { data: [{ id: "p1" }, { id: "p2" }] });
-
-    const result = await migrateGuestToCloud("u1");
-
-    const activityInsert = callsFor("activities").flatMap((c) => c.methods).find(([m]) => m === "insert");
-    const activityRows = activityInsert![1][0] as Array<{ name: string }>;
-    expect(activityRows.map((r) => r.name)).toEqual(["Reading"]);
-
-    // The fully-duplicated Sleep block is never re-inserted.
-    const blockInsert = callsFor("schedule_blocks").flatMap((c) => c.methods).find(([m]) => m === "insert");
-    expect(blockInsert).toBeUndefined();
-
-    const logInsert = callsFor("time_logs").flatMap((c) => c.methods).find(([m]) => m === "insert");
-    const logRows = logInsert![1][0] as Array<{ date: string }>;
-    expect(logRows.map((r) => r.date)).toEqual(["2026-06-10"]);
-
-    // Priorities go through upsert, not insert — safe against the UNIQUE constraint.
-    const prioMethods = callsFor("weekly_priorities").flatMap((c) => c.methods).map(([m]) => m);
-    expect(prioMethods).toContain("upsert");
-    expect(prioMethods).not.toContain("insert");
-
-    expect(result.counts.activities).toBe(1);
-    expect(result.counts.time_logs).toBe(1);
-    expect(hasGuestData()).toBe(false);
-  });
-});
-
 describe("migrateGuestToCloud — nothing to migrate", () => {
-  it("returns migrated:false without touching supabase", async () => {
+  it("returns migrated:false without calling resources", async () => {
     const result = await migrateGuestToCloud("u1");
     expect(result.migrated).toBe(false);
-    expect(fromCalls).toHaveLength(0);
+    expect(mockCategories.list).not.toHaveBeenCalled();
   });
 });

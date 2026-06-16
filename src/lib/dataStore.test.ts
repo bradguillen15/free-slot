@@ -50,6 +50,7 @@ import {
   useUpsertWeeklyPrioritiesMutation,
   useGenerateWeeklyPlanMutation,
   useDeleteWeeklyPlanMutation,
+  useDeleteAccountMutation,
 } from "./dataStore";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -435,5 +436,16 @@ describe("useDeleteWeeklyPlanMutation", () => {
     });
     const call = fromCalls.find((c) => c.table === "weekly_plans");
     expect(call?.methods.some(([m]) => m === "delete")).toBe(true);
+  });
+});
+
+describe("useDeleteAccountMutation", () => {
+  it("invokes the delete-account edge function", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: null });
+    const { result } = renderDataHook(() => useDeleteAccountMutation());
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+    expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith("delete-account");
   });
 });

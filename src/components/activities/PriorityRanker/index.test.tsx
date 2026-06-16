@@ -39,9 +39,10 @@ describe("PriorityRanker — guest mode", () => {
 
     renderWithProviders(<PriorityRanker activities={activities} categories={[]} />);
 
-    await waitFor(() => expect(screen.getByText("Reading")).toBeInTheDocument());
-    const names = screen.getAllByText(/^(Guitar|Reading)$/).map((el) => el.textContent);
-    expect(names).toEqual(["Reading", "Guitar"]);
+    await waitFor(() => {
+      const names = screen.getAllByText(/^(Guitar|Reading)$/).map((el) => el.textContent);
+      expect(names).toEqual(["Reading", "Guitar"]);
+    });
     expect(screen.queryByText("Inactive thing")).not.toBeInTheDocument();
   });
 

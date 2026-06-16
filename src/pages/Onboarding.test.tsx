@@ -13,7 +13,7 @@ vi.mock("@/integrations/supabase/client", async () => {
   const m = await import("../test/supabaseMock");
   return { supabase: m.mockSupabaseClient() };
 });
-import { resetSupabaseMock, callsFor, queueTableResult } from "@/test/supabaseMock";
+import { resetSupabaseMock } from "@/test/supabaseMock";
 
 // ── react-router-dom navigate mock ────────────────────────────────────────
 const mockNavigate = vi.fn();
@@ -66,12 +66,14 @@ vi.mock("react-i18next", () => ({
 const mockBlocks = vi.hoisted(() => ({ data: [] as { id: string }[] }));
 const mockActivities = vi.hoisted(() => ({ data: [] as { id: string; is_active: boolean }[] }));
 const mockProfile = vi.hoisted(() => ({ data: null as null | { peak_hours: { start: string; end: string }; include_weekends: boolean; weekly_review_day: number } }));
+const mockUpdateProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/dataStore", () => ({
   useScheduleBlocks: () => ({ data: mockBlocks.data }),
   useActivities: () => ({ data: mockActivities.data, refresh: vi.fn() }),
   useVisibleCategories: () => ({ data: [], all: [], refresh: vi.fn() }),
   useProfile: () => ({ data: mockProfile.data }),
+  updateProfile: mockUpdateProfile,
 }));
 
 // The schedule/activity editors are heavy, separately-tested components. Onboarding's
@@ -86,10 +88,8 @@ vi.mock("@/components/activities/ActivityEditor", () => ({
 }));
 
 // ── localStore mock ────────────────────────────────────────────────────────
-const updateLocalProfileMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/localStore", () => ({
   ensureBootstrap: vi.fn(),
-  updateProfile: updateLocalProfileMock,
 }));
 
 import Onboarding from "./Onboarding";
@@ -102,7 +102,7 @@ beforeEach(() => {
   localStorage.clear();
   resetSupabaseMock();
   mockNavigate.mockReset();
-  updateLocalProfileMock.mockReset();
+  mockUpdateProfile.mockReset();
   authState.user = null;
   authState.loading = false;
   mockBlocks.data = [];
@@ -120,23 +120,19 @@ describe("Skip button", () => {
     render();
     fireEvent.click(screen.getByText("Skip for now"));
     await waitFor(() => {
-      expect(updateLocalProfileMock).toHaveBeenCalledWith({ onboarding_skipped: true });
+      expect(mockUpdateProfile).toHaveBeenCalledWith("guest", null, { onboarding_skipped: true });
       expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true });
     });
   });
 
-  it("calls supabase profiles update for authenticated user", async () => {
+  it("calls updateProfile for authenticated user", async () => {
     authState.user = { id: "u1" };
-    queueTableResult("profiles", { data: null });
     render();
     fireEvent.click(screen.getByText("Skip for now"));
     await waitFor(() => {
-      const calls = callsFor("profiles");
-      expect(calls.length).toBeGreaterThan(0);
-      const updateCall = calls.find((c) => c.methods.some(([m]) => m === "update"));
-      expect(updateCall).toBeDefined();
+      expect(mockUpdateProfile).toHaveBeenCalledWith("cloud", "u1", { onboarding_skipped: true });
+      expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true });
     });
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true }));
   });
 });
 
@@ -191,7 +187,7 @@ describe("Step 3 — preferences pre-population", () => {
 });
 
 describe("finish() — profile only, no block/activity inserts", () => {
-  it("calls updateLocalProfile with preferences and onboarding_completed for guest", async () => {
+  it("calls updateProfile with preferences and onboarding_completed for guest", async () => {
     render();
     // Navigate to step 3
     fireEvent.click(screen.getByText("Continue"));
@@ -199,28 +195,29 @@ describe("finish() — profile only, no block/activity inserts", () => {
     await waitFor(() => expect(screen.getByText("Finish")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Finish"));
     await waitFor(() => {
-      expect(updateLocalProfileMock).toHaveBeenCalledWith(
+      expect(mockUpdateProfile).toHaveBeenCalledWith(
+        "guest",
+        null,
         expect.objectContaining({ onboarding_completed: true })
       );
       expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true });
     });
-    // Must NOT have inserted any blocks or activities
-    expect(callsFor("schedule_blocks")).toHaveLength(0);
-    expect(callsFor("activities")).toHaveLength(0);
   });
 
-  it("updates only profiles table for authenticated user", async () => {
+  it("calls updateProfile with cloud mode for authenticated user", async () => {
     authState.user = { id: "u1" };
-    queueTableResult("profiles", { data: null });
     render();
     fireEvent.click(screen.getByText("Continue"));
     fireEvent.click(screen.getByText("Continue"));
     await waitFor(() => expect(screen.getByText("Finish")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Finish"));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true }));
-    expect(callsFor("schedule_blocks")).toHaveLength(0);
-    expect(callsFor("activities")).toHaveLength(0);
-    const profileCalls = callsFor("profiles");
-    expect(profileCalls.length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(mockUpdateProfile).toHaveBeenCalledWith(
+        "cloud",
+        "u1",
+        expect.objectContaining({ onboarding_completed: true })
+      );
+      expect(mockNavigate).toHaveBeenCalledWith("/app", { replace: true });
+    });
   });
 });

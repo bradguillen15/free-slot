@@ -1,6 +1,8 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/lib/queryClient";
 
 const authState = vi.hoisted(() => ({ user: null as { id: string } | null, loading: false }));
 
@@ -18,12 +20,14 @@ import { OnboardingGate } from "./OnboardingGate";
 
 function renderAt(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/app" element={<OnboardingGate><div>APP</div></OnboardingGate>} />
-        <Route path="/onboarding" element={<OnboardingGate><div>ONBOARDING</div></OnboardingGate>} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={createTestQueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/app" element={<OnboardingGate><div>APP</div></OnboardingGate>} />
+          <Route path="/onboarding" element={<OnboardingGate><div>ONBOARDING</div></OnboardingGate>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
