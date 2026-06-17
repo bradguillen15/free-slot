@@ -10,7 +10,8 @@ import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { addDaysISO, fmtDuration, fromMin, todayISO, toMin } from "@/lib/time";
+import { addDaysISO, fmtDuration, fromMin, todayISO } from "@/lib/time";
+import { logDefaultsFromBlock } from "@/lib/schedule";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { type GapWindow } from "@/lib/gaps";
 import { buildDayCells, type DayCellData, type DayCellBlock, type DayCellLog } from "@/lib/calendarDays";
@@ -51,7 +52,7 @@ export default function WeekPage() {
 
   const [logOpen, setLogOpen] = useState(false);
   const [logCtx, setLogCtx] = useState<{
-    date: string; start: string; end: string; editId?: string;
+    date: string; start: string; end: string; editId?: string; editDate?: string;
     defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
   }>({ date: todayISO(), start: "09:00", end: "10:00" });
 
@@ -66,9 +67,10 @@ export default function WeekPage() {
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const today = todayISO();
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
+  const logsStart = useMemo(() => addDaysISO(weekStart, -1), [weekStart]);
 
   const { data: blocksRaw, refresh: refreshBlocks } = useScheduleBlocks();
-  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(weekStart, weekEnd);
+  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(logsStart, weekEnd);
   const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw } = useActivities();
   const { data: profileRaw } = useProfile();
@@ -177,10 +179,7 @@ export default function WeekPage() {
   };
 
   const logFromBlock = (block: ScheduleBlock, iso: string) => {
-    const start = block.start_time.slice(0, 5);
-    const overnight = toMin(block.end_time) <= toMin(block.start_time);
-    const end = overnight ? fromMin(Math.min(toMin(start) + 60, 1439)) : block.end_time.slice(0, 5);
-    setLogCtx({ date: iso, start, end, defaultTitle: block.name });
+    setLogCtx({ date: iso, ...logDefaultsFromBlock(block) });
     setLogOpen(true);
   };
 
@@ -215,6 +214,7 @@ export default function WeekPage() {
       start: full.start_time,
       end: full.end_time,
       editId: full.id,
+      editDate: full.date,
       defaultCategoryId: full.category_id ?? undefined,
       defaultTitle: full.title ?? undefined,
       defaultNotes: full.notes ?? undefined,
@@ -317,6 +317,7 @@ export default function WeekPage() {
         defaultStart={logCtx.start}
         defaultEnd={logCtx.end}
         editId={logCtx.editId}
+        editDate={logCtx.editDate}
         defaultCategoryId={logCtx.defaultCategoryId}
         defaultTitle={logCtx.defaultTitle}
         defaultNotes={logCtx.defaultNotes}
@@ -352,4 +353,3 @@ export default function WeekPage() {
     </>
   );
 }
-

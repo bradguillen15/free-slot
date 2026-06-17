@@ -98,6 +98,17 @@ describe("buildDayCells — logs", () => {
     expect(cells[1].logs).toHaveLength(0);
   });
 
+  it("splits overnight logs across their start day and next day", () => {
+    const log = makeLog({ date: MON, start_time: "23:00", end_time: "08:00", title: "Sleep" });
+    const cells = buildDayCells({ ...BASE_INPUT, logs: [log] });
+    expect(cells[0].logs).toEqual([
+      expect.objectContaining({ id: "l1", seg: { startMin: 23 * 60, endMin: 24 * 60 } }),
+    ]);
+    expect(cells[1].logs).toEqual([
+      expect.objectContaining({ id: "l1", seg: { startMin: 0, endMin: 8 * 60 } }),
+    ]);
+  });
+
   it("uses the category color when log has a category_id", () => {
     const log = makeLog({ category_id: "c1" });
     const cat = makeCategory({ id: "c1", color: "#0f0" });

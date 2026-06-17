@@ -13,8 +13,18 @@ export function mapScheduleBlock(r: Record<string, unknown>): LocalScheduleBlock
   return r as LocalScheduleBlock;
 }
 
+function stripSeconds(t: unknown): string {
+  const s = String(t ?? "");
+  // Postgres TIME columns return "HH:MM:SS[.ffffff]" — keep only "HH:MM".
+  return s.length > 5 ? s.slice(0, 5) : s;
+}
+
 export function mapTimeLog(r: Record<string, unknown>): LocalTimeLog {
-  return r as LocalTimeLog;
+  return {
+    ...(r as LocalTimeLog),
+    start_time: stripSeconds(r.start_time),
+    end_time: stripSeconds(r.end_time),
+  };
 }
 
 export function mapProfile(r: Record<string, unknown>): LocalProfile {

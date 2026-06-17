@@ -37,9 +37,23 @@ describe("mapScheduleBlock", () => {
 });
 
 describe("mapTimeLog", () => {
-  it("passes through the row as-is", () => {
+  it("passes through the row as-is when times are already HH:MM", () => {
     const r = { id: "l1", date: "2024-06-01", start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" };
     expect(mapTimeLog(r as Record<string, unknown>)).toEqual(r);
+  });
+
+  it("strips seconds from Postgres TIME columns (HH:MM:SS → HH:MM)", () => {
+    const r = { id: "l1", date: "2024-06-01", start_time: "23:00:00", end_time: "07:00:00", category_id: null, type: "productive" };
+    const result = mapTimeLog(r as Record<string, unknown>);
+    expect(result.start_time).toBe("23:00");
+    expect(result.end_time).toBe("07:00");
+  });
+
+  it("strips microseconds from Postgres TIME columns (HH:MM:SS.ffffff → HH:MM)", () => {
+    const r = { id: "l1", date: "2024-06-01", start_time: "09:00:00.000000", end_time: "10:30:00.000000", category_id: null, type: "productive" };
+    const result = mapTimeLog(r as Record<string, unknown>);
+    expect(result.start_time).toBe("09:00");
+    expect(result.end_time).toBe("10:30");
   });
 });
 

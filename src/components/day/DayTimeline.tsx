@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { MIN_PER_DAY, fmtDuration, fmtTimeLabel } from "@/lib/time";
+import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { segmentsForDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
+import { segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
 import type { Category } from "./QuickLogDialog";
 
 export type ScheduleBlock = {
@@ -136,7 +136,7 @@ export function DayTimeline({
             planned guide only shows where nothing has been logged yet. */}
         <div className="absolute inset-y-0 left-16 right-0 z-[10]">
           {blocks.flatMap((b) =>
-            visibleBlockSegments(b, logs).map((seg, i) => (
+            visibleBlockSegments(b, logs, date).map((seg, i) => (
               <BlockBar
                 key={`${b.id}-${i}`}
                 seg={seg}
@@ -171,7 +171,7 @@ export function DayTimeline({
           {logs.flatMap((l, idx) => {
             const cat = l.category_id ? catMap[l.category_id] : undefined;
             const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
-            const segs = segmentsForDay(l.start_time, l.end_time);
+            const segs = date ? segmentsForLogOnDay(l, date) : segmentsForLogOnDay(l, l.date ?? "");
             return segs.map((seg, i) => (
               <LogBar
                 key={`${l.id}-${i}`}
@@ -180,7 +180,7 @@ export function DayTimeline({
                 color={color}
                 name={l.title || (cat?.name ?? l.type)}
                 index={idx}
-                draggable={!!onLogReschedule && segs.length === 1 && !!l.category_id}
+                draggable={!!onLogReschedule && toMin(l.end_time) > toMin(l.start_time) && !!l.category_id}
                 onReschedule={onLogReschedule && date
                   ? (logId, start, end) => onLogReschedule(logId, date, start, end)
                   : undefined}

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/form";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { durationMinutes, fmtDuration, toMin } from "@/lib/time";
+import { addDaysISO, durationMinutes, fmtDuration, toMin } from "@/lib/time";
 import { deleteTimeLog, insertTimeLog, updateTimeLog, upsertCategory } from "@/lib/dataStore";
 import { CategoryPicker, type PickerCategory } from "@/components/CategoryPicker";
 import { nextCreateColor } from "@/lib/categoryColors";
@@ -49,6 +49,8 @@ type Props = {
   defaultTitle?: string;
   defaultNotes?: string;
   editId?: string;
+  /** Actual stored date of the log being edited — needed to preserve overnight log dates. */
+  editDate?: string;
   onSaved?: () => void;
   onDeleted?: () => void;
   /** Called after a label is created on the fly so the parent refreshes its category list. */
@@ -68,7 +70,7 @@ type Props = {
 export function QuickLogDialog({
   open, onOpenChange, date, categories,
   defaultStart = "09:00", defaultEnd = "10:00",
-  defaultCategoryId, defaultTitle, defaultNotes, editId,
+  defaultCategoryId, defaultTitle, defaultNotes, editId, editDate,
   onSaved, onDeleted, onOptimisticInsert, onCategoriesRefresh,
 }: Props) {
   const { user } = useAuth();
@@ -106,11 +108,18 @@ export function QuickLogDialog({
   const save = async (values: QuickLogValues) => {
     const selected = categories.find((c) => c.id === values.categoryId);
     const dur = durationMinutes(values.start, values.end);
+    const overnight = toMin(values.end) < toMin(values.start);
+    // Overnight logs start the previous day relative to the viewed page.
+    // On edit we preserve the original stored date to avoid double-shifting.
+    const logDate = overnight
+      ? editId ? (editDate ?? addDaysISO(date, -1)) : addDaysISO(date, -1)
+      : date;
     onOpenChange(false);
 
     try {
       if (editId) {
         await updateTimeLog(user ? "cloud" : "guest", user?.id ?? null, editId, {
+          date: logDate,
           start_time: values.start,
           end_time: values.end,
           category_id: values.categoryId,
@@ -125,7 +134,7 @@ export function QuickLogDialog({
           : `tmp-${Date.now()}`;
         onOptimisticInsert?.({
           id: optimisticId,
-          date,
+          date: logDate,
           start_time: values.start,
           end_time: values.end,
           category_id: values.categoryId,
@@ -134,7 +143,7 @@ export function QuickLogDialog({
           notes: values.notes || null,
         });
         await insertTimeLog(user ? "cloud" : "guest", user?.id ?? null, {
-          date,
+          date: logDate,
           start_time: values.start,
           end_time: values.end,
           category_id: values.categoryId,

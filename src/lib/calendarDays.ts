@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { expandRange, isoToWeekday, toMin, todayISO } from "@/lib/time";
+import { addDaysISO, expandRange, isoToWeekday, toMin, todayISO } from "@/lib/time";
 import { findFreeWindows, totalFreeMinutes } from "@/lib/gaps";
 import type { LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import { useScheduleBlocks, useTimeLogsInRange, useVisibleCategories, useProfile } from "@/lib/dataStore";
+import { segmentsForLogOnDay } from "@/lib/daySegments";
 
 // ---- Types (canonical home; re-exported from WeekGrid for back-compat) ----
 
@@ -17,7 +18,13 @@ export type DayCellLog = {
   color: string;
   category_id?: string | null;
   type: "productive" | "unproductive";
+  spansMidnight?: boolean;
 };
+
+function logTouchesDay(log: LocalTimeLog, iso: string): boolean {
+  if (log.date === iso) return true;
+  return toMin(log.end_time) < toMin(log.start_time) && addDaysISO(log.date, 1) === iso;
+}
 
 export type DayCellData = {
   iso: string;
@@ -56,7 +63,8 @@ export function useCalendarDays(
   aiPlan?: BuildDayCellsInput["aiPlan"],
 ): DayCellData[] {
   const { data: blocksRaw } = useScheduleBlocks();
-  const { data: logsRaw }   = useTimeLogsInRange(startISO, endISO);
+  const logsStartISO = useMemo(() => addDaysISO(startISO, -1), [startISO]);
+  const { data: logsRaw }   = useTimeLogsInRange(logsStartISO, endISO);
   const { all: catsRaw }    = useVisibleCategories();
   const { data: profileRaw } = useProfile();
 
@@ -95,7 +103,7 @@ export function buildDayCells({
   return days.map((iso) => {
     const weekday = isoToWeekday(iso);
     const dayBlocks = blocks.filter((b) => b.days_of_week?.includes(weekday));
-    const dayLogs   = logs.filter((l) => l.date === iso);
+    const dayLogs = logs.filter((l) => logTouchesDay(l, iso));
 
     const gaps = findFreeWindows({
       blocks,
@@ -118,13 +126,14 @@ export function buildDayCells({
     const logSegs: DayCellLog[] = dayLogs.flatMap((l) => {
       const cat   = l.category_id ? catMap[l.category_id] : undefined;
       const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
-      return expandRange(toMin(l.start_time), toMin(l.end_time)).map(([a, c]) => ({
+      return segmentsForLogOnDay(l, iso).map(({ startMin, endMin }) => ({
         id: l.id,
-        seg: { startMin: a, endMin: c },
+        seg: { startMin, endMin },
         name: l.title || (cat?.name ?? l.type),
         color,
         category_id: l.category_id,
         type: l.type,
+        spansMidnight: toMin(l.end_time) < toMin(l.start_time),
       }));
     });
 

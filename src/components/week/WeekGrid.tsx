@@ -207,7 +207,7 @@ export function WeekGrid({
                 dayISO={d.iso}
                 days={days}
                 gridBodyRef={gridBodyRef}
-                draggable={!!onLogReschedule && !!l.category_id}
+                draggable={!!onLogReschedule && !!l.category_id && !l.spansMidnight}
                 onReschedule={onLogReschedule}
                 onClick={onLogClick ? () => onLogClick(d.iso, l) : undefined}
               />

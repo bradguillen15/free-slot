@@ -53,6 +53,46 @@ describe("QuickLogDialog", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("saves an overnight insert with the previous day's date so it starts on the right night", async () => {
+    const user = userEvent.setup();
+    vi.mocked(insertTimeLog).mockResolvedValue({ id: "row" });
+
+    // date prop is "2026-06-10"; overnight sleep starts the night of June 9.
+    render(<QuickLogDialog {...baseProps} defaultStart="23:00" defaultEnd="07:00" />);
+    await user.click(screen.getByRole("button", { name: "Save log" }));
+
+    await waitFor(() => expect(insertTimeLog).toHaveBeenCalled());
+    expect(vi.mocked(insertTimeLog).mock.calls[0][2]).toMatchObject({
+      date: "2026-06-09",
+      start_time: "23:00",
+      end_time: "07:00",
+    });
+  });
+
+  it("preserves the original editDate on an overnight edit to avoid double-shifting", async () => {
+    const { updateTimeLog } = await import("@/lib/dataStore");
+    vi.mocked(updateTimeLog).mockResolvedValue({ id: "row" });
+    const user = userEvent.setup();
+
+    render(
+      <QuickLogDialog
+        {...baseProps}
+        editId="log-1"
+        editDate="2026-06-09"
+        defaultStart="23:00"
+        defaultEnd="07:00"
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "Save log" }));
+
+    await waitFor(() => expect(updateTimeLog).toHaveBeenCalled());
+    expect(vi.mocked(updateTimeLog).mock.calls[0][3]).toMatchObject({
+      date: "2026-06-09",
+      start_time: "23:00",
+      end_time: "07:00",
+    });
+  });
+
   it("disables Save when there is no category to pick", () => {
     render(<QuickLogDialog {...baseProps} categories={[]} />);
     expect(screen.getByRole("button", { name: "Save log" })).toBeDisabled();

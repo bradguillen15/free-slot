@@ -26,7 +26,7 @@ export default function CalendarPage() {
 
   const [logOpen, setLogOpen] = useState(false);
   const [logDefaults, setLogDefaults] = useState<{
-    start: string; end: string; editId?: string;
+    start: string; end: string; editId?: string; editDate?: string;
     defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
   }>({ start: "09:00", end: "10:00" });
 
@@ -57,7 +57,8 @@ export default function CalendarPage() {
 
   const { data: allBlocks, refresh: refreshBlocks } = useScheduleBlocks();
   const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
-  const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(date, date);
+  const logsStart = useMemo(() => addDaysISO(date, -1), [date]);
+  const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(logsStart, date);
 
   const blocks = useMemo(
     () => (allBlocks as unknown as ScheduleBlock[]).filter((x) => x.days_of_week?.includes(weekday)),
@@ -133,6 +134,7 @@ export default function CalendarPage() {
       start: log.start_time,
       end: log.end_time,
       editId: log.id,
+      editDate: log.date,
       defaultCategoryId: log.category_id ?? undefined,
       defaultTitle: log.title ?? undefined,
       defaultNotes: log.notes ?? undefined,
@@ -223,7 +225,7 @@ export default function CalendarPage() {
           </div>
 
           <div className="lg:min-h-0 lg:overflow-y-auto">
-            <DaySummary logs={logs} categories={cats} />
+            <DaySummary logs={logs} categories={cats} date={date} />
           </div>
         </div>
 
@@ -253,11 +255,13 @@ export default function CalendarPage() {
           defaultStart={logDefaults.start}
           defaultEnd={logDefaults.end}
           editId={logDefaults.editId}
+          editDate={logDefaults.editDate}
           defaultCategoryId={logDefaults.defaultCategoryId}
           defaultTitle={logDefaults.defaultTitle}
           defaultNotes={logDefaults.defaultNotes}
           onOptimisticInsert={(log) => {
-            if (log.date === date) setDayLogs((prev) => [...prev, log as typeof prev[0]].sort((a, b) => a.start_time.localeCompare(b.start_time)));
+            if (log.date === date || log.date === logsStart)
+              setDayLogs((prev) => [...prev, log as typeof prev[0]].sort((a, b) => a.start_time.localeCompare(b.start_time)));
           }}
           onSaved={refreshLogs}
           onDeleted={refreshLogs}
