@@ -1,4 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/integrations/supabase/client", async () => {
+  const m = await import("../test/supabaseMock");
+  return { supabase: m.mockSupabaseClient() };
+});
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
+}));
+
 import { buildDayCells, type BuildDayCellsInput } from "./calendarDays";
 import type { LocalScheduleBlock, LocalTimeLog, LocalCategory } from "./localStore";
 
