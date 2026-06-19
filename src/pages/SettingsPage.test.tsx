@@ -23,6 +23,7 @@ const updateProfileMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/dataStore", () => ({
   useProfile: () => ({ data: profileData.data, refresh: refreshProfile }),
   updateProfile: updateProfileMock,
+  useDeleteAccountMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 import SettingsPage from "./SettingsPage";

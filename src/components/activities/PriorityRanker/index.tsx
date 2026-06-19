@@ -5,11 +5,10 @@ import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
 import { GripVertical, Flame, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { weekStartISO, fmtWeekRange } from "@/lib/week";
 import { addDaysISO } from "@/lib/time";
-import { setPriorities } from "@/lib/localStore";
+import { useUpsertWeeklyPrioritiesMutation } from "@/lib/dataStore";
 import { usePriorityData, type Activity, type RankItem } from "./usePriorityData";
 import { Surface } from "@/components/Surface";
 
@@ -51,16 +50,15 @@ function SortableRow({ item, idx, cat }: { item: RankItem; idx: number; cat?: Ca
 }
 
 export function PriorityRanker({
-  userId,
   activities,
   categories,
 }: {
-  userId: string | null;
   activities: Activity[];
   categories: Category[];
 }) {
   const [weekStart, setWeekStart] = useState(weekStartISO());
-  const { items, setItems, loading } = usePriorityData({ userId, weekStart, activities });
+  const { items, setItems, loading } = usePriorityData({ weekStart, activities });
+  const upsertMutation = useUpsertWeeklyPrioritiesMutation();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -68,23 +66,15 @@ export function PriorityRanker({
   );
 
   const persist = async (next: RankItem[]) => {
-    if (!userId) {
-      setPriorities(weekStart, next.map((it, i) => ({ activity_id: it.id, rank: i })));
-      return;
-    }
     if (next.length === 0) return;
-    const rows = next.map((it, i) => ({
-      user_id: userId,
-      week_start: weekStart,
-      activity_id: it.id,
-      rank: i,
-    }));
-    // Single round trip; UNIQUE (user_id, week_start, activity_id) makes this
-    // race-safe where the previous delete-all-then-insert was not.
-    const { error } = await supabase
-      .from("weekly_priorities")
-      .upsert(rows, { onConflict: "user_id,week_start,activity_id" });
-    if (error) toast.error(error.message);
+    try {
+      await upsertMutation.mutateAsync({
+        weekStart,
+        items: next.map((it, i) => ({ activity_id: it.id, rank: i })),
+      });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not save priorities");
+    }
   };
 
   const onDragEnd = (e: DragEndEvent) => {

@@ -1,16 +1,21 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CalendarDays, Plus, Sparkles, Zap, CalendarRange, Lock } from "lucide-react";
+import { CalendarDays, Sparkles, Zap, CalendarRange, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
+import { CalendarNav } from "@/components/calendar/CalendarNav";
+import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { useAuth } from "@/contexts/AuthContext";
-import { addDaysISO, expandRange, fmtDuration, fromMin, isoToWeekday, todayISO, toMin } from "@/lib/time";
+import { toast } from "sonner";
+import { addDaysISO, fmtDuration, fromMin, todayISO } from "@/lib/time";
+import { logDefaultsFromBlock } from "@/lib/schedule";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
-import { findFreeWindows, totalFreeMinutes, type GapWindow } from "@/lib/gaps";
-import { WeekGrid, type DayCellData, type DayCellBlock, type DayCellLog } from "@/components/week/WeekGrid";
+import { type GapWindow } from "@/lib/gaps";
+import { buildDayCells, type DayCellData, type DayCellBlock, type DayCellLog } from "@/lib/calendarDays";
+import { WeekGrid } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { BlockActionChooser } from "@/components/day/BlockActionChooser";
@@ -23,11 +28,10 @@ import {
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
+  updateTimeLog,
+  upsertCategory,
 } from "@/lib/dataStore";
 import { StatCard } from "@/components/StatCard";
-
-const SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-const FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -48,7 +52,7 @@ export default function WeekPage() {
 
   const [logOpen, setLogOpen] = useState(false);
   const [logCtx, setLogCtx] = useState<{
-    date: string; start: string; end: string; editId?: string;
+    date: string; start: string; end: string; editId?: string; editDate?: string;
     defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
   }>({ date: todayISO(), start: "09:00", end: "10:00" });
 
@@ -63,9 +67,10 @@ export default function WeekPage() {
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const today = todayISO();
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
+  const logsStart = useMemo(() => addDaysISO(weekStart, -1), [weekStart]);
 
   const { data: blocksRaw, refresh: refreshBlocks } = useScheduleBlocks();
-  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(weekStart, weekEnd);
+  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(logsStart, weekEnd);
   const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw } = useActivities();
   const { data: profileRaw } = useProfile();
@@ -88,11 +93,6 @@ export default function WeekPage() {
   );
   const profile = profileRaw as unknown as { peak_hours: { start: string; end: string } | null } | null;
 
-  const catMap = useMemo(
-    () => Object.fromEntries(allCategories.map((c) => [c.id, c])),
-    [allCategories]
-  );
-
   const blockById = useMemo(
     () => Object.fromEntries(blocks.map((b) => [b.id, b])),
     [blocks]
@@ -103,68 +103,18 @@ export default function WeekPage() {
     [logs]
   );
 
-  const dayCells: DayCellData[] = useMemo(() => {
-    const peak = profile?.peak_hours ?? null;
-
-    return days.map((iso) => {
-      const weekday = isoToWeekday(iso);
-      const dayBlocks = blocks.filter((b) => b.days_of_week?.includes(weekday));
-      const dayLogs = logs.filter((l) => l.date === iso);
-
-      const gaps: GapWindow[] = findFreeWindows({
-        // Full list, not dayBlocks: blocksOnDay attributes an overnight block's
-        // post-midnight segment to the following day, so it needs the previous
-        // day's blocks too.
-        blocks,
-        logs: dayLogs,
-        weekday,
-        minWindowMinutes: 30,
-        peakStart: peak?.start,
-        peakEnd: peak?.end,
-      });
-
-      const blockSegs: DayCellBlock[] = dayBlocks.flatMap((b) =>
-        expandRange(toMin(b.start_time), toMin(b.end_time)).map(([a, c]) => ({
-          id: b.id,
-          seg: { startMin: a, endMin: c },
-          name: b.name,
-          color: b.color,
-        }))
-      );
-
-      const logSegs: DayCellLog[] = dayLogs.flatMap((l) => {
-        const cat = l.category_id ? catMap[l.category_id] : undefined;
-        const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
-        return expandRange(toMin(l.start_time), toMin(l.end_time)).map(([a, c]) => ({
-          id: l.id,
-          seg: { startMin: a, endMin: c },
-          name: l.title || (cat?.name ?? l.type),
-          color,
-        }));
-      });
-
-      const aiSlots = (aiPlan?.slots ?? [])
-        .filter((s) => s.day === iso)
-        .map((s) => ({
-          seg: { startMin: toMin(s.start), endMin: toMin(s.end) },
-          name: s.activity_name,
-          rationale: s.rationale,
-        }));
-
-      return {
-        iso,
-        weekday,
-        label: FULL[(weekday + 6) % 7],
-        short: SHORT[(weekday + 6) % 7],
-        isToday: iso === today,
-        blocks: blockSegs,
-        logs: logSegs,
-        gaps,
-        aiSlots,
-        totalFree: totalFreeMinutes(gaps),
-      };
-    });
-  }, [days, blocks, logs, catMap, profile, today, aiPlan]);
+  const dayCells: DayCellData[] = useMemo(
+    () => buildDayCells({
+      days,
+      blocks: blocks as unknown as Parameters<typeof buildDayCells>[0]["blocks"],
+      logs: logs as unknown as Parameters<typeof buildDayCells>[0]["logs"],
+      categories: allCategories as unknown as Parameters<typeof buildDayCells>[0]["categories"],
+      profile: profile as unknown as Parameters<typeof buildDayCells>[0]["profile"],
+      today,
+      aiPlan,
+    }),
+    [days, blocks, logs, allCategories, profile, today, aiPlan]
+  );
 
   const flatGaps = useMemo(
     () => dayCells.flatMap((d) => d.gaps.map((g) => ({
@@ -183,6 +133,36 @@ export default function WeekPage() {
     [dayCells]
   );
 
+  const openQuickLog = () => {
+    // Default a new log to today when today is in the displayed week, else the week's first day.
+    const inWeek = today >= weekStart && today <= addDaysISO(weekStart, 6);
+    setLogCtx({ date: inWeek ? today : weekStart, start: "09:00", end: "10:00" });
+    setLogOpen(true);
+  };
+  const openAddBlock = () => { setBlockDialogTarget({}); setBlockDialogOpen(true); };
+
+  const openSleepLog = async () => {
+    const inWeek = today >= weekStart && today <= addDaysISO(weekStart, 6);
+    const targetDate = inWeek ? today : weekStart;
+    let sleepCat = allCategories.find((c) => (c as { name?: string }).name === "Sleep");
+    if (!sleepCat) {
+      const mode = isGuest ? "guest" as const : "cloud" as const;
+      const created = await upsertCategory(mode, user?.id ?? null, {
+        name: "Sleep", type: "productive", color: "#6366f1",
+      });
+      await refreshCats();
+      sleepCat = created as typeof allCategories[0];
+    }
+    setLogCtx({
+      date: targetDate,
+      start: "23:00",
+      end: "07:00",
+      defaultCategoryId: (sleepCat as { id: string }).id,
+      defaultTitle: "Sleep",
+    });
+    setLogOpen(true);
+  };
+
   const onGapClick = (iso: string, gap: GapWindow) => {
     setLogCtx({ date: iso, start: fromMin(gap.start), end: fromMin(Math.min(gap.start + 60, gap.end)) });
     setLogOpen(true);
@@ -199,11 +179,31 @@ export default function WeekPage() {
   };
 
   const logFromBlock = (block: ScheduleBlock, iso: string) => {
-    const start = block.start_time.slice(0, 5);
-    const overnight = toMin(block.end_time) <= toMin(block.start_time);
-    const end = overnight ? fromMin(Math.min(toMin(start) + 60, 1439)) : block.end_time.slice(0, 5);
-    setLogCtx({ date: iso, start, end, defaultTitle: block.name });
+    setLogCtx({ date: iso, ...logDefaultsFromBlock(block) });
     setLogOpen(true);
+  };
+
+  const handleLogReschedule = async (logId: string, newDate: string, newStartMin: number, newEndMin: number) => {
+    const log = (logsRaw ?? []).find((l) => (l as { id?: string }).id === logId);
+    if (!(log as { category_id?: string | null } | undefined)?.category_id) {
+      toast.error("Assign a category before dragging this block.");
+      return;
+    }
+    try {
+      const mode = isGuest ? "guest" as const : "cloud" as const;
+      await updateTimeLog(mode, user?.id ?? null, logId, {
+        date: newDate,
+        start_time: fromMin(newStartMin),
+        end_time: fromMin(newEndMin),
+        category_id: (log as { category_id: string }).category_id,
+        type: (log as { type: "productive" | "unproductive" }).type,
+        notes: (log as { notes: string | null }).notes,
+      });
+      toast.success("Block rescheduled");
+      await refreshLogs();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not reschedule");
+    }
   };
 
   const onLogClick = (iso: string, cellLog: DayCellLog) => {
@@ -214,6 +214,7 @@ export default function WeekPage() {
       start: full.start_time,
       end: full.end_time,
       editId: full.id,
+      editDate: full.date,
       defaultCategoryId: full.category_id ?? undefined,
       defaultTitle: full.title ?? undefined,
       defaultNotes: full.notes ?? undefined,
@@ -228,27 +229,17 @@ export default function WeekPage() {
         label="Week view"
         title={fmtWeekRange(weekStart)}
         actions={
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 mr-1"
-              onClick={() => { setBlockDialogTarget({}); setBlockDialogOpen(true); }}
-            >
-              <Plus className="h-3.5 w-3.5" /> {t("schedule.addBlock")}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label="Previous week">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())} className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" /> This week
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label="Next week">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </>
+          <CalendarNav
+            onToday={() => setWeekStart(weekStartISO())}
+            onPrev={() => setWeekStart(addDaysISO(weekStart, -7))}
+            onNext={() => setWeekStart(addDaysISO(weekStart, 7))}
+            prevLabel="Previous week"
+            nextLabel="Next week"
+          />
         }
       />
+
+      <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} onAddBlock={openAddBlock} onLogSleep={openSleepLog} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
         <StatCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
@@ -309,6 +300,7 @@ export default function WeekPage() {
               onSlotClick={onSlotClick}
               onBlockClick={onBlockClick}
               onLogClick={onLogClick}
+              onLogReschedule={handleLogReschedule}
             />
           </div>
         </div>
@@ -325,6 +317,7 @@ export default function WeekPage() {
         defaultStart={logCtx.start}
         defaultEnd={logCtx.end}
         editId={logCtx.editId}
+        editDate={logCtx.editDate}
         defaultCategoryId={logCtx.defaultCategoryId}
         defaultTitle={logCtx.defaultTitle}
         defaultNotes={logCtx.defaultNotes}
@@ -360,4 +353,3 @@ export default function WeekPage() {
     </>
   );
 }
-

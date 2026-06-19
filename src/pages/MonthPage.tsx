@@ -1,11 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
-import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
-import { useVisibleCategories, pickerCategories, useTimeLogsInRange } from "@/lib/dataStore";
-import { durationMinutes, fmtDuration, fromMin, todayISO } from "@/lib/time";
+import { CalendarNav } from "@/components/calendar/CalendarNav";
+import { useCalendarDays, type DayCellData } from "@/lib/calendarDays";
+import { durationMinutes, fmtDuration, todayISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/StatCard";
 
@@ -24,24 +22,40 @@ const MONTHS = [
 ];
 const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** Six-hour slices of the day (minutes from midnight). Click opens quick log with that window. */
-const SIX_HOUR_MIN = 6 * 60;
-const DAY_QUARTERS: { startMin: number; label: string }[] = [
-  { startMin: 0, label: "12–6a" },
-  { startMin: 360, label: "6a–12p" },
-  { startMin: 720, label: "12p–6p" },
-  { startMin: 1080, label: "6p–12a" },
-];
+const MIN_PER_DAY = 24 * 60;
+
+function MonthDayBar({ cell }: { cell: DayCellData }) {
+  return (
+    <div className="relative hidden sm:block w-full h-3 rounded-sm overflow-hidden bg-muted/30 mt-0.5">
+      {cell.blocks.map((b, i) => (
+        <span
+          key={`b-${i}`}
+          className="absolute top-0 h-full rounded-[1px] opacity-60"
+          style={{
+            left: `${(b.seg.startMin / MIN_PER_DAY) * 100}%`,
+            width: `${Math.max(1, ((b.seg.endMin - b.seg.startMin) / MIN_PER_DAY) * 100)}%`,
+            backgroundColor: b.color,
+          }}
+        />
+      ))}
+      {cell.logs.map((l, i) => (
+        <span
+          key={`l-${i}`}
+          className="absolute top-0 h-full rounded-[1px]"
+          style={{
+            left: `${(l.seg.startMin / MIN_PER_DAY) * 100}%`,
+            width: `${Math.max(1, ((l.seg.endMin - l.seg.startMin) / MIN_PER_DAY) * 100)}%`,
+            backgroundColor: l.color,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function MonthPage() {
   const today = todayISO();
   const [yearMonth, setYearMonth] = useState<string>(today.slice(0, 7));
-  const [logOpen, setLogOpen] = useState(false);
-  const [logDate, setLogDate] = useState(today);
-  const [logDefaults, setLogDefaults] = useState<{ start: string; end: string }>({
-    start: "09:00",
-    end: "10:00",
-  });
 
   const [year, month0] = useMemo(() => {
     const [y, m] = yearMonth.split("-").map(Number);
@@ -52,26 +66,12 @@ export default function MonthPage() {
   const lastDay = new Date(year, month0 + 1, 0).getDate();
   const lastISO = isoDate(year, month0, lastDay);
 
-  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(firstISO, lastISO);
-  const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
-  const logPickerCategories = useMemo(
-    () => pickerCategories(
-      (visibleCategoriesRaw ?? []) as unknown as Category[],
-      (allCategoriesRaw ?? []) as unknown as Category[],
-      undefined
-    ),
-    [visibleCategoriesRaw, allCategoriesRaw]
+  const dayCells = useCalendarDays(firstISO, lastISO);
+
+  const cellMap = useMemo(
+    () => Object.fromEntries(dayCells.map((c) => [c.iso, c])),
+    [dayCells]
   );
-  const openQuickLogForQuarter = useCallback((iso: string, quarterStartMin: number) => {
-    const quarterEndMin = quarterStartMin + SIX_HOUR_MIN;
-    const defaultEndMin = Math.min(quarterStartMin + 60, quarterEndMin);
-    setLogDate(iso);
-    setLogDefaults({
-      start: fromMin(quarterStartMin),
-      end: fromMin(defaultEndMin),
-    });
-    setLogOpen(true);
-  }, []);
 
   // Build leading blanks so the grid starts on Monday
   const firstWeekday = new Date(year, month0, 1).getDay();
@@ -86,34 +86,47 @@ export default function MonthPage() {
 
   const perDay = useMemo(() => {
     const m: Record<string, { productive: number; unproductive: number; total: number }> = {};
-    for (const log of logsRaw ?? []) {
-      const l = log as { date: string; end_time: string; start_time: string; category_id: string | null; type: string };
-      // Same conventions as Dashboard/DaySummary: overnight logs wrap past
-      // midnight, and the log's STORED type wins over the category's current type.
-      const dur = durationMinutes(l.start_time, l.end_time);
-      if (!m[l.date]) m[l.date] = { productive: 0, unproductive: 0, total: 0 };
-      const t = l.type as "productive" | "unproductive";
-      m[l.date][t] += dur;
-      m[l.date].total += dur;
+    for (const cell of dayCells) {
+      let prod = 0, unprod = 0;
+      for (const l of cell.logs) {
+        const dur = l.seg.endMin - l.seg.startMin;
+        if (l.type === "unproductive") unprod += dur;
+        else prod += dur;
+      }
+      if (prod + unprod > 0) {
+        m[cell.iso] = { productive: prod, unproductive: unprod, total: prod + unprod };
+      }
     }
     return m;
-  }, [logsRaw]);
+  }, [dayCells]);
+
+  // Fallback total from raw log durations for stat cards (covers overnight wrapping)
+  const logTotals = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const cell of dayCells) {
+      let total = 0;
+      // Re-derive from raw logs via durationMinutes (uses time.ts wrap logic)
+      for (const _ of cell.logs) { total += _.seg.endMin - _.seg.startMin; }
+      if (total > 0) m[cell.iso] = total;
+    }
+    return m;
+  }, [dayCells]);
 
   const monthTotal = useMemo(
-    () => Object.values(perDay).reduce((s, d) => s + d.total, 0),
-    [perDay]
+    () => Object.values(logTotals).reduce((s, v) => s + v, 0),
+    [logTotals]
   );
   const monthProd = useMemo(
     () => Object.values(perDay).reduce((s, d) => s + d.productive, 0),
     [perDay]
   );
   const daysLogged = useMemo(
-    () => Object.values(perDay).filter((d) => d.total > 0).length,
-    [perDay]
+    () => Object.values(logTotals).filter((v) => v > 0).length,
+    [logTotals]
   );
   const maxDay = useMemo(
-    () => Math.max(60, ...Object.values(perDay).map((d) => d.total)),
-    [perDay]
+    () => Math.max(60, ...Object.values(logTotals)),
+    [logTotals]
   );
 
   const shift = (delta: number) => {
@@ -128,110 +141,83 @@ export default function MonthPage() {
         label="Month view"
         title={`${MONTHS[month0]} ${year}`}
         actions={
-          <>
-            <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Previous month">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setYearMonth(today.slice(0, 7))} className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" /> This month
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Next month">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </>
+          <CalendarNav
+            onToday={() => setYearMonth(today.slice(0, 7))}
+            onPrev={() => shift(-1)}
+            onNext={() => shift(1)}
+            prevLabel="Previous month"
+            nextLabel="Next month"
+          />
         }
       />
 
       <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-3">
-          <StatCard label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
-          <StatCard label="Productive" value={fmtDuration(monthProd)} tone="accent" />
-          <StatCard label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
+        <StatCard label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
+        <StatCard label="Productive" value={fmtDuration(monthProd)} tone="accent" />
+        <StatCard label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
+      </div>
+
+      <div>
+        <div className="grid grid-cols-7 gap-1.5 mb-2">
+          {WEEKDAY_SHORT.map((d) => (
+            <div key={d} className="text-center text-[10px] uppercase tracking-wider text-muted-foreground">
+              {d}
+            </div>
+          ))}
         </div>
 
-        <div>
-          <div className="grid grid-cols-7 gap-1.5 mb-2">
-            {WEEKDAY_SHORT.map((d) => (
-              <div key={d} className="text-center text-[10px] uppercase tracking-wider text-muted-foreground">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1.5">
-            {cells.map((c, i) => {
-              if (!c.iso) {
-                return <div key={`blank-${i}`} className="min-h-[130px] rounded-xl bg-muted/20 sm:min-h-[140px]" />;
-              }
-              const data = perDay[c.iso];
-              const intensity = data ? Math.min(1, data.total / maxDay) : 0;
-              const isToday = c.iso === today;
-              return (
-                <div
-                  key={c.iso}
-                  className={cn(
-                    "relative flex min-h-[130px] flex-col gap-1 overflow-hidden rounded-xl border border-border bg-surface p-1 sm:min-h-[140px]",
-                    isToday && "border-primary ring-1 ring-primary/40"
-                  )}
-                >
-                  {intensity > 0 && (
-                    <span
-                      className="absolute inset-0 -z-10 rounded-xl gradient-primary"
-                      style={{ opacity: 0.06 + intensity * 0.18 }}
-                    />
-                  )}
-                  <div className="flex shrink-0 items-start justify-between gap-0.5">
-                    <Link
-                      to={`/app?date=${c.iso}`}
-                      className={cn(
-                        "font-display text-sm font-semibold leading-none rounded hover:text-primary transition-colors",
-                        isToday && "text-primary"
-                      )}
-                      aria-label={`Open day view for ${c.iso}`}
-                    >
-                      {c.day}
-                    </Link>
-                    {data && data.total > 0 && (
-                      <span className="text-[8px] font-mono-num text-muted-foreground sm:text-[9px]">
-                        {fmtDuration(data.total)}
-                      </span>
+        <div className="grid grid-cols-7 gap-1.5">
+          {cells.map((c, i) => {
+            if (!c.iso) {
+              return <div key={`blank-${i}`} className="min-h-[72px] rounded-xl bg-muted/20 sm:min-h-[90px]" />;
+            }
+            const cell = cellMap[c.iso];
+            const dayTotal = logTotals[c.iso] ?? 0;
+            const intensity = dayTotal > 0 ? Math.min(1, dayTotal / maxDay) : 0;
+            const isToday = c.iso === today;
+            return (
+              <Link
+                key={c.iso}
+                to={`/app?date=${c.iso}`}
+                aria-label={`Open day view for ${c.iso}`}
+                className={cn(
+                  "relative flex min-h-[72px] flex-col overflow-hidden rounded-xl border border-border bg-surface p-1 transition-colors hover:border-primary/40 sm:min-h-[90px]",
+                  isToday && "border-primary ring-1 ring-primary/40"
+                )}
+              >
+                {intensity > 0 && (
+                  <span
+                    className="absolute inset-0 -z-10 rounded-xl gradient-primary"
+                    style={{ opacity: 0.06 + intensity * 0.18 }}
+                  />
+                )}
+                <div className="flex shrink-0 items-start justify-between gap-0.5">
+                  <span
+                    className={cn(
+                      "font-display text-sm font-semibold leading-none",
+                      isToday && "text-primary"
                     )}
-                  </div>
-                  <div className="grid min-h-0 flex-1 grid-rows-4 gap-px">
-                    {DAY_QUARTERS.map((q) => (
-                      <button
-                        key={q.startMin}
-                        type="button"
-                        onClick={() => openQuickLogForQuarter(c.iso!, q.startMin)}
-                        className="rounded-md bg-muted/25 px-0.5 text-[7px] font-mono-num leading-tight text-muted-foreground transition-colors hover:bg-primary/15 hover:text-foreground sm:text-[8px]"
-                      >
-                        {q.label}
-                      </button>
-                    ))}
-                  </div>
+                  >
+                    {c.day}
+                  </span>
+                  {dayTotal > 0 && (
+                    <span className="text-[8px] font-mono-num text-muted-foreground sm:text-[9px]">
+                      {fmtDuration(dayTotal)}
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Productive</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-unproductive" /> Unproductive</span>
-            <span className="ml-auto">Tap day number for day view · tap a 6h block to quick-log</span>
-          </div>
+                {cell && <MonthDayBar cell={cell} />}
+              </Link>
+            );
+          })}
         </div>
 
-      <QuickLogDialog
-        open={logOpen}
-        onOpenChange={setLogOpen}
-        date={logDate}
-        categories={logPickerCategories}
-        defaultStart={logDefaults.start}
-        defaultEnd={logDefaults.end}
-        onOptimisticInsert={() => {}}
-        onSaved={refreshLogs}
-        onCategoriesRefresh={refreshCats}
-      />
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
+          <span className="ml-auto">Tap a cell to open that day</span>
+        </div>
+      </div>
     </>
   );
 }
-

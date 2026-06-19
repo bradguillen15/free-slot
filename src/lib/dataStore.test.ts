@@ -22,7 +22,7 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: m.mockSupabaseClient() };
 });
 
-import { queueTableResult, resetSupabaseMock, setTableResult } from "../test/supabaseMock";
+import { queueTableResult, resetSupabaseMock, setTableResult, fromCalls } from "../test/supabaseMock";
 import { createTestQueryClient, setQueryClientForTests, setupGuestQueryInvalidation } from "./queryClient";
 import { createHookWrapper } from "../test/renderWithProviders";
 import {
@@ -44,7 +44,15 @@ import {
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
+  useWeeklyReview,
+  useGenerateWeeklyReviewMutation,
+  useWeeklyPriorities,
+  useUpsertWeeklyPrioritiesMutation,
+  useGenerateWeeklyPlanMutation,
+  useDeleteWeeklyPlanMutation,
+  useDeleteAccountMutation,
 } from "./dataStore";
+import { supabase } from "@/integrations/supabase/client";
 
 const CAT = { id: "c1", name: "Deep work", color: "#000", type: "productive" as const, is_default: true, hidden: false, created_at: "" };
 
@@ -157,6 +165,52 @@ describe("mutations — guest/cloud parity", () => {
   it("mutations propagate errors instead of silently succeeding", async () => {
     queueTableResult("schedule_blocks", { error: { message: "denied" } });
     await expect(deleteScheduleBlock("cloud", "u1", "b1")).rejects.toMatchObject({ message: "denied" });
+  });
+
+  it("updateTimeLog — guest same-month: updates the date in-place", async () => {
+    const row = await insertTimeLog("guest", null, {
+      date: "2026-06-10", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+    const id = (row as { id: string }).id;
+
+    await updateTimeLog("guest", null, id, {
+      date: "2026-06-15", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+
+    const jun = listLogsForMonth("2026-06");
+    expect(jun.some((l) => l.id === id && l.date === "2026-06-15")).toBe(true);
+  });
+
+  it("updateTimeLog — guest cross-month: log exists in exactly one bucket after move", async () => {
+    const row = await insertTimeLog("guest", null, {
+      date: "2026-06-15", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+    const id = (row as { id: string }).id;
+
+    await updateTimeLog("guest", null, id, {
+      date: "2026-07-01", start_time: "09:00", end_time: "10:00",
+      category_id: "c1", type: "productive",
+    });
+
+    const jun = listLogsForMonth("2026-06");
+    const jul = listLogsForMonth("2026-07");
+    expect(jun.some((l) => l.id === id)).toBe(false);
+    expect(jul.some((l) => l.id === id && l.date === "2026-07-01")).toBe(true);
+  });
+
+  it("updateTimeLog — cloud: passes date to resources.timeLogs.update", async () => {
+    queueTableResult("time_logs", {
+      data: { id: "l1", date: "2026-07-01", start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" },
+    });
+    await expect(
+      updateTimeLog("cloud", "u1", "l1", {
+        date: "2026-07-01", start_time: "09:00", end_time: "10:00",
+        category_id: "c1", type: "productive",
+      })
+    ).resolves.toBeDefined();
   });
 });
 
@@ -274,5 +328,124 @@ describe("mutations — remaining happy paths (both modes)", () => {
     const log = await insertTimeLog("guest", null, { date: "2026-06-10", start_time: "09:00", end_time: "10:00", category_id: "c", type: "productive" });
     await deleteTimeLog("guest", null, (log as { id: string }).id);
     expect(listLogsForMonth("2026-06")).toHaveLength(0);
+  });
+});
+
+describe("useWeeklyReview", () => {
+  it("returns saved review data for the given week", async () => {
+    const review = { id: "r1", week_start: "2026-06-09", insights: "Great week!", planned_vs_actual: null, completed_at: "2026-06-15T10:00:00Z" };
+    queueTableResult("weekly_reviews", { data: review });
+    const { result } = renderDataHook(() => useWeeklyReview("2026-06-09"));
+    await waitFor(() => expect(result.current.data?.id).toBe("r1"));
+    expect(result.current.data?.insights).toBe("Great week!");
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("returns null when no review exists for the week", async () => {
+    queueTableResult("weekly_reviews", { data: null });
+    const { result } = renderDataHook(() => useWeeklyReview("2026-06-09"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toBeNull();
+  });
+});
+
+describe("useGenerateWeeklyReviewMutation", () => {
+  it("invokes the weekly-review edge function and invalidates the review cache", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+      data: { review: { insights: "AI insights!" } },
+      error: null,
+    });
+    const { result } = renderDataHook(() => useGenerateWeeklyReviewMutation());
+    const body = { week_start: "2026-06-09", planned: [], actual: [], productive_ratio: 75, total_tracked: 240 };
+    let outcome: { review: { insights: string } } | undefined;
+    await act(async () => {
+      outcome = await result.current.mutateAsync(body);
+    });
+    expect(outcome?.review.insights).toBe("AI insights!");
+    expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith("weekly-review", { body });
+  });
+});
+
+describe("useWeeklyPriorities", () => {
+  it("returns priorities from cloud for signed-in user", async () => {
+    queueTableResult("weekly_priorities", {
+      data: [{ id: "p1", activity_id: "a1", rank: 0, week_start: "2026-06-09" }],
+    });
+    const { result } = renderDataHook(() => useWeeklyPriorities("2026-06-09"));
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.data[0].activity_id).toBe("a1");
+  });
+
+  it("returns priorities from localStore in guest mode", async () => {
+    authState.user = null;
+    const { setPriorities } = await import("./localStore");
+    setPriorities("2026-06-09", [{ activity_id: "a-x", rank: 0 }]);
+    const { result } = renderDataHook(() => useWeeklyPriorities("2026-06-09"));
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.data[0].activity_id).toBe("a-x");
+  });
+});
+
+describe("useUpsertWeeklyPrioritiesMutation", () => {
+  it("upserts priorities for cloud user and invalidates cache", async () => {
+    queueTableResult("weekly_priorities", {
+      data: [{ id: "p1", activity_id: "a1", rank: 0, week_start: "2026-06-09" }],
+    });
+    const { result } = renderDataHook(() => useUpsertWeeklyPrioritiesMutation());
+    await act(async () => {
+      await result.current.mutateAsync({ weekStart: "2026-06-09", items: [{ activity_id: "a1", rank: 0 }] });
+    });
+    const call = fromCalls.find((c) => c.table === "weekly_priorities");
+    expect(call?.methods.some(([m]) => m === "upsert")).toBe(true);
+  });
+
+  it("saves priorities to localStore in guest mode", async () => {
+    authState.user = null;
+    const { result } = renderDataHook(() => useUpsertWeeklyPrioritiesMutation());
+    await act(async () => {
+      await result.current.mutateAsync({ weekStart: "2026-06-09", items: [{ activity_id: "a-g", rank: 0 }] });
+    });
+    const { listPriorities } = await import("./localStore");
+    expect(listPriorities("2026-06-09")[0].activity_id).toBe("a-g");
+  });
+});
+
+describe("useGenerateWeeklyPlanMutation", () => {
+  it("invokes the generate-weekly-plan edge function", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+      data: { plan: { id: "wp1", week_start: "2026-06-09", generated_at: "", slots: [] }, summary: "Done" },
+      error: null,
+    });
+    const { result } = renderDataHook(() => useGenerateWeeklyPlanMutation());
+    await act(async () => {
+      await result.current.mutateAsync({ week_start: "2026-06-09", gaps: [], activities: [] });
+    });
+    expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith(
+      "generate-weekly-plan",
+      expect.objectContaining({ body: expect.objectContaining({ week_start: "2026-06-09" }) })
+    );
+  });
+});
+
+describe("useDeleteWeeklyPlanMutation", () => {
+  it("deletes the plan for the week and invalidates the weekly plan cache", async () => {
+    queueTableResult("weekly_plans", { data: null });
+    const { result } = renderDataHook(() => useDeleteWeeklyPlanMutation());
+    await act(async () => {
+      await result.current.mutateAsync("2026-06-09");
+    });
+    const call = fromCalls.find((c) => c.table === "weekly_plans");
+    expect(call?.methods.some(([m]) => m === "delete")).toBe(true);
+  });
+});
+
+describe("useDeleteAccountMutation", () => {
+  it("invokes the delete-account edge function", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: null });
+    const { result } = renderDataHook(() => useDeleteAccountMutation());
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+    expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith("delete-account");
   });
 });

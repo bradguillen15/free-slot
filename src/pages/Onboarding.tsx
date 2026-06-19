@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Check, ArrowRight, ArrowLeft, Settings2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +18,8 @@ import { PublicHeader } from "@/components/PublicHeader";
 import { ScheduleEditor } from "@/components/schedule/ScheduleEditor";
 import { ActivityEditor } from "@/components/activities/ActivityEditor";
 import { useTranslation } from "react-i18next";
-import {
-  ensureBootstrap,
-  updateProfile as updateLocalProfile,
-} from "@/lib/localStore";
-import { useActivities, useVisibleCategories, useProfile } from "@/lib/dataStore";
+import { ensureBootstrap } from "@/lib/localStore";
+import { useActivities, useVisibleCategories, useProfile, updateProfile } from "@/lib/dataStore";
 import type { Category } from "@/components/day/QuickLogDialog";
 
 type Activity = {
@@ -72,18 +68,12 @@ export default function Onboarding() {
     prefsLoaded.current = true;
   }, [profile, form]);
 
+  const mode = user ? "cloud" : "guest";
+
   const skip = async () => {
     setSaving(true);
     try {
-      if (!user) {
-        updateLocalProfile({ onboarding_skipped: true });
-      } else {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ onboarding_skipped: true })
-          .eq("id", user.id);
-        if (error) throw error;
-      }
+      await updateProfile(mode, user?.id ?? null, { onboarding_skipped: true });
       navigate("/app", { replace: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t("common.somethingWrong"));
@@ -95,21 +85,12 @@ export default function Onboarding() {
   const finish = async (values: PlannerPrefsValues) => {
     setSaving(true);
     try {
-      const prefs = {
+      await updateProfile(mode, user?.id ?? null, {
         peak_hours: { start: values.peakStart, end: values.peakEnd },
         include_weekends: values.includeWeekends,
         weekly_review_day: values.weeklyReviewDay,
         onboarding_completed: true,
-      };
-      if (!user) {
-        updateLocalProfile(prefs);
-      } else {
-        const { error } = await supabase
-          .from("profiles")
-          .update(prefs)
-          .eq("id", user.id);
-        if (error) throw error;
-      }
+      });
       toast.success(t("onboarding.allSet"));
       navigate("/app", { replace: true });
     } catch (e: unknown) {

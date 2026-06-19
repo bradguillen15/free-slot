@@ -45,4 +45,36 @@ test.describe("cloud guest→cloud migration", () => {
     expect(await readGuestScheduleBlocks(page)).toHaveLength(0);
     expect(await readGuestActivities(page)).toHaveLength(0);
   });
+
+  test("shows migrated data on first render without a manual reload", async ({ page }) => {
+    await seedGuest(page, {
+      scheduleBlocks: [
+        { id: "g1", name: "Imported block", start_time: "09:00", end_time: "17:00", days_of_week: [1, 2, 3, 4, 5] },
+      ],
+    });
+
+    const { userId } = await signUp(page, { expectMigrateDialog: true });
+    await page.getByTestId("migrate-import").click();
+
+    // Navigation is deferred until migration + cache invalidation settle; a fresh
+    // signup lands on the onboarding flow, whose step-1 ScheduleEditor lists blocks.
+    await page.waitForURL(/\/onboarding/, { timeout: 20_000 });
+
+    // Find the new cloud id for the imported block.
+    const svc = serviceClient();
+    let blockId = "";
+    await expect
+      .poll(async () => {
+        const { data } = await svc.from("schedule_blocks").select("id,name").eq("user_id", userId);
+        const row = (data ?? []).find((b) => (b as { name: string }).name === "Imported block") as
+          | { id: string }
+          | undefined;
+        blockId = row?.id ?? "";
+        return blockId;
+      })
+      .not.toBe("");
+
+    // First authenticated render — the migrated block must already show, with NO page.reload().
+    await expect(page.getByTestId(`schedule-name-${blockId}`)).toHaveValue("Imported block");
+  });
 });

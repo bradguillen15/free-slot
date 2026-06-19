@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Settings as SettingsIcon, Trash2, Save, Tag, AlertTriangle, CalendarRange, ArrowRight } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProfile, updateProfile } from "@/lib/dataStore";
+import { useProfile, updateProfile, useDeleteAccountMutation } from "@/lib/dataStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +52,8 @@ export default function SettingsPage() {
     });
   }, [profileRaw, form]);
 
-  const [deleting, setDeleting] = useState(false);
+  const deleteAccountMutation = useDeleteAccountMutation();
+  const deleting = deleteAccountMutation.isPending;
   const deleteForm = useForm<{ confirmText: string }>({
     resolver: zodResolver(deleteAccountSchema),
     defaultValues: { confirmText: "" },
@@ -77,16 +77,14 @@ export default function SettingsPage() {
   };
 
   const deleteAccount = async () => {
-    setDeleting(true);
-    const { error } = await supabase.functions.invoke("delete-account");
-    if (error) {
-      setDeleting(false);
-      toast.error(error.message ?? "Failed to delete account");
-      return;
+    try {
+      await deleteAccountMutation.mutateAsync();
+      toast.success("Account deleted");
+      await signOut();
+      navigate("/", { replace: true });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete account");
     }
-    toast.success("Account deleted");
-    await signOut();
-    navigate("/", { replace: true });
   };
 
   if (!profileRaw) {

@@ -37,4 +37,15 @@ describe("DaySummary", () => {
     );
     expect(screen.getAllByText("2h").length).toBeGreaterThan(0);
   });
+
+  it("counts only the visible next-day portion of an overnight log", () => {
+    render(
+      <DaySummary
+        logs={[log({ date: "2026-06-15", start_time: "23:00", end_time: "08:00" })]}
+        categories={[cat]}
+        date="2026-06-16"
+      />
+    );
+    expect(screen.getAllByText("8h").length).toBeGreaterThan(0);
+  });
 });

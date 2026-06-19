@@ -1,5 +1,11 @@
 import { test, expect, seedGuest, readGuestTimeLogs } from "./fixtures/guest";
 
+function addDaysISO(iso: string, delta: number): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Phase 5 — time logging. Quick-log a time entry from the Day view and confirm
  * it is stored against the day and survives a reload.
@@ -7,6 +13,32 @@ import { test, expect, seedGuest, readGuestTimeLogs } from "./fixtures/guest";
 const skip = { profile: { onboarding_skipped: true } };
 
 test.describe("guest time logging", () => {
+  test("overnight sleep log is stored on the previous day", async ({ page }) => {
+    await seedGuest(page, skip);
+    await page.goto("/app");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = addDaysISO(today, -1);
+
+    await page.getByTestId("day-fab").click();
+    await page.getByTestId("day-log-time").click();
+
+    await page.getByTestId("quicklog-title").fill("Sleep");
+    await page.getByTestId("quicklog-start").fill("23:00");
+    await page.getByTestId("quicklog-end").fill("07:00");
+    await page.getByTestId("quicklog-submit").click();
+
+    await expect
+      .poll(async () => (await readGuestTimeLogs(page)).map((l) => l.title))
+      .toContain("Sleep");
+
+    const logs = await readGuestTimeLogs(page);
+    const entry = logs.find((l) => l.title === "Sleep");
+    expect(entry?.date).toBe(yesterday);
+    expect(entry?.start_time).toBe("23:00");
+    expect(entry?.end_time).toBe("07:00");
+  });
+
   test("quick-logs a time entry that persists", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app");

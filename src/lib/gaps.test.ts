@@ -94,3 +94,32 @@ describe("findFreeWindows — boundaries", () => {
     expect(overlapping[0].isPeak).toBe(true);
   });
 });
+
+describe("findFreeWindows — overnight sleep log clips sleep block", () => {
+  const sleepBlock = { start_time: "23:00", end_time: "07:30", days_of_week: [1] };
+
+  it("clips the scheduled-sleep tail on the log's own day (pre-midnight segment)", () => {
+    // Monday (weekday=1): sleep block occupies [1380, 1440] pre-midnight.
+    // Overnight log 23:00→07:00 via logsToIntervals expands to [1380,1440]+[0,420].
+    const windows = findFreeWindows({
+      blocks: [sleepBlock],
+      logs: [{ start_time: "23:00", end_time: "07:00" }],
+      weekday: 1,
+      minWindowMinutes: 1,
+    });
+    const hasMidnightTail = windows.some((w) => w.end > 1380);
+    expect(hasMidnightTail).toBe(false);
+  });
+
+  it("also removes the early-morning hours claimed by the overnight log on the same date", () => {
+    const windows = findFreeWindows({
+      blocks: [sleepBlock],
+      logs: [{ start_time: "23:00", end_time: "07:00" }],
+      weekday: 1,
+      minWindowMinutes: 1,
+    });
+    // [0, 420] (00:00–07:00) is occupied by the log's expanded morning segment.
+    const hasEarlyFree = windows.some((w) => w.start < 420);
+    expect(hasEarlyFree).toBe(false);
+  });
+});

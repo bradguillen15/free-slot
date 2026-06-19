@@ -56,7 +56,6 @@ export default function ActivitiesPage() {
         onChange={reload}
       />
       <PriorityRanker
-        userId={user?.id ?? null}
         categories={categories}
         activities={activities}
       />

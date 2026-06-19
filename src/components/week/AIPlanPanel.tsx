@@ -3,10 +3,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Loader2, Wand2, Trash2, Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { fmtDuration, toMin } from "@/lib/time";
+import {
+  useWeeklyPlan,
+  useWeeklyPriorities,
+  useGenerateWeeklyPlanMutation,
+  useDeleteWeeklyPlanMutation,
+  insertTimeLog,
+  invalidateTimeLogs,
+} from "@/lib/dataStore";
+import { resources } from "@/resources";
 
 export type AISlot = {
   activity_id: string;
@@ -47,48 +55,34 @@ export function AIPlanPanel({
   onSlotAccepted: () => void;
 }) {
   const { user } = useAuth();
-  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data: planData } = useWeeklyPlan(weekStart);
+  const { data: priorities } = useWeeklyPriorities(weekStart);
+  const generateMutation = useGenerateWeeklyPlanMutation();
+  const deleteMutation = useDeleteWeeklyPlanMutation();
+
   const [summary, setSummary] = useState<string>("");
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [acceptingAll, setAcceptingAll] = useState(false);
   const generatingRef = useRef(false);
   const acceptingKeysRef = useRef<Set<string>>(new Set());
 
+  const plan = planData ?? null;
+
   useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!user) return;
-      const { data } = await supabase
-        .from("weekly_plans")
-        .select("id,week_start,generated_at,slots")
-        .eq("user_id", user.id)
-        .eq("week_start", weekStart)
-        .maybeSingle();
-      if (!active) return;
-      const p = (data as WeeklyPlan | null) ?? null;
-      setPlan(p);
-      onPlanChange(p);
-      setSummary("");
-      setAccepted(new Set());
-    })();
-    return () => { active = false; };
-  }, [user, weekStart, onPlanChange]);
+    onPlanChange(plan as WeeklyPlan | null);
+  }, [plan, onPlanChange]);
+
+  useEffect(() => {
+    setSummary("");
+    setAccepted(new Set());
+  }, [weekStart]);
 
   const generate = async () => {
     if (!user) return;
-    if (generatingRef.current || loading) return;
+    if (generatingRef.current || generateMutation.isPending) return;
     generatingRef.current = true;
-    setLoading(true);
     try {
-      const [actsRes, prioRes] = await Promise.all([
-        supabase.from("activities").select("id,name,target_hours_per_week,category_id").eq("user_id", user.id).eq("is_active", true),
-        supabase.from("weekly_priorities").select("activity_id,rank").eq("user_id", user.id).eq("week_start", weekStart).order("rank"),
-      ]);
-      const acts = actsRes.data ?? [];
-      const priorities = prioRes.data ?? [];
-
-      if (acts.length === 0) {
+      if (activities.length === 0) {
         toast.error("No active activities", { description: "Add activities on the Activities page first." });
         return;
       }
@@ -97,41 +91,48 @@ export function AIPlanPanel({
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("generate-weekly-plan", {
-        body: { week_start: weekStart, gaps, activities: acts, priorities },
+      const data = await generateMutation.mutateAsync({
+        week_start: weekStart,
+        gaps,
+        activities: activities.map((a) => ({
+          id: a.id,
+          name: a.name,
+          category_id: a.category_id,
+          target_hours_per_week: 0,
+          is_active: true,
+        })),
+        priorities,
       });
 
-      if (error) throw error;
-      if ((data as unknown as Record<string, unknown>)?.error) throw new Error(String((data as unknown as Record<string, unknown>).error));
+      if ((data as unknown as Record<string, unknown>)?.error) {
+        throw new Error(String((data as unknown as Record<string, unknown>).error));
+      }
 
-      const newPlan = (data as { plan: WeeklyPlan; summary?: string }).plan;
-      setPlan(newPlan);
-      onPlanChange(newPlan);
-      setSummary((data as { plan: WeeklyPlan; summary?: string }).summary ?? "");
+      const result = data as unknown as { plan: WeeklyPlan; summary?: string };
+      setSummary(result.summary ?? "");
       setAccepted(new Set());
-      const slotCount = newPlan?.slots?.length ?? 0;
+      const slotCount = result.plan?.slots?.length ?? 0;
       toast(slotCount ? "Plan ready" : "Empty plan", {
-        description: slotCount ? `${slotCount} slots generated.` : "AI couldn't fit anything — try setting priorities or adding more free time.",
+        description: slotCount
+          ? `${slotCount} slots generated.`
+          : "AI couldn't fit anything — try setting priorities or adding more free time.",
       });
     } catch (e: unknown) {
       toast.error("Couldn't generate plan", { description: e instanceof Error ? e.message : "Try again." });
     } finally {
-      setLoading(false);
       generatingRef.current = false;
     }
   };
 
   const clearPlan = async () => {
-    if (!user || !plan) return;
-    const { error } = await supabase.from("weekly_plans").delete().eq("id", plan.id);
-    if (error) {
-      toast.error("Couldn't clear plan", { description: error.message });
-      return;
+    if (!plan) return;
+    try {
+      await deleteMutation.mutateAsync(weekStart);
+      setSummary("");
+      setAccepted(new Set());
+    } catch (e: unknown) {
+      toast.error("Couldn't clear plan", { description: e instanceof Error ? e.message : "Try again." });
     }
-    setPlan(null);
-    onPlanChange(null);
-    setSummary("");
-    setAccepted(new Set());
   };
 
   const acceptSlot = async (slot: AISlot) => {
@@ -145,8 +146,7 @@ export function AIPlanPanel({
     const type: "productive" | "unproductive" = category?.type ?? "productive";
 
     try {
-      const { error } = await supabase.from("time_logs").insert({
-        user_id: user.id,
+      await insertTimeLog("cloud", user.id, {
         date: slot.day,
         start_time: slot.start,
         end_time: slot.end,
@@ -155,13 +155,10 @@ export function AIPlanPanel({
         title: slot.activity_name,
         notes: "Accepted from AI plan",
       });
-
-      if (error) {
-        toast.error("Couldn't accept slot", { description: error.message });
-        return;
-      }
       setAccepted((s) => new Set(s).add(key));
       onSlotAccepted();
+    } catch (e: unknown) {
+      toast.error("Couldn't accept slot", { description: e instanceof Error ? e.message : "Try again." });
     } finally {
       acceptingKeysRef.current.delete(key);
     }
@@ -170,7 +167,7 @@ export function AIPlanPanel({
   const acceptAll = async () => {
     if (!user || !plan) return;
     setAcceptingAll(true);
-    const pending = plan.slots.filter((s) => !accepted.has(slotKey(s)));
+    const pending = (plan as WeeklyPlan).slots.filter((s) => !accepted.has(slotKey(s)));
     if (pending.length === 0) { setAcceptingAll(false); return; }
 
     const rows = pending.map((slot) => {
@@ -188,25 +185,28 @@ export function AIPlanPanel({
       };
     });
 
-    const { error } = await supabase.from("time_logs").insert(rows);
-    setAcceptingAll(false);
-
-    if (error) {
-      toast.error("Couldn't accept plan", { description: error.message });
-      return;
+    try {
+      await resources.timeLogs.insertMany(user.id, rows);
+      invalidateTimeLogs("cloud", user.id);
+      setAccepted((s) => {
+        const next = new Set(s);
+        pending.forEach((p) => next.add(slotKey(p)));
+        return next;
+      });
+      toast.success("Plan accepted", { description: `${pending.length} slot${pending.length === 1 ? "" : "s"} added to your week.` });
+      onSlotAccepted();
+    } catch (e: unknown) {
+      toast.error("Couldn't accept plan", { description: e instanceof Error ? e.message : "Try again." });
+    } finally {
+      setAcceptingAll(false);
     }
-    setAccepted((s) => {
-      const next = new Set(s);
-      pending.forEach((p) => next.add(slotKey(p)));
-      return next;
-    });
-    toast.success("Plan accepted", { description: `${pending.length} slot${pending.length === 1 ? "" : "s"} added to your week.` });
-    onSlotAccepted();
   };
 
-  const totalMin = plan?.slots.reduce((s, x) => s + (toMin(x.end) - toMin(x.start)), 0) ?? 0;
-  const acceptedCount = plan?.slots.filter((s) => accepted.has(slotKey(s))).length ?? 0;
-  const allAccepted = plan && acceptedCount === plan.slots.length;
+  const typedPlan = plan as WeeklyPlan | null;
+  const totalMin = typedPlan?.slots.reduce((s, x) => s + (toMin(x.end) - toMin(x.start)), 0) ?? 0;
+  const acceptedCount = typedPlan?.slots.filter((s) => accepted.has(slotKey(s))).length ?? 0;
+  const allAccepted = typedPlan && acceptedCount === typedPlan.slots.length;
+  const loading = generateMutation.isPending;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -223,27 +223,27 @@ export function AIPlanPanel({
             <div>
               <div className="font-display text-base font-semibold tracking-tight">AI weekly plan</div>
               <div className="text-xs text-muted-foreground">
-                {plan
-                  ? `${plan.slots.length} slots · ${fmtDuration(totalMin)} planned${acceptedCount ? ` · ${acceptedCount} accepted` : ""}`
+                {typedPlan
+                  ? `${typedPlan.slots.length} slots · ${fmtDuration(totalMin)} planned${acceptedCount ? ` · ${acceptedCount} accepted` : ""}`
                   : "Let AI fit your priorities into your free windows."}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {plan && !allAccepted && (
+            {typedPlan && !allAccepted && (
               <Button variant="outline" size="sm" onClick={acceptAll} disabled={acceptingAll} className="gap-1.5">
                 {acceptingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
                 Accept all
               </Button>
             )}
-            {plan && (
+            {typedPlan && (
               <Button variant="ghost" size="sm" onClick={clearPlan} className="gap-1.5 text-muted-foreground">
                 <Trash2 className="h-3.5 w-3.5" /> Clear
               </Button>
             )}
             <Button onClick={generate} disabled={loading} size="sm" className="gap-1.5">
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-              {plan ? "Regenerate" : "Generate plan"}
+              {typedPlan ? "Regenerate" : "Generate plan"}
             </Button>
           </div>
         </div>
@@ -261,9 +261,9 @@ export function AIPlanPanel({
           )}
         </AnimatePresence>
 
-        {plan && plan.slots.length > 0 && (
+        {typedPlan && typedPlan.slots.length > 0 && (
           <div className="mt-4 pt-3 border-t border-border/40 space-y-1.5 max-h-64 overflow-y-auto">
-            {plan.slots.map((s) => {
+            {typedPlan.slots.map((s) => {
               const key = slotKey(s);
               const isAccepted = accepted.has(key);
               return (

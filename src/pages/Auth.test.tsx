@@ -29,9 +29,31 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: m.mockSupabaseClient() };
 });
 
+const navigateSpy = vi.hoisted(() => vi.fn());
+vi.mock("react-router-dom", async (orig) => {
+  const actual = await orig<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => navigateSpy };
+});
+
+vi.mock("@/lib/migrateGuest", () => ({ migrateGuestToCloud: vi.fn() }));
+
+const testQueryClient = vi.hoisted(() => ({
+  invalidateQueries: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@/lib/queryClient", async (orig) => {
+  const actual = await orig<typeof import("@/lib/queryClient")>();
+  return { ...actual, getQueryClient: () => testQueryClient };
+});
+
 import { supabase } from "@/integrations/supabase/client";
 import { resetSupabaseMock } from "../test/supabaseMock";
+import { migrateGuestToCloud } from "@/lib/migrateGuest";
+import { queryKeys } from "@/lib/queryKeys";
+import { seedGuestData } from "../test/factories";
+import { toast } from "sonner";
 import Auth from "./Auth";
+
+const emptyCounts = { categories: 0, activities: 0, schedule_blocks: 0, time_logs: 0, priorities: 0 };
 
 function renderAuth() {
   return render(
@@ -45,6 +67,9 @@ beforeEach(() => {
   localStorage.clear();
   resetSupabaseMock();
   authState.user = null;
+  navigateSpy.mockReset();
+  testQueryClient.invalidateQueries.mockReset().mockResolvedValue(undefined);
+  vi.mocked(migrateGuestToCloud).mockReset();
   vi.mocked(supabase.auth.signInWithOAuth).mockResolvedValue({
     data: { provider: "google", url: "https://example.com/oauth" },
     error: null,
@@ -117,5 +142,57 @@ describe("Auth — Google sign-in", () => {
 
     resolveOAuth({ data: { provider: "google", url: "https://example.com/oauth" }, error: null });
     await pendingOAuth;
+  });
+});
+
+describe("Auth — migration cache refresh", () => {
+  async function openMigrateDialog() {
+    seedGuestData();
+    authState.user = { id: "u1" };
+    const user = userEvent.setup();
+    renderAuth();
+    // useEffect detects guest data + user → opens the migrate dialog
+    return { user, importBtn: await screen.findByTestId("migrate-import") };
+  }
+
+  it("invalidates the query cache before navigating after a successful import", async () => {
+    vi.mocked(migrateGuestToCloud).mockResolvedValue({ migrated: true, counts: emptyCounts });
+    const { user, importBtn } = await openMigrateDialog();
+
+    await user.click(importBtn);
+
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith("/app", { replace: true }));
+    expect(testQueryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.root });
+    // invalidation must happen before navigation
+    expect(testQueryClient.invalidateQueries.mock.invocationCallOrder[0]).toBeLessThan(
+      navigateSpy.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not invalidate or navigate when migration fails", async () => {
+    vi.mocked(migrateGuestToCloud).mockRejectedValue(new Error("boom"));
+    const { user, importBtn } = await openMigrateDialog();
+
+    await user.click(importBtn);
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(testQueryClient.invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("keeps the Import action disabled until migration and cache refresh settle", async () => {
+    let resolveMigrate!: (v: { migrated: boolean; counts: typeof emptyCounts }) => void;
+    vi.mocked(migrateGuestToCloud).mockReturnValue(
+      new Promise((resolve) => {
+        resolveMigrate = resolve;
+      }),
+    );
+    const { user, importBtn } = await openMigrateDialog();
+
+    expect(importBtn).not.toBeDisabled();
+    await user.click(importBtn);
+    await waitFor(() => expect(importBtn).toBeDisabled());
+
+    resolveMigrate({ migrated: true, counts: emptyCounts });
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith("/app", { replace: true }));
   });
 });

@@ -5,7 +5,7 @@
 // Every step checks errors and throws BEFORE clearGuestData() runs, so a failed
 // migration never destroys the guest copy. Each step also dedupes against rows
 // already in the cloud, so retrying after a partial failure does not duplicate data.
-import { supabase } from "@/integrations/supabase/client";
+import { resources } from "@/resources";
 import {
   snapshot, clearGuestData, hasGuestData,
 } from "@/lib/localStore";
@@ -15,24 +15,23 @@ export async function migrateGuestToCloud(userId: string) {
   if (!hasGuestData()) return { migrated: false, counts: { categories: 0, activities: 0, schedule_blocks: 0, time_logs: 0, priorities: 0 } };
 
   // 1. Existing cloud categories — map by name (defaults are auto-created on signup trigger).
-  const { data: existingCats, error: catSelErr } = await supabase
-    .from("categories")
-    .select("id,name")
-    .eq("user_id", userId);
-  if (catSelErr) throw catSelErr;
-  const cloudCatByName = new Map<string, string>((existingCats ?? []).map((c) => [c.name, c.id]));
+  const existingCats = await resources.categories.list(userId);
+  const cloudCatByName = new Map(existingCats.map((c) => [c.name, c.id]));
 
   const catIdMap = new Map<string, string>();
   const newCats = snap.categories.filter((c) => !cloudCatByName.has(c.name));
   if (newCats.length) {
-    const { data: inserted, error: catInsErr } = await supabase
-      .from("categories")
-      .insert(newCats.map((c) => ({
-        user_id: userId, name: c.name, type: c.type, color: c.color, is_default: false, hidden: c.hidden ?? false,
-      })))
-      .select("id,name");
-    if (catInsErr) throw catInsErr;
-    (inserted ?? []).forEach((row) => cloudCatByName.set(row.name, row.id));
+    const inserted = await resources.categories.insertMany(
+      userId,
+      newCats.map((c) => ({
+        name: c.name,
+        type: c.type,
+        color: c.color,
+        is_default: false,
+        hidden: c.hidden ?? false,
+      }))
+    );
+    inserted.forEach((row) => cloudCatByName.set(row.name, row.id));
   }
   // Build local-id -> cloud-id map
   snap.categories.forEach((c) => {
@@ -45,55 +44,43 @@ export async function migrateGuestToCloud(userId: string) {
   if (hiddenSync.length) {
     await Promise.all(
       hiddenSync.map((c) =>
-        supabase
-          .from("categories")
-          .update({ hidden: true })
-          .eq("id", cloudCatByName.get(c.name)!)
-          .eq("user_id", userId)
+        resources.categories.upsert(userId, { id: cloudCatByName.get(c.name)!, hidden: true })
       )
     );
   }
 
   // 2. Activities — skip names that already exist in the cloud (retry safety).
   let activitiesCount = 0;
+  const existingActs = await resources.activities.list(userId);
+  const existingActNames = new Set(existingActs.map((a) => a.name));
+
+  let allCloudActs = [...existingActs];
   if (snap.activities.length) {
-    const { data: existingActs, error: actSelErr } = await supabase
-      .from("activities")
-      .select("name")
-      .eq("user_id", userId);
-    if (actSelErr) throw actSelErr;
-    const existingActNames = new Set((existingActs ?? []).map((a) => a.name));
     const rows = snap.activities
       .filter((a) => !existingActNames.has(a.name))
       .map((a) => ({
-        user_id: userId,
         name: a.name,
         category_id: a.category_id ? catIdMap.get(a.category_id) ?? null : null,
         target_hours_per_week: a.target_hours_per_week,
         is_active: a.is_active,
       }));
     if (rows.length) {
-      const { data, error } = await supabase.from("activities").insert(rows).select("id");
-      if (error) throw error;
-      activitiesCount = data?.length ?? 0;
+      const inserted = await resources.activities.insertMany(userId, rows);
+      activitiesCount = inserted.length;
+      allCloudActs = [...allCloudActs, ...inserted];
     }
   }
 
   // 3. Schedule blocks — dedupe on (name, start, end) for retry safety.
   let blocksCount = 0;
   if (snap.schedule_blocks.length) {
-    const { data: existingBlocks, error: blkSelErr } = await supabase
-      .from("schedule_blocks")
-      .select("name,start_time,end_time")
-      .eq("user_id", userId);
-    if (blkSelErr) throw blkSelErr;
+    const existingBlocks = await resources.scheduleBlocks.list(userId);
     const blockKey = (b: { name: string; start_time: string; end_time: string }) =>
       `${b.name}|${b.start_time.slice(0, 5)}|${b.end_time.slice(0, 5)}`;
-    const existingBlockKeys = new Set((existingBlocks ?? []).map(blockKey));
+    const existingBlockKeys = new Set(existingBlocks.map(blockKey));
     const rows = snap.schedule_blocks
       .filter((b) => !existingBlockKeys.has(blockKey(b)))
-      .map((b, i) => ({
-        user_id: userId,
+      .map((b) => ({
         name: b.name,
         start_time: b.start_time,
         end_time: b.end_time,
@@ -101,12 +88,10 @@ export async function migrateGuestToCloud(userId: string) {
         color: b.color,
         type: b.type,
         category_id: b.category_id ? catIdMap.get(b.category_id) ?? null : null,
-        sort_order: i,
       }));
     if (rows.length) {
-      const { data, error } = await supabase.from("schedule_blocks").insert(rows).select("id");
-      if (error) throw error;
-      blocksCount = data?.length ?? 0;
+      const inserted = await resources.scheduleBlocks.insertMany(userId, rows);
+      blocksCount = inserted.length;
     }
   }
 
@@ -114,21 +99,14 @@ export async function migrateGuestToCloud(userId: string) {
   let logsCount = 0;
   if (snap.time_logs.length) {
     const dates = snap.time_logs.map((l) => l.date).sort();
-    const { data: existingLogs, error: logSelErr } = await supabase
-      .from("time_logs")
-      .select("date,start_time,end_time")
-      .eq("user_id", userId)
-      .gte("date", dates[0])
-      .lte("date", dates[dates.length - 1]);
-    if (logSelErr) throw logSelErr;
+    const existingLogs = await resources.timeLogs.listInRange(userId, dates[0], dates[dates.length - 1]);
     const logKey = (l: { date: string; start_time: string; end_time: string }) =>
       `${l.date}|${l.start_time.slice(0, 5)}|${l.end_time.slice(0, 5)}`;
-    const existingLogKeys = new Set((existingLogs ?? []).map(logKey));
+    const existingLogKeys = new Set(existingLogs.map(logKey));
 
     const all = snap.time_logs
       .filter((l) => !existingLogKeys.has(logKey(l)))
       .map((l) => ({
-        user_id: userId,
         date: l.date,
         start_time: l.start_time,
         end_time: l.end_time,
@@ -139,10 +117,8 @@ export async function migrateGuestToCloud(userId: string) {
       }));
     const CHUNK = 200;
     for (let i = 0; i < all.length; i += CHUNK) {
-      const slice = all.slice(i, i + CHUNK);
-      const { data, error } = await supabase.from("time_logs").insert(slice).select("id");
-      if (error) throw error;
-      logsCount += data?.length ?? 0;
+      const inserted = await resources.timeLogs.insertMany(userId, all.slice(i, i + CHUNK));
+      logsCount += inserted.length;
     }
   }
 
@@ -169,37 +145,31 @@ export async function migrateGuestToCloud(userId: string) {
     profileUpdate.onboarding_skipped = true;
   }
   if (Object.keys(profileUpdate).length > 0) {
-    const { error: profErr } = await supabase.from("profiles").update(profileUpdate).eq("id", userId);
-    if (profErr) throw profErr;
+    await resources.profiles.update(userId, profileUpdate);
   }
 
   // 6. Weekly priorities — need both the cloud activity_id and a valid week_start.
-  // Build a name-based map from local activity id -> cloud activity id.
-  // Upsert so a retry doesn't trip the UNIQUE (user_id, week_start, activity_id) constraint.
+  // Build a name-based map from local activity id -> cloud activity id using the full cloud list
+  // (existing + newly inserted) so we don't need a second round-trip.
   let prioritiesCount = 0;
   if (snap.priorities.length && snap.activities.length) {
-    const { data: cloudActs, error: actMapErr } = await supabase
-      .from("activities")
-      .select("id,name")
-      .eq("user_id", userId);
-    if (actMapErr) throw actMapErr;
-    const cloudActByName = new Map<string, string>((cloudActs ?? []).map((a) => [a.name, a.id]));
+    const cloudActByName = new Map(allCloudActs.map((a) => [a.name, a.id]));
     const localActById = new Map(snap.activities.map((a) => [a.id, a]));
 
-    const rows = snap.priorities.flatMap((p) => {
+    // Group by week_start for upsertMany (one call per week)
+    const byWeek = new Map<string, { activity_id: string; rank: number }[]>();
+    for (const p of snap.priorities) {
       const localAct = localActById.get(p.activity_id);
-      if (!localAct) return [];
+      if (!localAct) continue;
       const cloudId = cloudActByName.get(localAct.name);
-      if (!cloudId) return [];
-      return [{ user_id: userId, week_start: p.week_start, activity_id: cloudId, rank: p.rank }];
-    });
-    if (rows.length) {
-      const { data, error } = await supabase
-        .from("weekly_priorities")
-        .upsert(rows, { onConflict: "user_id,week_start,activity_id" })
-        .select("id");
-      if (error) throw error;
-      prioritiesCount = data?.length ?? 0;
+      if (!cloudId) continue;
+      const items = byWeek.get(p.week_start) ?? [];
+      items.push({ activity_id: cloudId, rank: p.rank });
+      byWeek.set(p.week_start, items);
+    }
+    for (const [weekStart, items] of byWeek) {
+      const upserted = await resources.weeklyPriorities.upsertMany(userId, weekStart, items);
+      prioritiesCount += upserted.length;
     }
   }
 

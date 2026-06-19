@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { visibleBlockSegments } from "@/lib/daySegments";
+import { segmentsForLogOnDay, visibleBlockSegments } from "@/lib/daySegments";
 
 // Each log only needs start_time/end_time for clipping.
 const log = (start_time: string, end_time: string) => ({ start_time, end_time });
@@ -38,5 +38,15 @@ describe("visibleBlockSegments (planned blocks clip against logged time)", () =>
     expect(visibleBlockSegments(block, [log("23:00", "01:00")])).toEqual([
       { startMin: 60, endMin: 480 },
     ]);
+  });
+
+});
+
+describe("segmentsForLogOnDay", () => {
+  it("splits an overnight log between its start day and next day", () => {
+    const sleep = { date: "2026-06-15", start_time: "23:00", end_time: "08:00" };
+    expect(segmentsForLogOnDay(sleep, "2026-06-15")).toEqual([{ startMin: 1380, endMin: 1440 }]);
+    expect(segmentsForLogOnDay(sleep, "2026-06-16")).toEqual([{ startMin: 0, endMin: 480 }]);
+    expect(segmentsForLogOnDay(sleep, "2026-06-17")).toEqual([]);
   });
 });

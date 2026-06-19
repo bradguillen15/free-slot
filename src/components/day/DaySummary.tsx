@@ -1,19 +1,22 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { fmtDuration, expandRange, toMin } from "@/lib/time";
+import { segmentsForLogOnDay } from "@/lib/daySegments";
 import { Surface } from "@/components/Surface";
 import type { Category } from "./QuickLogDialog";
 import type { TimeLog } from "./DayTimeline";
 
-export function DaySummary({ logs, categories }: { logs: TimeLog[]; categories: Category[] }) {
+export function DaySummary({ logs, categories, date }: { logs: TimeLog[]; categories: Category[]; date?: string }) {
   const stats = useMemo(() => {
     const byCat = new Map<string, { name: string; color: string; type: string; mins: number }>();
     let productive = 0;
     let unproductive = 0;
 
     for (const l of logs) {
-      const segs = expandRange(toMin(l.start_time), toMin(l.end_time));
-      const total = segs.reduce((a, [s, e]) => a + (e - s), 0);
+      const total = date
+        ? segmentsForLogOnDay(l, date).reduce((a, s) => a + (s.endMin - s.startMin), 0)
+        : expandRange(toMin(l.start_time), toMin(l.end_time)).reduce((a, [s, e]) => a + (e - s), 0);
+      if (total <= 0) continue;
       if (l.type === "productive") productive += total;
       else unproductive += total;
 
@@ -31,7 +34,7 @@ export function DaySummary({ logs, categories }: { logs: TimeLog[]; categories: 
 
     const top = Array.from(byCat.values()).sort((a, b) => b.mins - a.mins).slice(0, 5);
     return { productive, unproductive, top, total: productive + unproductive };
-  }, [logs, categories]);
+  }, [logs, categories, date]);
 
   const ratio = stats.total > 0 ? stats.productive / stats.total : 0;
 

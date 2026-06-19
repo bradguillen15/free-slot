@@ -1,9 +1,15 @@
 // Regression for the "guest rankings are display-only" bug: guest priorities
 // persist to localStore and order the list on (re)mount.
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "@/test/renderWithProviders";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
+}));
+
 vi.mock("@/integrations/supabase/client", async () => {
   const m = await import("../../../test/supabaseMock");
   return { supabase: m.mockSupabaseClient() };
@@ -31,16 +37,17 @@ describe("PriorityRanker — guest mode", () => {
       { activity_id: "a-guitar", rank: 1 },
     ]);
 
-    render(<PriorityRanker userId={null} activities={activities} categories={[]} />);
+    renderWithProviders(<PriorityRanker activities={activities} categories={[]} />);
 
-    await waitFor(() => expect(screen.getByText("Reading")).toBeInTheDocument());
-    const names = screen.getAllByText(/^(Guitar|Reading)$/).map((el) => el.textContent);
-    expect(names).toEqual(["Reading", "Guitar"]);
+    await waitFor(() => {
+      const names = screen.getAllByText(/^(Guitar|Reading)$/).map((el) => el.textContent);
+      expect(names).toEqual(["Reading", "Guitar"]);
+    });
     expect(screen.queryByText("Inactive thing")).not.toBeInTheDocument();
   });
 
   it("falls back to alphabetical order with no stored ranking", async () => {
-    render(<PriorityRanker userId={null} activities={activities} categories={[]} />);
+    renderWithProviders(<PriorityRanker activities={activities} categories={[]} />);
     await waitFor(() => expect(screen.getByText("Guitar")).toBeInTheDocument());
     const names = screen.getAllByText(/^(Guitar|Reading)$/).map((el) => el.textContent);
     expect(names).toEqual(["Guitar", "Reading"]);

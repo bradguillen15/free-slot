@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner";
 import { clearGuestData, hasGuestData } from "@/lib/localStore";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
+import { getQueryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -54,8 +56,11 @@ export default function Auth() {
       setMigrateOpen(true);
       return;
     }
-    if (!migrateOpen) navigate("/app", { replace: true });
-  }, [user, navigate, pendingUserId, migrateOpen]);
+    // While a migration is in flight, the Radix dialog has already auto-closed
+    // (migrateOpen=false) but the data isn't ready yet. Defer the redirect until
+    // importNow finishes so the first /app render reads migrated, cache-refreshed data.
+    if (!migrateOpen && !migrating) navigate("/app", { replace: true });
+  }, [user, navigate, pendingUserId, migrateOpen, migrating]);
 
   const submit = async ({ email, password }: AuthValues) => {
     try {
@@ -119,6 +124,9 @@ export default function Auth() {
       ].filter(Boolean).join(" · ");
       toast.success(t("auth.migrate.done"), { description: parts || undefined });
       setMigrateOpen(false);
+      // Tell React Query the now-cloud user's keys changed and let the refetch
+      // settle before navigating, so the first /app render shows migrated data.
+      await getQueryClient().invalidateQueries({ queryKey: queryKeys.root });
       navigate("/app", { replace: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t("auth.migrate.failed"));
