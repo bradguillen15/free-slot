@@ -45,7 +45,7 @@ describe("WeekGrid — log drag", () => {
   it("fires onLogReschedule with snapped time and detected day after drag", () => {
     const spy = vi.fn();
     // startMin=540 (09:00), endMin=600 (10:00), has category_id → draggable
-    const log = { id: "l1", seg: { startMin: 540, endMin: 600 }, name: "Focus", color: "#f00", category_id: "c1" };
+    const log = { id: "l1", seg: { startMin: 540, endMin: 600 }, name: "Focus", color: "#f00", category_id: "c1", type: "productive" as const };
     const day = makeDay("2026-06-15", false, "Monday");
     day.logs = [log];
 
@@ -66,7 +66,7 @@ describe("WeekGrid — log drag", () => {
 
   it("does not fire onLogReschedule when log has no category_id", () => {
     const spy = vi.fn();
-    const log = { id: "l2", seg: { startMin: 540, endMin: 600 }, name: "Uncategorized", color: "#aaa", category_id: null };
+    const log = { id: "l2", seg: { startMin: 540, endMin: 600 }, name: "Uncategorized", color: "#aaa", category_id: null, type: "productive" as const };
     const day = makeDay("2026-06-15", false, "Monday");
     day.logs = [log];
 
