@@ -7,6 +7,8 @@
 // already in the cloud, so retrying after a partial failure does not duplicate data.
 import { resources } from "@/resources";
 import {
+  listAllGuestDailyNotes,
+  getGuestInboxItems,
   snapshot, clearGuestData, hasGuestData,
 } from "@/lib/localStore";
 
@@ -171,6 +173,26 @@ export async function migrateGuestToCloud(userId: string) {
       const upserted = await resources.weeklyPriorities.upsertMany(userId, weekStart, items);
       prioritiesCount += upserted.length;
     }
+  }
+
+  // 7. Daily notes
+  const guestNotes = listAllGuestDailyNotes();
+  if (guestNotes.length) {
+    await resources.dailyNotes.insertMany(userId, guestNotes);
+  }
+
+  // 8. Inbox items
+  const guestInbox = getGuestInboxItems();
+  if (guestInbox.length) {
+    await resources.inboxItems.insertMany(
+      userId,
+      guestInbox.map((i) => ({
+        user_id: userId,
+        content: i.content,
+        created_at: i.created_at,
+        archived_at: i.archived_at,
+      }))
+    );
   }
 
   // Every step above succeeded — only now is it safe to destroy the guest copy.

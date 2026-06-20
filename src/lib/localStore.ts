@@ -1,11 +1,13 @@
 // Guest mode storage — localStorage-backed mirror of the Supabase schema.
 // Layout:
-//   freeslot.guest.profile           -> single Profile object
-//   freeslot.guest.categories        -> Category[]
-//   freeslot.guest.activities        -> Activity[]
-//   freeslot.guest.schedule_blocks   -> ScheduleBlock[]
-//   freeslot.guest.time_logs.YYYY-MM -> TimeLog[]   (one bucket per month)
-//   freeslot.guest.bootstrapped      -> "1" once defaults seeded
+//   freeslot.guest.profile                    -> single Profile object
+//   freeslot.guest.categories                 -> Category[]
+//   freeslot.guest.activities                 -> Activity[]
+//   freeslot.guest.schedule_blocks            -> ScheduleBlock[]
+//   freeslot.guest.time_logs.YYYY-MM          -> TimeLog[]   (one bucket per month)
+//   freeslot.guest.daily_notes.<YYYY-MM-DD>   -> DailyNote   (one key per day)
+//   freeslot.guest.inbox_items                -> InboxItem[]
+//   freeslot.guest.bootstrapped               -> "1" once defaults seeded
 
 const PREFIX = "freeslot.guest";
 
@@ -408,6 +410,84 @@ export function moveLog(id: string, newDate: string, patch: Partial<Omit<LocalTi
     return updated;
   }
   throw new Error("Time log not found");
+}
+
+// ---------- Daily notes ----------
+export type LocalDailyNote = {
+  user_id: string;
+  date: string;        // YYYY-MM-DD
+  content: object;     // Tiptap JSON
+  updated_at: string;
+};
+
+function dailyNoteKey(date: string) {
+  return `${PREFIX}.daily_notes.${date}`;
+}
+
+export function getGuestDailyNote(date: string): LocalDailyNote | null {
+  const raw = read<LocalDailyNote | null>(dailyNoteKey(date), null);
+  return raw;
+}
+
+export function upsertGuestDailyNote(date: string, content: object): LocalDailyNote {
+  const now = new Date().toISOString();
+  const note: LocalDailyNote = { user_id: "guest", date, content, updated_at: now };
+  write(dailyNoteKey(date), note);
+  return note;
+}
+
+export function listAllGuestDailyNotes(): LocalDailyNote[] {
+  if (typeof window === "undefined") return [];
+  const out: LocalDailyNote[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(`${PREFIX}.daily_notes.`)) {
+      const note = read<LocalDailyNote | null>(k, null);
+      if (note) out.push(note);
+    }
+  }
+  return out;
+}
+
+export function listGuestDailyNotesInRange(startISO: string, endISO: string): LocalDailyNote[] {
+  return listAllGuestDailyNotes().filter((n) => n.date >= startISO && n.date <= endISO);
+}
+
+// ---------- Inbox items ----------
+export type LocalInboxItem = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  archived_at: string | null;
+};
+
+const INBOX_KEY = `${PREFIX}.inbox_items`;
+
+export function getGuestInboxItems(): LocalInboxItem[] {
+  return readArray<LocalInboxItem>(INBOX_KEY);
+}
+
+export function addGuestInboxItem(content: string): LocalInboxItem {
+  const item: LocalInboxItem = {
+    id: rid(),
+    user_id: "guest",
+    content,
+    created_at: new Date().toISOString(),
+    archived_at: null,
+  };
+  write(INBOX_KEY, [...getGuestInboxItems(), item]);
+  return item;
+}
+
+export function archiveGuestInboxItem(id: string): void {
+  const now = new Date().toISOString();
+  write(
+    INBOX_KEY,
+    getGuestInboxItems().map((item) =>
+      item.id === id ? { ...item, archived_at: now } : item
+    )
+  );
 }
 
 // ---------- Snapshot for migration ----------

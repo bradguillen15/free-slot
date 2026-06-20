@@ -8,8 +8,10 @@ import {
   useWeeklyPlan,
   useWeeklyReview,
   useGenerateWeeklyReviewMutation,
+  useDailyNotesForWeek,
 } from "@/lib/dataStore";
 import { aggregateWeeklyReview } from "@/lib/weeklyReview";
+import { tiptapToText } from "@/lib/tiptapText";
 
 export function useWeeklyReviewData({ open, weekStart }: {
   open: boolean;
@@ -22,7 +24,16 @@ export function useWeeklyReviewData({ open, weekStart }: {
   const { data: categories } = useVisibleCategories();
   const { data: plan } = useWeeklyPlan(weekStart);
   const { data: savedReview, isLoading: reviewLoading } = useWeeklyReview(weekStart);
+  const { data: rawDailyNotes } = useDailyNotesForWeek(weekStart, weekEnd);
   const generateMutation = useGenerateWeeklyReviewMutation();
+
+  const dailyNotes = useMemo(
+    () =>
+      (rawDailyNotes ?? [])
+        .map((n) => ({ date: n.date, text: tiptapToText(n.content as object) }))
+        .filter((n) => n.text.length > 0),
+    [rawDailyNotes]
+  );
 
   const agg = useMemo(() => {
     if (!open || !user) return null;
@@ -38,6 +49,7 @@ export function useWeeklyReviewData({ open, weekStart }: {
         actual: agg.actual,
         productive_ratio: agg.ratio,
         total_tracked: agg.total,
+        daily_notes: dailyNotes.length ? dailyNotes : undefined,
       });
       toast.success("Weekly review saved");
     } catch (e: unknown) {

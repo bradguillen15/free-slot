@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, Sparkles, Zap, CalendarRange, Lock } from "lucide-react";
+import { CalendarDays, Sparkles, Zap, CalendarRange, Lock, Inbox } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
@@ -30,7 +30,11 @@ import {
   useTimeLogsInRange,
   updateTimeLog,
   upsertCategory,
+  useDailyNotesForWeek,
+  useInboxItems,
 } from "@/lib/dataStore";
+import { InboxPanel } from "@/components/notes/InboxPanel";
+import { motion, AnimatePresence } from "framer-motion";
 import { StatCard } from "@/components/StatCard";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -63,6 +67,7 @@ export default function WeekPage() {
 
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
   const [chooser, setChooser] = useState<{ block: ScheduleBlock; iso: string } | null>(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const today = todayISO();
@@ -73,6 +78,9 @@ export default function WeekPage() {
   const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(logsStart, weekEnd);
   const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw } = useActivities();
+  const { data: weekNotes = [] } = useDailyNotesForWeek(weekStart, weekEnd);
+  const notedDates = useMemo(() => new Set(weekNotes.map((n) => n.date)), [weekNotes]);
+  const { data: inboxItems = [] } = useInboxItems();
   const { data: profileRaw } = useProfile();
 
   const blocks = blocksRaw as unknown as ScheduleBlock[];
@@ -289,20 +297,53 @@ export default function WeekPage() {
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-dashed border-primary/60 bg-primary/10" /> Free / peak</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
-          <span className="ml-auto">Click a block or log to edit</span>
+          <span className="ml-auto flex items-center gap-3">
+            <span className="hidden lg:inline">Click a block or log to edit</span>
+            <button
+              type="button"
+              aria-label="Toggle inbox"
+              onClick={() => setInboxOpen((v) => !v)}
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Inbox className="h-3.5 w-3.5" />
+              <span>Inbox</span>
+              {inboxItems.length > 0 && (
+                <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                  {inboxItems.length}
+                </span>
+              )}
+            </button>
+          </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <div className="min-w-[720px]">
-            <WeekGrid
-              days={dayCells}
-              onGapClick={onGapClick}
-              onSlotClick={onSlotClick}
-              onBlockClick={onBlockClick}
-              onLogClick={onLogClick}
-              onLogReschedule={handleLogReschedule}
-            />
+        <div className="flex gap-4">
+          <div className="overflow-x-auto flex-1 min-w-0">
+            <div className="min-w-[720px]">
+              <WeekGrid
+                days={dayCells}
+                onGapClick={onGapClick}
+                onSlotClick={onSlotClick}
+                onBlockClick={onBlockClick}
+                onLogClick={onLogClick}
+                onLogReschedule={handleLogReschedule}
+                notedDates={notedDates}
+              />
+            </div>
           </div>
+
+          <AnimatePresence>
+            {inboxOpen && (
+              <motion.div
+                initial={{ opacity: 0, x: 24, width: 0 }}
+                animate={{ opacity: 1, x: 0, width: 280 }}
+                exit={{ opacity: 0, x: 24, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="shrink-0 overflow-hidden"
+              >
+                <InboxPanel className="w-[280px] rounded-xl border border-border bg-surface p-4" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

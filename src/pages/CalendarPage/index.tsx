@@ -13,7 +13,13 @@ import { BlockActionChooser } from "@/components/day/BlockActionChooser";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { toast } from "sonner";
-import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog, upsertCategory } from "@/lib/dataStore";
+import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog, upsertCategory, useDailyNote, useUpsertDailyNote } from "@/lib/dataStore";
+import { lazy, Suspense } from "react";
+import { InboxPanel } from "@/components/notes/InboxPanel";
+
+const DailyNoteEditor = lazy(() =>
+  import("@/components/notes/DailyNoteEditor").then((m) => ({ default: m.DailyNoteEditor }))
+);
 import { useNowMinute } from "@/hooks/useNowMinute";
 import { useAutoScrollToHour } from "./useAutoScrollToHour";
 import { useAddBlockHereListener } from "./useAddBlockHereListener";
@@ -170,6 +176,11 @@ export default function CalendarPage() {
 
   const heading = useMemo(() => fmtDayHeading(date), [date]);
 
+  // dailyNote is `undefined` while React Query is pending, `null` if no note exists.
+  // Only render DailyNoteEditor once data is resolved so useState initialises correctly.
+  const { data: dailyNote } = useDailyNote(date);
+  const upsertDailyNote = useUpsertDailyNote();
+
   return (
     <>
       <div data-testid="page-day" className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
@@ -224,8 +235,19 @@ export default function CalendarPage() {
             )}
           </div>
 
-          <div className="lg:min-h-0 lg:overflow-y-auto">
+          <div className="lg:min-h-0 lg:overflow-y-auto space-y-4">
             <DaySummary logs={logs} categories={cats} date={date} />
+            {dailyNote !== undefined && (
+              <Suspense fallback={null}>
+                <DailyNoteEditor
+                  key={date}
+                  date={date}
+                  initialContent={dailyNote?.content ?? null}
+                  onChange={(json) => upsertDailyNote.mutate({ date, content: json })}
+                />
+              </Suspense>
+            )}
+            <InboxPanel />
           </div>
         </div>
 

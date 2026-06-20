@@ -3,17 +3,22 @@
 import { useCallback, useMemo, useState, type SetStateAction } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import type { LocalActivity, LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
+import type { LocalActivity, LocalCategory, LocalDailyNote, LocalInboxItem, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import {
+  addGuestInboxItem,
+  archiveGuestInboxItem,
   deleteActivity as localDeleteActivity,
   deleteCategory as localDeleteCategory,
   deleteLog as localDeleteLog,
   deleteScheduleBlock as localDeleteScheduleBlock,
   ensureBootstrap,
+  getGuestDailyNote,
+  getGuestInboxItems,
   getProfile as localGetProfile,
   insertLog as localInsertLog,
   listActivities,
   listCategories,
+  listGuestDailyNotesInRange,
   listLogsInRange,
   listPriorities,
   listScheduleBlocks,
@@ -24,6 +29,7 @@ import {
   updateProfile as localUpdateProfile,
   upsertActivity as localUpsertActivity,
   upsertCategory as localUpsertCategory,
+  upsertGuestDailyNote,
   upsertScheduleBlock as localUpsertScheduleBlock,
 } from "@/lib/localStore";
 import { resources } from "@/resources";
@@ -587,3 +593,117 @@ export function useUpdateProfileMutation() {
 }
 
 export { invalidateWeeklyPlan };
+
+// ---------- Daily notes ----------
+
+export function useDailyNote(date: string) {
+  const { mode, userId } = useAuthScope();
+  return useQuery<LocalDailyNote | null>({
+    queryKey: queryKeys.dailyNote(mode, userId, date),
+    queryFn: () =>
+      mode === "guest"
+        ? Promise.resolve(getGuestDailyNote(date))
+        : resources.dailyNotes.get(userId!, date),
+    staleTime: 30_000,
+  });
+}
+
+export function useDailyNotesForWeek(startISO: string, endISO: string) {
+  const { mode, userId } = useAuthScope();
+  return useQuery<LocalDailyNote[]>({
+    queryKey: queryKeys.dailyNotesForWeek(mode, userId, startISO, endISO),
+    queryFn: () =>
+      mode === "guest"
+        ? Promise.resolve(listGuestDailyNotesInRange(startISO, endISO))
+        : resources.dailyNotes.listForWeek(userId!, startISO, endISO),
+    staleTime: 30_000,
+  });
+}
+
+export function useUpsertDailyNote() {
+  const { mode, userId } = useAuthScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ date, content }: { date: string; content: object }): Promise<void> =>
+      mode === "guest"
+        ? Promise.resolve(upsertGuestDailyNote(date, content)).then(() => undefined)
+        : resources.dailyNotes.upsert(userId!, date, content),
+    onSuccess: (_data, { date }) => {
+      queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNote", mode, userId, date] });
+      queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNotesForWeek", mode, userId] });
+    },
+  });
+}
+
+// ---------- Inbox items ----------
+
+export function useInboxItems() {
+  const { mode, userId } = useAuthScope();
+  return useQuery<LocalInboxItem[]>({
+    queryKey: queryKeys.inboxItems(mode, userId),
+    queryFn: () =>
+      mode === "guest"
+        ? Promise.resolve(getGuestInboxItems().filter((i) => !i.archived_at))
+        : resources.inboxItems.list(userId!),
+    staleTime: 30_000,
+  });
+}
+
+export function useAddInboxItem() {
+  const { mode, userId } = useAuthScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      mode === "guest"
+        ? Promise.resolve(addGuestInboxItem(content))
+        : resources.inboxItems.insert(userId!, content),
+    onMutate: async (content) => {
+      const key = queryKeys.inboxItems(mode, userId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<LocalInboxItem[]>(key) ?? [];
+      const optimistic: LocalInboxItem = {
+        id: `optimistic-${Date.now()}`,
+        user_id: userId ?? "guest",
+        content,
+        created_at: new Date().toISOString(),
+        archived_at: null,
+      };
+      queryClient.setQueryData<LocalInboxItem[]>(key, [optimistic, ...previous]);
+      return { previous };
+    },
+    onError: (_err, _content, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(queryKeys.inboxItems(mode, userId), ctx.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inboxItems(mode, userId) });
+    },
+  });
+}
+
+export function useArchiveInboxItem() {
+  const { mode, userId } = useAuthScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      mode === "guest"
+        ? Promise.resolve(archiveGuestInboxItem(id))
+        : resources.inboxItems.archive(userId!, id),
+    onMutate: async (id) => {
+      const key = queryKeys.inboxItems(mode, userId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<LocalInboxItem[]>(key) ?? [];
+      queryClient.setQueryData<LocalInboxItem[]>(key, previous.filter((i) => i.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(queryKeys.inboxItems(mode, userId), ctx.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inboxItems(mode, userId) });
+    },
+  });
+}

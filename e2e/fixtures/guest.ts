@@ -62,11 +62,26 @@ export type GuestTimeLog = {
   created_at?: string;
 };
 
+export type GuestDailyNote = {
+  date: string;
+  content: object;
+  updated_at?: string;
+};
+
+export type GuestInboxItem = {
+  id: string;
+  content: string;
+  created_at?: string;
+  archived_at?: string | null;
+};
+
 export type GuestSeed = {
   profile?: GuestProfile;
   scheduleBlocks?: GuestScheduleBlock[];
   activities?: GuestActivity[];
   timeLogs?: GuestTimeLog[];
+  dailyNotes?: GuestDailyNote[];
+  inboxItems?: GuestInboxItem[];
 };
 
 const DEFAULT_PROFILE = {
@@ -142,6 +157,19 @@ export async function seedGuest(page: Page, seed: GuestSeed): Promise<void> {
           localStorage.setItem(`${prefix}.time_logs.${month}`, JSON.stringify(logs));
         }
       }
+      if (data.dailyNotes) {
+        for (const note of data.dailyNotes) {
+          localStorage.setItem(
+            `${prefix}.daily_notes.${note.date}`,
+            JSON.stringify({ updated_at: now, ...note }),
+          );
+        }
+      }
+      if (data.inboxItems) {
+        localStorage.setItem(`${prefix}.inbox_items`, JSON.stringify(
+          data.inboxItems.map((item) => ({ archived_at: null, created_at: now, ...item })),
+        ));
+      }
     },
     { prefix: PREFIX, defaultProfile: DEFAULT_PROFILE, data: seed },
   );
@@ -193,6 +221,27 @@ export async function readGuestCategories(
   return page.evaluate((prefix) => {
     const raw = localStorage.getItem(`${prefix}.categories`);
     return raw ? JSON.parse(raw) : [];
+  }, PREFIX);
+}
+
+/** Read a daily note for a specific date from localStorage. */
+export async function readGuestDailyNote(page: Page, date: string): Promise<GuestDailyNote | null> {
+  return page.evaluate(
+    ({ prefix, date }) => {
+      const raw = localStorage.getItem(`${prefix}.daily_notes.${date}`);
+      return raw ? JSON.parse(raw) : null;
+    },
+    { prefix: PREFIX, date },
+  );
+}
+
+/** Read all (non-archived) guest inbox items from localStorage. */
+export async function readGuestInboxItems(page: Page): Promise<GuestInboxItem[]> {
+  return page.evaluate((prefix) => {
+    const raw = localStorage.getItem(`${prefix}.inbox_items`);
+    if (!raw) return [];
+    const items: GuestInboxItem[] = JSON.parse(raw);
+    return items.filter((i) => !i.archived_at);
   }, PREFIX);
 }
 

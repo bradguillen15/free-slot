@@ -1,4 +1,4 @@
-import type { LocalActivity, LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
+import type { LocalActivity, LocalCategory, LocalDailyNote, LocalInboxItem, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
 import type { WeeklyReview } from "@/resources/types/weeklyReview";
 import type { WeeklyPriority } from "@/resources/types/weeklyPriority";
@@ -91,6 +91,18 @@ export interface ResourcesProvider {
     listForWeek(userId: string, weekStart: string): Promise<WeeklyPriority[]>;
     upsertMany(userId: string, weekStart: string, priorities: { activity_id: string; rank: number }[]): Promise<WeeklyPriority[]>;
   };
+  dailyNotes: {
+    get(userId: string, date: string): Promise<LocalDailyNote | null>;
+    upsert(userId: string, date: string, content: object): Promise<void>;
+    listForWeek(userId: string, startISO: string, endISO: string): Promise<LocalDailyNote[]>;
+    insertMany(userId: string, rows: LocalDailyNote[]): Promise<void>;
+  };
+  inboxItems: {
+    list(userId: string): Promise<LocalInboxItem[]>;
+    insert(userId: string, content: string): Promise<LocalInboxItem>;
+    archive(userId: string, id: string): Promise<void>;
+    insertMany(userId: string, rows: Omit<LocalInboxItem, "id">[]): Promise<LocalInboxItem[]>;
+  };
   functions: {
     generateWeeklyReview(body: {
       week_start: string;
@@ -98,12 +110,15 @@ export interface ResourcesProvider {
       actual: { name: string; minutes: number }[];
       productive_ratio: number;
       total_tracked: number;
+      daily_notes?: { date: string; text: string }[];
     }): Promise<{ review: { insights: string } }>;
     generateWeeklyPlan(body: {
       week_start: string;
       gaps: unknown[];
       activities: unknown[];
       priorities?: unknown[];
+      daily_notes?: { date: string; text: string }[];
+      inbox_items?: string[];
     }): Promise<{ slots: unknown[] }>;
     deleteAccount(userId: string): Promise<void>;
   };

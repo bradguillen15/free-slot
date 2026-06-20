@@ -44,6 +44,7 @@ export function WeekGrid({
   onBlockClick,
   onLogClick,
   onLogReschedule,
+  notedDates,
 }: {
   days: DayCellData[];
   onGapClick: (iso: string, gap: GapWindow) => void;
@@ -51,6 +52,7 @@ export function WeekGrid({
   onBlockClick?: (iso: string, block: DayCellBlock) => void;
   onLogClick?: (iso: string, log: DayCellLog) => void;
   onLogReschedule?: (logId: string, newDate: string, newStartMin: number, newEndMin: number) => void;
+  notedDates?: Set<string>;
 }) {
   const hours = useMemo(
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
@@ -78,6 +80,9 @@ export function WeekGrid({
             <div className={cn("font-display text-lg font-semibold mt-0.5", d.isToday && "text-primary")}>
               {Number(d.iso.split("-")[2])}
             </div>
+            {notedDates?.has(d.iso) && (
+              <div className="mx-auto mt-1 h-1 w-1 rounded-full bg-primary" aria-label="Has note" />
+            )}
             <div className="text-[10px] text-muted-foreground font-mono-num mt-0.5">
               {fmtDuration(d.totalFree)} free
             </div>
