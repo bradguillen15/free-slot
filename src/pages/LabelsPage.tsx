@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Tag, Plus, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Tag, Plus, Eye, EyeOff, Trash2, Brain, Zap, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCategories, upsertCategory, deleteCategory } from "@/lib/dataStore";
@@ -70,6 +70,11 @@ function LabelRow({
         {cat.hidden && (
           <Badge variant="outline" className="text-[10px]">{labels.hiddenBadge}</Badge>
         )}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {cat.type === "productive" && <Brain className="h-3.5 w-3.5 text-productive" />}
+        {cat.type === "unproductive" && <Zap className="h-3.5 w-3.5 text-unproductive" />}
+        {cat.type === "essential" && <Heart className="h-3.5 w-3.5 text-primary" />}
       </div>
       <div className="flex items-center gap-1 ml-auto shrink-0">
         <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => onToggleHidden(cat)}>
@@ -177,20 +182,38 @@ export default function LabelsPage() {
             <Plus className="h-3.5 w-3.5" /> {t("labels.addLabel")}
           </Button>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-5">
           {categories.length === 0 && (
             <p className="text-sm text-muted-foreground">—</p>
           )}
-          {categories.map((cat) => (
-            <LabelRow
-              key={cat.id}
-              cat={cat}
-              onUpdate={updateLabel}
-              onToggleHidden={toggleHidden}
-              onDelete={requestDelete}
-              labels={rowLabels}
-            />
-          ))}
+          {(["productive", "unproductive", "essential"] as const).map((type) => {
+            const group = categories.filter((c) => c.type === type);
+            if (group.length === 0) return null;
+            const meta = {
+              productive: { label: "Productive", icon: <Brain className="h-3.5 w-3.5 text-productive" />, color: "text-productive" },
+              unproductive: { label: "Unproductive", icon: <Zap className="h-3.5 w-3.5 text-unproductive" />, color: "text-unproductive" },
+              essential: { label: "Essential", icon: <Heart className="h-3.5 w-3.5 text-primary" />, color: "text-primary" },
+            }[type];
+            return (
+              <div key={type}>
+                <div className={`flex items-center gap-1.5 mb-2 text-xs font-semibold uppercase tracking-wider ${meta.color}`}>
+                  {meta.icon} {meta.label}
+                </div>
+                <div className="space-y-2">
+                  {group.map((cat) => (
+                    <LabelRow
+                      key={cat.id}
+                      cat={cat}
+                      onUpdate={updateLabel}
+                      onToggleHidden={toggleHidden}
+                      onDelete={requestDelete}
+                      labels={rowLabels}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 

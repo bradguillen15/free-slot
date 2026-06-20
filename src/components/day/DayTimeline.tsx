@@ -21,7 +21,7 @@ export type TimeLog = {
   id: string;
   date?: string;
   category_id: string | null;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   start_time: string;
   end_time: string;
   title?: string | null;
@@ -197,7 +197,7 @@ export function DayTimeline({
         <div className="absolute inset-y-0 left-16 right-0 z-[20] pointer-events-none">
           {logs.flatMap((l, idx) => {
             const cat = l.category_id ? catMap[l.category_id] : undefined;
-            const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
+            const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : l.type === "unproductive" ? "hsl(var(--unproductive))" : "hsl(var(--muted-foreground))");
             const segs = date ? segmentsForLogOnDay(l, date) : segmentsForLogOnDay(l, l.date ?? "");
             return segs.map((seg, i) => {
               const { lane = 0, groupWidth = 1 } = laneMap.get(`l-${l.id}-${i}`) ?? {};

@@ -36,7 +36,7 @@ export type WeeklyPlan = {
 };
 
 export type ActivityLite = { id: string; name: string; category_id: string | null };
-type CategoryLite = { id: string; name: string; color: string; type: "productive" | "unproductive" };
+type CategoryLite = { id: string; name: string; color: string; type: "productive" | "unproductive" | "essential" };
 
 function slotKey(s: AISlot) {
   return `${s.day}|${s.start}|${s.end}|${s.activity_id}`;
@@ -164,7 +164,7 @@ export function AIPlanPanel({
 
     const activity = activities.find((a) => a.id === slot.activity_id);
     const category = activity?.category_id ? categories.find((c) => c.id === activity.category_id) : undefined;
-    const type: "productive" | "unproductive" = category?.type ?? "productive";
+    const type: "productive" | "unproductive" | "essential" = category?.type ?? "productive";
 
     try {
       await insertTimeLog("cloud", user.id, {
@@ -199,7 +199,7 @@ export function AIPlanPanel({
         date: slot.day,
         start_time: slot.start,
         end_time: slot.end,
-        type: (category?.type ?? "productive") as "productive" | "unproductive",
+        type: (category?.type ?? "productive") as "productive" | "unproductive" | "essential",
         category_id: category?.id ?? null,
         title: slot.activity_name,
         notes: "Accepted from AI plan",

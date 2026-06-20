@@ -18,7 +18,7 @@ export function createSupabaseProvider(): ResourcesProvider {
 
       async upsert(userId, input: CategoryInput) {
         if (input.id) {
-          const patch: { name?: string; color?: string; type?: "productive" | "unproductive"; hidden?: boolean } = {};
+          const patch: { name?: string; color?: string; type?: "productive" | "unproductive" | "essential"; hidden?: boolean } = {};
           if (input.name !== undefined) patch.name = input.name;
           if (input.color !== undefined) patch.color = input.color;
           if (input.type !== undefined) patch.type = input.type;

@@ -366,7 +366,7 @@ export type Database = {
     }
     Enums: {
       block_type: "fixed" | "waste_expected"
-      category_type: "productive" | "unproductive"
+      category_type: "productive" | "unproductive" | "essential"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -498,7 +498,7 @@ export const Constants = {
   public: {
     Enums: {
       block_type: ["fixed", "waste_expected"],
-      category_type: ["productive", "unproductive"],
+      category_type: ["productive", "unproductive", "essential"],
     },
   },
 } as const

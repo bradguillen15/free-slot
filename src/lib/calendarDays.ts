@@ -17,7 +17,7 @@ export type DayCellLog = {
   name: string;
   color: string;
   category_id?: string | null;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   spansMidnight?: boolean;
 };
 
@@ -125,7 +125,7 @@ export function buildDayCells({
 
     const logSegs: DayCellLog[] = dayLogs.flatMap((l) => {
       const cat   = l.category_id ? catMap[l.category_id] : undefined;
-      const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
+      const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : l.type === "unproductive" ? "hsl(var(--unproductive))" : "hsl(var(--muted-foreground))");
       return segmentsForLogOnDay(l, iso).map(({ startMin, endMin }) => ({
         id: l.id,
         seg: { startMin, endMin },

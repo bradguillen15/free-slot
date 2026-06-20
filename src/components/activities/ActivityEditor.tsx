@@ -24,7 +24,7 @@ const activityDraftSchema = z.object({
 });
 type ActivityDraftValues = z.infer<typeof activityDraftSchema>;
 
-type Category = { id: string; name: string; color: string; type: "productive" | "unproductive" };
+type Category = { id: string; name: string; color: string; type: "productive" | "unproductive" | "essential" };
 type Activity = {
   id: string;
   name: string;
@@ -254,7 +254,7 @@ export function ActivityEditor({
                 </FormItem>
               )}
             />
-            <Button type="submit" className="gap-1.5" data-testid="activity-add">
+            <Button type="submit" className="gap-1.5 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" data-testid="activity-add">
               <Plus className="h-4 w-4" /> Add
             </Button>
           </form>

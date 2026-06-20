@@ -83,7 +83,7 @@ export default function DashboardPage() {
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label={t("dashboard.prevWeek")}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setWeekStart(weekStartISO())}>{t("dashboard.thisWeek")}</Button>
+            <Button size="sm" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" onClick={() => setWeekStart(weekStartISO())}>{t("dashboard.thisWeek")}</Button>
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, 7))} aria-label={t("dashboard.nextWeek")}>
               <ChevronRight className="h-4 w-4" />
             </Button>

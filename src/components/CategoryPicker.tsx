@@ -11,7 +11,7 @@ export type PickerCategory = {
   id: string;
   name: string;
   color: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
 };
 
 /**
@@ -29,7 +29,7 @@ export function CategoryPicker({
   value?: string;
   onChange: (id: string) => void;
   /** Create a label and return it (or null on failure). Caller persists + refreshes. */
-  onCreate?: (name: string, type: "productive" | "unproductive") => Promise<PickerCategory | null>;
+  onCreate?: (name: string, type: "productive" | "unproductive" | "essential") => Promise<PickerCategory | null>;
   /** Offer a "No label" option that calls onChange(""). */
   allowNone?: boolean;
 }) {

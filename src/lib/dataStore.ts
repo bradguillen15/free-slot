@@ -375,7 +375,7 @@ export async function insertTimeLog(
     start_time: string;
     end_time: string;
     category_id: string;
-    type: "productive" | "unproductive";
+    type: "productive" | "unproductive" | "essential";
     title?: string | null;
     notes?: string | null;
     note_json?: object | null;
@@ -408,7 +408,7 @@ export async function updateTimeLog(
     start_time: string;
     end_time: string;
     category_id: string;
-    type: "productive" | "unproductive";
+    type: "productive" | "unproductive" | "essential";
     title?: string | null;
     notes?: string | null;
     note_json?: object | null;
@@ -503,7 +503,7 @@ export async function reorderScheduleBlocks(mode: Mode, userId: string | null, o
 export async function upsertCategory(
   mode: Mode,
   userId: string | null,
-  input: { id?: string; name?: string; color?: string; type?: "productive" | "unproductive"; hidden?: boolean },
+  input: { id?: string; name?: string; color?: string; type?: "productive" | "unproductive" | "essential"; hidden?: boolean },
 ) {
   let result: unknown;
   if (mode === "guest") {

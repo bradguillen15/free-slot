@@ -5,7 +5,7 @@ import { weekDays } from "@/lib/week";
 
 const SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-type CatBreakdownEntry = { name: string; value: number; color: string; type: "productive" | "unproductive" };
+type CatBreakdownEntry = { name: string; value: number; color: string; type: "productive" | "unproductive" | "essential" };
 
 /**
  * All derived dashboard statistics for a given week.
@@ -35,7 +35,9 @@ export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
       let prod = 0, unprod = 0;
       for (const log of dayLogs) {
         const m = durMin(log.start_time, log.end_time);
-        if (log.type === "productive") prod += m; else unprod += m;
+        if (log.type === "productive") prod += m;
+        else if (log.type === "unproductive") unprod += m;
+        // essential logs are excluded from prod/unprod bars
       }
       return { day: SHORT[i], iso, productive: Math.round(prod), unproductive: Math.round(unprod), total: Math.round(prod + unprod) };
     });
@@ -46,6 +48,7 @@ export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
     const unprod = perDay.reduce((s, d) => s + d.unproductive, 0);
     const total = prod + unprod;
     return { prod, unprod, total, ratio: total ? Math.round((prod / total) * 100) : 0 };
+    // ratio = productive / (productive + unproductive), essential is intentionally excluded
   }, [perDay]);
 
   const daysLogged = useMemo(() => new Set(filteredLogs.map((l) => l.date)).size, [filteredLogs]);

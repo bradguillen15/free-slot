@@ -199,7 +199,7 @@ export default function WeekPage() {
         start_time: fromMin(newStartMin),
         end_time: fromMin(newEndMin),
         category_id: (log as { category_id: string }).category_id,
-        type: (log as { type: "productive" | "unproductive" }).type,
+        type: (log as { type: "productive" | "unproductive" | "essential" }).type,
         notes: (log as { notes: string | null }).notes,
       });
       toast.success("Block rescheduled");
@@ -242,7 +242,7 @@ export default function WeekPage() {
         }
       />
 
-      <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} onAddBlock={openAddBlock} onLogSleep={openSleepLog} />
+      <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} />
 
       <div className="grid grid-cols-2 gap-3 mb-5">
         <StatCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
@@ -301,7 +301,7 @@ export default function WeekPage() {
               <Inbox className="h-3.5 w-3.5" />
               <span>Inbox</span>
               {inboxItems.length > 0 && (
-                <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full gradient-primary px-1 text-[10px] font-medium text-primary-foreground">
                   {inboxItems.length}
                 </span>
               )}

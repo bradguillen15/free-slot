@@ -38,7 +38,7 @@ export type Category = {
   id: string;
   name: string;
   color: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
 };
 
 type Props = {
@@ -65,7 +65,7 @@ type Props = {
     start_time: string;
     end_time: string;
     category_id: string;
-    type: "productive" | "unproductive";
+    type: "productive" | "unproductive" | "essential";
     title: string | null;
     notes: string | null;
   }) => void;
@@ -163,7 +163,7 @@ export function QuickLogDialog({
           start_time: values.start,
           end_time: values.end,
           category_id: values.categoryId,
-          type: (selected?.type ?? "productive") as "productive" | "unproductive",
+          type: (selected?.type ?? "productive") as "productive" | "unproductive" | "essential",
           title: values.title,
           notes: values.notes || null,
         });
@@ -201,7 +201,7 @@ export function QuickLogDialog({
     }
   };
 
-  const createLabel = async (name: string, type: "productive" | "unproductive"): Promise<PickerCategory | null> => {
+  const createLabel = async (name: string, type: "productive" | "unproductive" | "essential"): Promise<PickerCategory | null> => {
     try {
       const created = await upsertCategory(user ? "cloud" : "guest", user?.id ?? null, {
         name,
@@ -346,7 +346,7 @@ export function QuickLogDialog({
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || deleting || !categoryId} data-testid="quicklog-submit">
+                <Button type="submit" disabled={form.formState.isSubmitting || deleting || !categoryId} data-testid="quicklog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
                   {form.formState.isSubmitting ? "Saving…" : "Save log"}
                 </Button>
               </div>

@@ -9,7 +9,7 @@ export type TimeLogInput = {
   start_time: string;
   end_time: string;
   category_id: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes?: string | null;
 };
@@ -18,7 +18,7 @@ export type TimeLogPatch = {
   start_time: string;
   end_time: string;
   category_id: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes?: string | null;
   date?: string;
@@ -45,7 +45,7 @@ export type CategoryInput = {
   id?: string;
   name?: string;
   color?: string;
-  type?: "productive" | "unproductive";
+  type?: "productive" | "unproductive" | "essential";
   hidden?: boolean;
 };
 

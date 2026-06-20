@@ -285,12 +285,7 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <CalendarCreateMenu
-          viewId="day"
-          onLogTime={openQuickLog}
-          onAddBlock={() => { setBlockDialogTarget({}); setBlockDialogOpen(true); }}
-          onLogSleep={openSleepLog}
-        />
+        <CalendarCreateMenu viewId="day" onLogTime={openQuickLog} />
 
         <BlockActionChooser
           open={!!chooserBlock}

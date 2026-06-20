@@ -150,23 +150,20 @@ export function WeekGrid({
                   key={`gap-${g.start}-${i}`}
                   onClick={() => onGapClick(d.iso, g)}
                   className={cn(
-                    "absolute left-0.5 right-0.5 rounded-md border border-dashed text-left px-1.5 transition-colors z-[6] overflow-hidden",
-                    compact && "flex items-center",
-                    g.isPeak
-                      ? "border-primary/60 bg-primary/[0.08] hover:bg-primary/[0.14]"
-                      : "border-border/60 bg-muted/30 hover:bg-muted/50"
+                    "absolute left-0.5 right-0.5 rounded-md border border-dashed border-border/60 bg-muted/30 text-left px-1.5 transition-colors hover:bg-muted/50 z-[6] overflow-hidden",
+                    compact && "flex items-center"
                   )}
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
                   title={`${fromMin(g.start)}–${fromMin(g.end)} · ${fmtDuration(g.durationMin)}`}
                 >
                   {compact ? (
                     <div className="truncate text-[9px] font-mono-num text-muted-foreground leading-none">
-                      {g.isPeak ? "Peak" : "Free"} · {fmtDuration(g.durationMin)}
+                      Free · {fmtDuration(g.durationMin)}
                     </div>
                   ) : (
                     <>
                       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                        {g.isPeak ? "Peak" : "Free"}
+                        Free
                       </div>
                       <div className="text-[10px] font-mono-num text-foreground/80">
                         {fmtDuration(g.durationMin)}

@@ -412,7 +412,7 @@ export function ScheduleEditor() {
             </button>
           ))}
         </div>
-        <Button onClick={() => { setDialogBlock(undefined); setDialogOpen(true); }} className="gap-1.5 shrink-0" data-testid="schedule-add-block">
+        <Button onClick={() => { setDialogBlock(undefined); setDialogOpen(true); }} className="gap-1.5 shrink-0 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" data-testid="schedule-add-block">
           <Plus className="h-4 w-4" /> {t("schedule.addBlock")}
         </Button>
       </div>

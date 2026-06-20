@@ -40,17 +40,21 @@ export function aggregateWeeklyReview({ logs, categories, plan, saved }: Aggrega
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const actualMap = new Map<string, number>();
   let productiveMinutes = 0;
+  let unproductiveMinutes = 0;
   let totalMinutes = 0;
 
   for (const log of logs) {
     const duration = toMin(log.end_time) - toMin(log.start_time);
     totalMinutes += duration;
     if (log.type === "productive") productiveMinutes += duration;
+    else if (log.type === "unproductive") unproductiveMinutes += duration;
+    // essential logs count toward totalMinutes but not toward the ratio
     const name = catMap.get(log.category_id ?? "")?.name ?? "Unknown";
     actualMap.set(name, (actualMap.get(name) ?? 0) + duration);
   }
   const actual = [...actualMap.entries()].map(([name, minutes]) => ({ name, minutes }));
-  const ratio = totalMinutes > 0 ? Math.round((productiveMinutes / totalMinutes) * 100) : 0;
+  const ratioDenominator = productiveMinutes + unproductiveMinutes;
+  const ratio = ratioDenominator > 0 ? Math.round((productiveMinutes / ratioDenominator) * 100) : 0;
 
   const names = new Set([...plannedMap.keys(), ...actualMap.keys()]);
   const merged: MergedEntry[] = [...names]

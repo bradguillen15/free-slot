@@ -14,7 +14,7 @@ const PREFIX = "freeslot.guest";
 export type LocalCategory = {
   id: string;
   name: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   color: string;
   is_default: boolean;
   hidden: boolean;
@@ -48,7 +48,7 @@ export type LocalTimeLog = {
   start_time: string;
   end_time: string;
   category_id: string | null;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes: string | null;
   note_json?: object | null;
@@ -71,9 +71,9 @@ export const DEFAULT_CATEGORY_SEED: Omit<LocalCategory, "id" | "created_at" | "h
   { name: "Study",         type: "productive",   color: "#f59e0b", is_default: true },
   { name: "Creative work", type: "productive",   color: "#ec4899", is_default: true },
   { name: "Side project",  type: "productive",   color: "#06b6d4", is_default: true },
-  { name: "Sleep",         type: "productive",   color: "#6366f1", is_default: true },
-  { name: "Meals",         type: "productive",   color: "#84cc16", is_default: true },
-  { name: "Chores & errands", type: "productive", color: "#14b8a6", is_default: true },
+  { name: "Sleep",         type: "essential",    color: "#6366f1", is_default: true },
+  { name: "Meals",         type: "essential",    color: "#84cc16", is_default: true },
+  { name: "Chores & errands", type: "essential", color: "#14b8a6", is_default: true },
   { name: "Social media",  type: "unproductive", color: "#ef4444", is_default: true },
   { name: "Gaming",        type: "unproductive", color: "#f97316", is_default: true },
   { name: "Movies & series", type: "unproductive", color: "#a855f7", is_default: true },
