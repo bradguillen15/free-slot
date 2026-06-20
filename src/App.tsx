@@ -18,6 +18,7 @@ import WeekPage from "./pages/WeekPage";
 import MonthPage from "./pages/MonthPage";
 import ActivitiesPage from "./pages/ActivitiesPage";
 import DashboardPage from "./pages/DashboardPage";
+import NotesPage from "./pages/NotesPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="labels" element={<LabelsPage />} />
               <Route path="activities" element={<ActivitiesPage />} />
               <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="notes" element={<NotesPage />} />
               <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />

@@ -11,7 +11,7 @@ test.describe("guest labels", () => {
     await seedGuest(page, skip);
     await page.goto("/app/labels");
 
-    await page.getByTestId("labels-add-productive").click();
+    await page.getByTestId("labels-add").click();
     await page.getByTestId("label-dialog-name").fill("Focus");
     await page.getByTestId("label-dialog-submit").click();
 
@@ -30,7 +30,7 @@ test.describe("guest labels", () => {
     await page.goto("/app/labels");
 
     // Create one first (defaults are not deletable).
-    await page.getByTestId("labels-add-productive").click();
+    await page.getByTestId("labels-add").click();
     await page.getByTestId("label-dialog-name").fill("Temporary");
     await page.getByTestId("label-dialog-submit").click();
 

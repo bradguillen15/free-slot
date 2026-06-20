@@ -31,6 +31,7 @@ test.describe("guest daily notes — day view", () => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
+    await page.getByRole("tab", { name: "Notes" }).click();
     await expect(page.getByLabel("Add a note for this day")).toBeVisible();
   });
 
@@ -38,6 +39,7 @@ test.describe("guest daily notes — day view", () => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
+    await page.getByRole("tab", { name: "Notes" }).click();
     await page.getByLabel("Add a note for this day").click();
     await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
     // Placeholder is gone once the editor is open
@@ -48,6 +50,7 @@ test.describe("guest daily notes — day view", () => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
+    await page.getByRole("tab", { name: "Notes" }).click();
     await page.getByLabel("Add a note for this day").click();
     const editor = page.locator(".ProseMirror[contenteditable='true']");
     await expect(editor).toBeVisible();
@@ -63,6 +66,7 @@ test.describe("guest daily notes — day view", () => {
 
     // After reload the note is loaded from storage → editor shows expanded, placeholder hidden
     await page.reload();
+    await page.getByRole("tab", { name: "Notes" }).click();
     await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
     await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
   });
@@ -74,6 +78,7 @@ test.describe("guest daily notes — day view", () => {
     });
     await page.goto("/app");
 
+    await page.getByRole("tab", { name: "Notes" }).click();
     await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
     await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
   });

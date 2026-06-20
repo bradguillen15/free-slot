@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { NoteToolbar } from "./NoteToolbar";
 
 type Props = {
   date: string;
@@ -62,6 +63,7 @@ export function DailyNoteEditor({ date, initialContent, onChange }: Props) {
 
   return (
     <div className="rounded-md border border-border bg-surface focus-within:border-primary/60 transition-colors">
+      {editor && <NoteToolbar editor={editor} />}
       <EditorContent
         editor={editor}
         className="prose prose-sm max-w-none px-3 py-2 text-foreground focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[80px]"

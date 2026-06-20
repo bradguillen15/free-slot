@@ -1,21 +1,27 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, TrendingUp, Target, Sparkles, Activity, BarChart3, NotebookPen, CalendarDays, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, Activity, BarChart3, NotebookPen, CalendarDays, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/components/EmptyState";
 import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
+import { LabelFilter } from "@/components/dashboard/LabelFilter";
+import { CardVisibilityMenu } from "@/components/dashboard/CardVisibilityMenu";
+import { AgendaCard } from "@/components/dashboard/AgendaCard";
 import {
   Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, fmtDuration } from "@/lib/time";
 import { fmtWeekRange, weekStartISO } from "@/lib/week";
 import { StatCard } from "@/components/StatCard";
 import { Surface } from "@/components/Surface";
+import { useVisibleCategories } from "@/lib/dataStore";
+import { useCalendarDays } from "@/lib/calendarDays";
+import { getDashboardVisibleCards, setDashboardVisibleCards } from "@/lib/localStore";
+import type { DashboardVisibleCards } from "@/lib/localStore";
 import { useDashboardStats } from "./useDashboardStats";
 import { useWeeklyReviewPrompt } from "./useWeeklyReviewPrompt";
 
@@ -26,10 +32,22 @@ export default function DashboardPage() {
   const [weekStart, setWeekStart] = useState(weekStartISO());
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewWeek, setReviewWeek] = useState<string>(weekStart);
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
+  const [visibleCards, setVisibleCardsState] = useState<DashboardVisibleCards>(() => getDashboardVisibleCards());
+
+  const handleVisibilityChange = (cards: DashboardVisibleCards) => {
+    setVisibleCardsState(cards);
+    setDashboardVisibleCards(cards);
+  };
 
   const isCurrentWeek = weekStart === weekStartISO();
 
-  const { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount } = useDashboardStats(weekStart);
+  const { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount } = useDashboardStats(weekStart, selectedLabelIds);
+
+  const { data: allCategories } = useVisibleCategories();
+
+  const weekEnd = addDaysISO(weekStart, 6);
+  const agendaDays = useCalendarDays(weekStart, weekEnd);
 
   useWeeklyReviewPrompt({
     weekStart,
@@ -61,6 +79,7 @@ export default function DashboardPage() {
                 <NotebookPen className="h-3.5 w-3.5" /> {t("dashboard.reviewWeek")}
               </Button>
             )}
+            <CardVisibilityMenu visible={visibleCards} onChange={handleVisibilityChange} />
             <Button variant="ghost" size="icon" onClick={() => setWeekStart(addDaysISO(weekStart, -7))} aria-label={t("dashboard.prevWeek")}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -83,94 +102,88 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {allCategories.length > 0 && (
+          <LabelFilter
+            categories={allCategories.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
+            selectedIds={selectedLabelIds}
+            onChange={setSelectedLabelIds}
+          />
+        )}
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
             <StatCard icon={<Activity className="h-4 w-4" />} label={t("dashboard.kpi.totalTracked")} value={fmtDuration(totals.total)} tone="muted" />
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <StatCard icon={<TrendingUp className="h-4 w-4" />} label={t("dashboard.kpi.productive")} value={fmtDuration(totals.prod)} tone="primary" />
+            <StatCard icon={<CalendarDays className="h-4 w-4" />} label={t("dashboard.kpi.daysLogged")} value={String(daysLogged)} tone="muted" />
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <StatCard icon={<Target className="h-4 w-4" />} label={t("dashboard.kpi.productiveRatio")} value={`${totals.ratio}%`} tone="accent" />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            {isGuest ? (
-              <StatCard icon={<CalendarDays className="h-4 w-4" />} label={t("dashboard.kpi.daysLogged")} value={String(daysLogged)} tone="muted" />
-            ) : (
+            {isGuest ? null : (
               <StatCard icon={<Sparkles className="h-4 w-4" />} label={t("dashboard.kpi.aiSlots")} value={String(planSlotsCount)} tone="muted" />
             )}
           </motion.div>
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-        <Surface padding="md">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.productiveRatio")}</div>
-          <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
-            <span>{fmtDuration(totals.prod)} {t("dashboard.kpi.productive").toLowerCase()}</span>
-            <span>·</span>
-            <span>{fmtDuration(totals.unprod)} unproductive</span>
-          </div>
-          <Progress value={totals.ratio} className="h-2" />
-        </Surface>
-        </motion.div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-          <Surface padding="md">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.perDay")}</div>
-            <div className="h-64">
-              <ResponsiveContainer>
-                <BarChart data={perDay} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${Math.round(v / 60)}h`} />
-                  <Tooltip
-                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                    formatter={(v: number) => fmtDuration(v)}
-                  />
-                  <Bar dataKey="productive" stackId="a" fill="hsl(var(--productive))" radius={[4,4,0,0]} />
-                  <Bar dataKey="unproductive" stackId="a" fill="hsl(var(--unproductive))" radius={[4,4,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Surface>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-          <Surface padding="md">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.byCategory")}</div>
-            {catBreakdown.length === 0 ? (
-              <Empty message={t("dashboard.cards.noLoggedTime")} />
-            ) : (
-              <div className="grid grid-cols-[1fr_1.2fr] gap-4 items-center">
-                <div className="h-56">
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie data={catBreakdown} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
-                        {catBreakdown.map((c, i) => <Cell key={i} fill={c.color} />)}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                        formatter={(v: number) => fmtDuration(v)}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                  {catBreakdown.map((c) => (
-                    <li key={c.name} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex items-center gap-2 truncate">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: c.color }} />
-                        <span className="truncate">{c.name}</span>
-                      </span>
-                      <span className="font-mono-num text-muted-foreground">{fmtDuration(c.value)}</span>
-                    </li>
-                  ))}
-                </ul>
+          {visibleCards.perDay && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <Surface padding="md">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.perDay")}</div>
+              <div className="h-64">
+                <ResponsiveContainer>
+                  <BarChart data={perDay} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${Math.round(v / 60)}h`} />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number) => fmtDuration(v)}
+                    />
+                    <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            )}
-          </Surface>
-          </motion.div>
+            </Surface>
+            </motion.div>
+          )}
+
+          {visibleCards.byCategory && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <Surface padding="md">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.byCategory")}</div>
+              {catBreakdown.length === 0 ? (
+                <Empty message={t("dashboard.cards.noLoggedTime")} />
+              ) : (
+                <div className="grid grid-cols-[1fr_1.2fr] gap-4 items-center">
+                  <div className="h-56">
+                    <ResponsiveContainer>
+                      <PieChart>
+                        <Pie data={catBreakdown} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                          {catBreakdown.map((c, i) => <Cell key={i} fill={c.color} />)}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                          formatter={(v: number) => fmtDuration(v)}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {catBreakdown.map((c) => (
+                      <li key={c.name} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="flex items-center gap-2 truncate">
+                          <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: c.color }} />
+                          <span className="truncate">{c.name}</span>
+                        </span>
+                        <span className="font-mono-num text-muted-foreground">{fmtDuration(c.value)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Surface>
+            </motion.div>
+          )}
         </div>
 
         <div className="mt-4">
@@ -188,32 +201,42 @@ export default function DashboardPage() {
               </Button>
             </div>
           ) : (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <Surface padding="md">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.planVsLogged")}</div>
-              {planVsActual.length === 0 ? (
-                <Empty message={t("dashboard.cards.noPlanCompare")} />
-              ) : (
-                <div className="h-72">
-                  <ResponsiveContainer>
-                    <BarChart data={planVsActual} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} interval={0} angle={-15} textAnchor="end" height={50} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${Math.round(v / 60)}h`} />
-                      <Tooltip
-                        contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                        formatter={(v: number) => fmtDuration(v)}
-                      />
-                      <Bar dataKey="planned" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
-                      <Bar dataKey="actual" fill="hsl(var(--productive))" radius={[4,4,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </Surface>
-            </motion.div>
+            visibleCards.planVsLogged && (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+              <Surface padding="md">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("dashboard.cards.planVsLogged")}</div>
+                {planVsActual.length === 0 ? (
+                  <Empty message={t("dashboard.cards.noPlanCompare")} />
+                ) : (
+                  <div className="h-72">
+                    <ResponsiveContainer>
+                      <BarChart data={planVsActual} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                        <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} interval={0} angle={-15} textAnchor="end" height={50} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${Math.round(v / 60)}h`} />
+                        <Tooltip
+                          contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                          formatter={(v: number) => fmtDuration(v)}
+                        />
+                        <Bar dataKey="planned" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
+                        <Bar dataKey="actual" fill="hsl(var(--primary) / 0.6)" radius={[4,4,0,0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </Surface>
+              </motion.div>
+            )
           )}
         </div>
+
+        {visibleCards.agenda && agendaDays.length > 0 && (
+          <div className="mt-4">
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+              <AgendaCard days={agendaDays} labelIds={selectedLabelIds} />
+            </motion.div>
+          </div>
+        )}
 
         {!isGuest && (
           <WeeklyReviewModal open={reviewOpen} onOpenChange={setReviewOpen} weekStart={reviewWeek} />

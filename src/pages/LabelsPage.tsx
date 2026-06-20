@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tag, Plus, Eye, EyeOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Surface } from "@/components/Surface";
 
-type LabelType = "productive" | "unproductive";
 
 function LabelRow({
   cat,
@@ -94,13 +93,8 @@ export default function LabelsPage() {
   const { data: categoriesRaw } = useCategories();
   const categories = categoriesRaw as LocalCategory[];
 
-  const [addDialogType, setAddDialogType] = useState<LabelType | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LocalCategory | null>(null);
-
-  const grouped = useMemo(() => ({
-    productive: categories.filter((c) => c.type === "productive"),
-    unproductive: categories.filter((c) => c.type === "unproductive"),
-  }), [categories]);
 
   const rowLabels = {
     defaultBadge: t("labels.defaultBadge"),
@@ -171,46 +165,41 @@ export default function LabelsPage() {
         <p className="text-muted-foreground mt-1 text-sm max-w-2xl">{t("labels.subtitle")}</p>
       </header>
 
-      {(["productive", "unproductive"] as const).map((type) => (
-        <Card key={type}>
-          <CardHeader className="flex-row items-center justify-between space-y-0 gap-4">
-            <CardTitle className="text-lg">{t(`labels.${type}`)}</CardTitle>
-            <Button
-              size="sm"
-              className="gap-1.5 shrink-0 gradient-primary text-primary-foreground font-medium hover:opacity-90 shadow-glow"
-              data-testid={`labels-add-${type}`}
-              onClick={() => setAddDialogType(type)}
-            >
-              <Plus className="h-3.5 w-3.5" /> {t("labels.addLabel")}
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {grouped[type].length === 0 && (
-              <p className="text-sm text-muted-foreground">—</p>
-            )}
-            {grouped[type].map((cat) => (
-              <LabelRow
-                key={cat.id}
-                cat={cat}
-                onUpdate={updateLabel}
-                onToggleHidden={toggleHidden}
-                onDelete={requestDelete}
-                labels={rowLabels}
-              />
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 gap-4">
+          <CardTitle className="text-lg">{t("labels.title")}</CardTitle>
+          <Button
+            size="sm"
+            className="gap-1.5 shrink-0 gradient-primary text-primary-foreground font-medium hover:opacity-90 shadow-glow"
+            data-testid="labels-add"
+            onClick={() => setAddDialogOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" /> {t("labels.addLabel")}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {categories.length === 0 && (
+            <p className="text-sm text-muted-foreground">—</p>
+          )}
+          {categories.map((cat) => (
+            <LabelRow
+              key={cat.id}
+              cat={cat}
+              onUpdate={updateLabel}
+              onToggleHidden={toggleHidden}
+              onDelete={requestDelete}
+              labels={rowLabels}
+            />
+          ))}
+        </CardContent>
+      </Card>
 
-      {addDialogType && (
-        <AddLabelDialog
-          open={!!addDialogType}
-          type={addDialogType}
-          defaultColor={nextCreateColor(categories.length)}
-          onOpenChange={(open) => !open && setAddDialogType(null)}
-          onSave={saveNewLabel}
-        />
-      )}
+      <AddLabelDialog
+        open={addDialogOpen}
+        defaultColor={nextCreateColor(categories.length)}
+        onOpenChange={setAddDialogOpen}
+        onSave={saveNewLabel}
+      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>

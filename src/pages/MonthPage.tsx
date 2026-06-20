@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { useCalendarDays, type DayCellData } from "@/lib/calendarDays";
-import { durationMinutes, fmtDuration, todayISO } from "@/lib/time";
+import { fmtDuration, todayISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/StatCard";
 
@@ -24,16 +24,16 @@ const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const MIN_PER_DAY = 24 * 60;
 
-function MonthDayBar({ cell }: { cell: DayCellData }) {
+function MonthDayStrip({ cell }: { cell: DayCellData }) {
   return (
-    <div className="relative hidden sm:block w-full h-3 rounded-sm overflow-hidden bg-muted/30 mt-0.5">
+    <div className="absolute hidden sm:block right-1 top-5 bottom-1 w-1.5 rounded-sm overflow-hidden bg-muted/30">
       {cell.blocks.map((b, i) => (
         <span
           key={`b-${i}`}
-          className="absolute top-0 h-full rounded-[1px] opacity-60"
+          className="absolute left-0 w-full rounded-[1px] opacity-60"
           style={{
-            left: `${(b.seg.startMin / MIN_PER_DAY) * 100}%`,
-            width: `${Math.max(1, ((b.seg.endMin - b.seg.startMin) / MIN_PER_DAY) * 100)}%`,
+            top: `${(b.seg.startMin / MIN_PER_DAY) * 100}%`,
+            height: `max(2px, ${((b.seg.endMin - b.seg.startMin) / MIN_PER_DAY) * 100}%)`,
             backgroundColor: b.color,
           }}
         />
@@ -41,10 +41,10 @@ function MonthDayBar({ cell }: { cell: DayCellData }) {
       {cell.logs.map((l, i) => (
         <span
           key={`l-${i}`}
-          className="absolute top-0 h-full rounded-[1px]"
+          className="absolute left-0 w-full rounded-[1px] opacity-80"
           style={{
-            left: `${(l.seg.startMin / MIN_PER_DAY) * 100}%`,
-            width: `${Math.max(1, ((l.seg.endMin - l.seg.startMin) / MIN_PER_DAY) * 100)}%`,
+            top: `${(l.seg.startMin / MIN_PER_DAY) * 100}%`,
+            height: `max(2px, ${((l.seg.endMin - l.seg.startMin) / MIN_PER_DAY) * 100}%)`,
             backgroundColor: l.color,
           }}
         />
@@ -84,22 +84,6 @@ export default function MonthPage() {
     return arr;
   }, [leading, lastDay, year, month0]);
 
-  const perDay = useMemo(() => {
-    const m: Record<string, { productive: number; unproductive: number; total: number }> = {};
-    for (const cell of dayCells) {
-      let prod = 0, unprod = 0;
-      for (const l of cell.logs) {
-        const dur = l.seg.endMin - l.seg.startMin;
-        if (l.type === "unproductive") unprod += dur;
-        else prod += dur;
-      }
-      if (prod + unprod > 0) {
-        m[cell.iso] = { productive: prod, unproductive: unprod, total: prod + unprod };
-      }
-    }
-    return m;
-  }, [dayCells]);
-
   // Fallback total from raw log durations for stat cards (covers overnight wrapping)
   const logTotals = useMemo(() => {
     const m: Record<string, number> = {};
@@ -115,10 +99,6 @@ export default function MonthPage() {
   const monthTotal = useMemo(
     () => Object.values(logTotals).reduce((s, v) => s + v, 0),
     [logTotals]
-  );
-  const monthProd = useMemo(
-    () => Object.values(perDay).reduce((s, d) => s + d.productive, 0),
-    [perDay]
   );
   const daysLogged = useMemo(
     () => Object.values(logTotals).filter((v) => v > 0).length,
@@ -151,9 +131,8 @@ export default function MonthPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 mb-5">
         <StatCard label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
-        <StatCard label="Productive" value={fmtDuration(monthProd)} tone="accent" />
         <StatCard label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
       </div>
 
@@ -206,16 +185,14 @@ export default function MonthPage() {
                     </span>
                   )}
                 </div>
-                {cell && <MonthDayBar cell={cell} />}
+                {cell && <MonthDayStrip cell={cell} />}
               </Link>
             );
           })}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-          <span className="ml-auto">Tap a cell to open that day</span>
+        <div className="mt-4 text-right text-[10px] uppercase tracking-wider text-muted-foreground">
+          Tap a cell to open that day
         </div>
       </div>
     </>

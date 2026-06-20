@@ -6,6 +6,8 @@ type EditorMock = {
   getJSON: ReturnType<typeof vi.fn>;
   commands: { setContent: ReturnType<typeof vi.fn> };
   isEmpty: boolean;
+  isActive: ReturnType<typeof vi.fn>;
+  chain: ReturnType<typeof vi.fn>;
   _opts?: { onUpdate?: (arg: { editor: EditorMock }) => void };
 };
 
@@ -14,6 +16,8 @@ vi.mock("@tiptap/react", () => {
     getJSON: vi.fn(() => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "hello" }] }] })),
     commands: { setContent: vi.fn() },
     isEmpty: false,
+    isActive: vi.fn(() => false),
+    chain: vi.fn(() => ({ focus: () => ({ toggleBold: () => ({ run: vi.fn() }), toggleItalic: () => ({ run: vi.fn() }), toggleHeading: () => ({ run: vi.fn() }), toggleBulletList: () => ({ run: vi.fn() }), toggleOrderedList: () => ({ run: vi.fn() }) }) })),
   };
   return {
     useEditor: vi.fn((opts: EditorMock["_opts"]) => {

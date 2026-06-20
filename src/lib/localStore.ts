@@ -51,6 +51,7 @@ export type LocalTimeLog = {
   type: "productive" | "unproductive";
   title?: string | null;
   notes: string | null;
+  note_json?: object | null;
   created_at: string;
 };
 
@@ -346,6 +347,7 @@ export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_t
     type: input.type,
     title: input.title ?? null,
     notes: input.notes ?? null,
+    note_json: input.note_json ?? null,
     created_at: new Date().toISOString(),
   };
   const month = monthKey(input.date);
@@ -558,4 +560,64 @@ export function clearGuestData() {
   }
   toRemove.forEach((k) => localStorage.removeItem(k));
   window.dispatchEvent(new CustomEvent("freeslot:guest-change", { detail: { key: "*" } }));
+}
+
+// ---------- Recurring notes ----------
+
+const RECURRING_NOTE_PREFIX = `${PREFIX}.recurring_notes.`;
+const RECURRING_NOTE_COLLAPSED_KEY = `${PREFIX}.ui.recurring_note_collapsed`;
+
+export function getGuestRecurringNote(date: string): LocalDailyNote | null {
+  return read<LocalDailyNote | null>(`${RECURRING_NOTE_PREFIX}${date}`, null);
+}
+
+export function upsertGuestRecurringNote(date: string, content: object): LocalDailyNote {
+  const now = new Date().toISOString();
+  const note: LocalDailyNote = { user_id: "guest", date, content, updated_at: now };
+  write(`${RECURRING_NOTE_PREFIX}${date}`, note);
+  return note;
+}
+
+export function findMostRecentRecurringNote(beforeDate: string): LocalDailyNote | null {
+  for (let i = 1; i <= 30; i++) {
+    const d = new Date(beforeDate);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const note = getGuestRecurringNote(iso);
+    if (note) return note;
+  }
+  return null;
+}
+
+export function getRecurringNoteCollapseState(): boolean {
+  return read<boolean>(RECURRING_NOTE_COLLAPSED_KEY, true);
+}
+
+export function setRecurringNoteCollapseState(collapsed: boolean): void {
+  write(RECURRING_NOTE_COLLAPSED_KEY, collapsed);
+}
+
+// ---------- Dashboard card visibility ----------
+export type DashboardVisibleCards = {
+  perDay: boolean;
+  byCategory: boolean;
+  planVsLogged: boolean;
+  agenda: boolean;
+};
+
+const DASHBOARD_VISIBLE_CARDS_KEY = `${PREFIX}.dashboard.visible_cards`;
+
+const DEFAULT_VISIBLE_CARDS: DashboardVisibleCards = {
+  perDay: true,
+  byCategory: true,
+  planVsLogged: true,
+  agenda: true,
+};
+
+export function getDashboardVisibleCards(): DashboardVisibleCards {
+  return read<DashboardVisibleCards>(DASHBOARD_VISIBLE_CARDS_KEY, DEFAULT_VISIBLE_CARDS);
+}
+
+export function setDashboardVisibleCards(cards: DashboardVisibleCards): void {
+  write(DASHBOARD_VISIBLE_CARDS_KEY, cards);
 }

@@ -72,6 +72,7 @@ export function createMockResourcesProvider(
       get: vi.fn().mockResolvedValue(null),
       upsert: vi.fn().mockResolvedValue(undefined),
       listForWeek: vi.fn().mockResolvedValue([]),
+      listDates: vi.fn().mockResolvedValue([]),
       insertMany: vi.fn().mockResolvedValue(undefined),
       ...overrides.dailyNotes,
     },

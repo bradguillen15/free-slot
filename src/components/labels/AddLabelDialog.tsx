@@ -16,7 +16,6 @@ import { addLabelSchema, type AddLabelValues } from "./addLabelSchema";
 
 type Props = {
   open: boolean;
-  type: "productive" | "unproductive";
   /** Seed color for a fresh label (cycled palette from the caller). */
   defaultColor: string;
   onOpenChange: (open: boolean) => void;
@@ -24,7 +23,7 @@ type Props = {
   onSave: (values: AddLabelValues) => Promise<boolean>;
 };
 
-export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave }: Props) {
+export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Props) {
   const { t } = useTranslation();
 
   // Build the schema with a translated "required" message; the rest are static.
@@ -35,17 +34,15 @@ export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave 
 
   const form = useForm<AddLabelValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", color: defaultColor, type },
+    defaultValues: { name: "", color: defaultColor, type: "productive" },
   });
 
-  // Re-seed when the dialog (re)opens for a given type/color.
+  // Re-seed when the dialog (re)opens.
   useEffect(() => {
-    if (open) form.reset({ name: "", color: defaultColor, type });
-  }, [open, defaultColor, type, form]);
+    if (open) form.reset({ name: "", color: defaultColor, type: "productive" });
+  }, [open, defaultColor, form]);
 
-  const title = type === "productive"
-    ? t("labels.addModalTitleProductive")
-    : t("labels.addModalTitleUnproductive");
+  const title = t("labels.addModalTitle");
 
   const onSubmit = async (values: AddLabelValues) => {
     const ok = await onSave(values);

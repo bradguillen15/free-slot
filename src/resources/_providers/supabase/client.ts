@@ -288,7 +288,7 @@ export function createSupabaseProvider(): ResourcesProvider {
       },
 
       async insertMany(userId, items) {
-        const rows = items.map((l) => ({ ...l, user_id: userId }));
+        const rows = items.map(({ note_json: _n, ...l }) => ({ ...l, user_id: userId }));
         const { data, error } = await supabase.from("time_logs").insert(rows).select();
         if (error) throw new Error(error.message);
         return (data ?? []).map((r) => mapTimeLog(r as Record<string, unknown>));
@@ -433,6 +433,16 @@ export function createSupabaseProvider(): ResourcesProvider {
           .lte("date", endISO);
         if (error) throw new Error(error.message);
         return (data ?? []).map((r: Record<string, unknown>) => mapDailyNote(r));
+      },
+
+      async listDates(_userId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("daily_notes")
+          .select("date")
+          .order("date", { ascending: false });
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r: { date: string }) => r.date);
       },
 
       async insertMany(_userId, rows) {

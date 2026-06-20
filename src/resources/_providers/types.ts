@@ -95,6 +95,7 @@ export interface ResourcesProvider {
     get(userId: string, date: string): Promise<LocalDailyNote | null>;
     upsert(userId: string, date: string, content: object): Promise<void>;
     listForWeek(userId: string, startISO: string, endISO: string): Promise<LocalDailyNote[]>;
+    listDates(userId: string): Promise<string[]>;
     insertMany(userId: string, rows: LocalDailyNote[]): Promise<void>;
   };
   inboxItems: {

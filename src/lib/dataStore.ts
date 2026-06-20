@@ -13,6 +13,7 @@ import {
   deleteScheduleBlock as localDeleteScheduleBlock,
   ensureBootstrap,
   getGuestDailyNote,
+  listAllGuestDailyNotes,
   getGuestInboxItems,
   getProfile as localGetProfile,
   insertLog as localInsertLog,
@@ -377,6 +378,7 @@ export async function insertTimeLog(
     type: "productive" | "unproductive";
     title?: string | null;
     notes?: string | null;
+    note_json?: object | null;
   },
 ) {
   let result: unknown;
@@ -409,6 +411,7 @@ export async function updateTimeLog(
     type: "productive" | "unproductive";
     title?: string | null;
     notes?: string | null;
+    note_json?: object | null;
     date?: string;
   },
 ) {
@@ -633,6 +636,23 @@ export function useUpsertDailyNote() {
       queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNotesForWeek", mode, userId] });
     },
   });
+}
+
+export function useAllDailyNoteDates(): string[] {
+  const { mode, userId } = useAuthScope();
+  const { data } = useQuery<string[]>({
+    queryKey: queryKeys.allDailyNoteDates(mode, userId),
+    queryFn: () =>
+      mode === "guest"
+        ? Promise.resolve(
+            listAllGuestDailyNotes()
+              .map((n) => n.date)
+              .sort((a, b) => b.localeCompare(a))
+          )
+        : resources.dailyNotes.listDates(userId!),
+    staleTime: 30_000,
+  });
+  return data ?? [];
 }
 
 // ---------- Inbox items ----------

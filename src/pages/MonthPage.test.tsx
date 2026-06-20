@@ -63,7 +63,7 @@ describe("MonthPage", () => {
     expect(todayCell.closest("[class*='ring']") || todayCell.closest("[class]")).toBeTruthy();
   });
 
-  it("renders a colored log segment in the mini-bar", () => {
+  it("renders a colored log segment in the vertical strip", () => {
     vi.mocked(useCalendarDays).mockReturnValue([
       buildCell("2026-06-10", {
         logs: [{
@@ -77,14 +77,36 @@ describe("MonthPage", () => {
       }),
     ]);
     renderMonth();
-    // The mini-bar (hidden sm:block) should contain a positioned span for the log
-    const miniBar = document.querySelector(".hidden.sm\\:block, [class*='hidden'][class*='sm:block']");
-    expect(miniBar).toBeTruthy();
-    const segments = miniBar!.querySelectorAll("span[style]");
+    // The vertical strip (hidden sm:block) should contain a positioned span for the log
+    const strip = document.querySelector(".hidden.sm\\:block, [class*='hidden'][class*='sm:block']");
+    expect(strip).toBeTruthy();
+    const segments = strip!.querySelectorAll("span[style]");
     expect(segments.length).toBeGreaterThan(0);
   });
 
-  it("does not count categorized unproductive logs as productive by color", () => {
+  it("vertical strip segment top position reflects time of day", () => {
+    // A log from 12:00–13:00 is 720 min into the day — should be ~50% top
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 720, endMin: 780 },
+          name: "Lunch",
+          color: "#f59e0b",
+          type: "productive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
+    renderMonth();
+    const strip = document.querySelector(".hidden.sm\\:block, [class*='hidden'][class*='sm:block']");
+    expect(strip).toBeTruthy();
+    const segment = strip!.querySelector("span[style]") as HTMLElement | null;
+    expect(segment).toBeTruthy();
+    expect(segment!.style.top).toBe("50%");
+  });
+
+  it("counts a logged session toward total tracked time", () => {
     vi.mocked(useCalendarDays).mockReturnValue([
       buildCell("2026-06-10", {
         logs: [{
@@ -98,10 +120,10 @@ describe("MonthPage", () => {
       }),
     ]);
     renderMonth();
-    expect(screen.getByText("Productive").parentElement).toHaveTextContent("0m");
+    expect(screen.getByText("Total logged").parentElement).toHaveTextContent("1h");
   });
 
-  it("renders a colored block segment in the mini-bar", () => {
+  it("renders a colored block segment in the vertical strip", () => {
     vi.mocked(useCalendarDays).mockReturnValue([
       buildCell("2026-06-10", {
         blocks: [{
@@ -113,9 +135,9 @@ describe("MonthPage", () => {
       }),
     ]);
     renderMonth();
-    const miniBar = document.querySelector(".hidden.sm\\:block, [class*='hidden'][class*='sm:block']");
-    expect(miniBar).toBeTruthy();
-    const segments = miniBar!.querySelectorAll("span[style]");
+    const strip = document.querySelector(".hidden.sm\\:block, [class*='hidden'][class*='sm:block']");
+    expect(strip).toBeTruthy();
+    const segments = strip!.querySelectorAll("span[style]");
     expect(segments.length).toBeGreaterThan(0);
   });
 
@@ -134,10 +156,10 @@ describe("MonthPage", () => {
     expect(link).toHaveAttribute("href", "/app?date=2026-06-10");
   });
 
-  it("the mini-bar container has the sm:block hidden classes (hidden on mobile)", () => {
+  it("the vertical strip container has the sm:block hidden classes (hidden on mobile)", () => {
     vi.mocked(useCalendarDays).mockReturnValue([buildCell("2026-06-10")]);
     renderMonth();
-    const miniBar = document.querySelector(".sm\\:block.hidden, [class*='sm:block'][class*='hidden']");
-    expect(miniBar).toBeTruthy();
+    const strip = document.querySelector(".sm\\:block.hidden, [class*='sm:block'][class*='hidden']");
+    expect(strip).toBeTruthy();
   });
 });

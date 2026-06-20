@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { StickyNote } from "lucide-react";
 import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { computeLaneLayout, segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
@@ -25,6 +26,7 @@ export type TimeLog = {
   end_time: string;
   title?: string | null;
   notes: string | null;
+  note_json?: object | null;
 };
 
 const PX_PER_HOUR = 56;
@@ -413,12 +415,16 @@ function LogBar({
       title={draggable ? "Drag to reschedule · click to edit" : undefined}
     >
       {compact ? (
-        <div className="truncate text-[10px] leading-none">
+        <div className="truncate text-[10px] leading-none flex items-center gap-1">
           {name} · {fmtDuration(seg.endMin - seg.startMin)}
+          {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
         </div>
       ) : (
         <>
-          <div className="truncate">{name}</div>
+          <div className="truncate flex items-center gap-1">
+            {name}
+            {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
+          </div>
           <div className="text-[9px] uppercase tracking-wider opacity-80 font-mono-num">
             {fmtDuration(seg.endMin - seg.startMin)}
           </div>

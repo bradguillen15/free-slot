@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, Sparkles, Zap, CalendarRange, Lock, Inbox } from "lucide-react";
+import { CalendarDays, Sparkles, CalendarRange, Lock, Inbox } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
@@ -136,11 +136,6 @@ export default function WeekPage() {
     () => dayCells.reduce((s, d) => s + d.totalFree, 0),
     [dayCells]
   );
-  const peakFree = useMemo(
-    () => dayCells.reduce((s, d) => s + d.gaps.filter((g) => g.isPeak).reduce((a, g) => a + g.durationMin, 0), 0),
-    [dayCells]
-  );
-
   const openQuickLog = () => {
     // Default a new log to today when today is in the displayed week, else the week's first day.
     const inWeek = today >= weekStart && today <= addDaysISO(weekStart, 6);
@@ -249,9 +244,8 @@ export default function WeekPage() {
 
       <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} onAddBlock={openAddBlock} onLogSleep={openSleepLog} />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-2 gap-3 mb-5">
         <StatCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
-        <StatCard icon={<Zap className="h-4 w-4" />} label="Peak-hour free" value={fmtDuration(peakFree)} tone="accent" />
         <StatCard icon={<CalendarDays className="h-4 w-4" />} label="Avg per day" value={fmtDuration(Math.round(totalWeekFree / 7))} tone="muted" />
       </div>
 
@@ -295,7 +289,6 @@ export default function WeekPage() {
         <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-dashed border-primary/60 bg-primary/10" /> Free / peak</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
           <span className="ml-auto flex items-center gap-3">
             <span className="hidden lg:inline">Click a block or log to edit</span>

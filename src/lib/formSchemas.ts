@@ -18,13 +18,8 @@ export const hexColor = z
 
 export const labelType = z.enum(["productive", "unproductive"]);
 
-/**
- * Planner preferences — shared by SettingsPage ("Planner preferences") and
- * Onboarding step 3. `peakStart`/`peakEnd` map to `peak_hours.{start,end}`.
- */
+/** Planner preferences — shared by SettingsPage and Onboarding step 3. */
 export const plannerPrefsSchema = z.object({
-  peakStart: timeString,
-  peakEnd: timeString,
   includeWeekends: z.boolean(),
   weeklyReviewDay: z.number().int().min(0).max(6),
 });

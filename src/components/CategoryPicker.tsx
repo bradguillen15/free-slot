@@ -52,14 +52,12 @@ export function CategoryPicker({
     return () => el.removeEventListener("wheel", onWheel);
   }, [open]);
 
-  const productive = categories.filter((c) => c.type === "productive");
-  const unproductive = categories.filter((c) => c.type === "unproductive");
   const trimmed = query.trim();
   const exactMatch = categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase());
 
-  const create = async (type: "productive" | "unproductive") => {
+  const create = async () => {
     if (!onCreate || !trimmed) return;
-    const created = await onCreate(trimmed, type);
+    const created = await onCreate(trimmed, "productive");
     if (created) {
       onChange(created.id);
       setQuery("");
@@ -92,14 +90,14 @@ export function CategoryPicker({
               {selected.name}
             </span>
           ) : (
-            <span className="text-muted-foreground">Pick a label…</span>
+            <span className="text-muted-foreground">Pick a label&hellip;</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="z-[60] w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search or create…" value={query} onValueChange={setQuery} />
+          <CommandInput placeholder="Search or create&hellip;" value={query} onValueChange={setQuery} />
           <CommandList ref={listRef} className="overscroll-contain">
             <CommandEmpty>{onCreate ? "No label found — create it below." : "No label found."}</CommandEmpty>
             {allowNone && (
@@ -111,21 +109,14 @@ export function CategoryPicker({
                 </CommandItem>
               </CommandGroup>
             )}
-            {productive.length > 0 && (
-              <CommandGroup heading="Productive">{productive.map(item)}</CommandGroup>
-            )}
-            {unproductive.length > 0 && (
-              <CommandGroup heading="Unproductive">{unproductive.map(item)}</CommandGroup>
+            {categories.length > 0 && (
+              <CommandGroup>{categories.map(item)}</CommandGroup>
             )}
             {onCreate && trimmed && !exactMatch && (
               <CommandGroup heading="New label">
-                <CommandItem value={`__create_p_${trimmed}`} onSelect={() => create("productive")}>
+                <CommandItem value={`__create_${trimmed}`} onSelect={() => create()}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create “{trimmed}” <span className="ml-1 text-xs text-muted-foreground">· productive</span>
-                </CommandItem>
-                <CommandItem value={`__create_u_${trimmed}`} onSelect={() => create("unproductive")}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create “{trimmed}” <span className="ml-1 text-xs text-muted-foreground">· unproductive</span>
+                  {`Create "${trimmed}"`}
                 </CommandItem>
               </CommandGroup>
             )}

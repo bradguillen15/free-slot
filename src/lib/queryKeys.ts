@@ -27,6 +27,8 @@ export const queryKeys = {
     ["freeslot", "dailyNotesForWeek", mode, userId, startISO, endISO] as const,
   inboxItems: (mode: Mode, userId: string | null) =>
     ["freeslot", "inboxItems", mode, userId] as const,
+  allDailyNoteDates: (mode: Mode, userId: string | null) =>
+    ["freeslot", "allDailyNoteDates", mode, userId] as const,
 };
 
 export function isGuestQueryKey(key: readonly unknown[]): boolean {
