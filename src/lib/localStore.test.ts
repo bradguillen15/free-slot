@@ -15,8 +15,10 @@ import {
   listLogsInRange,
   listPriorities,
   listScheduleBlocks,
+  reorderCategories,
   reorderScheduleBlocks,
   setPriorities,
+  upsertCategory,
   updateLog,
   updateProfile,
   upsertActivity,
@@ -125,6 +127,14 @@ describe("activity / block upserts", () => {
     const c = upsertScheduleBlock({ name: "C", start_time: "11:00", end_time: "12:00", days_of_week: [1] });
     reorderScheduleBlocks([c.id, a.id, b.id]);
     expect(listScheduleBlocks().map((x) => x.name)).toEqual(["C", "A", "B"]);
+  });
+
+  it("reorders categories by id list, ignoring unknown ids and trailing missing ones", () => {
+    const a = upsertCategory({ name: "A", type: "productive" });
+    const b = upsertCategory({ name: "B", type: "productive" });
+    const c = upsertCategory({ name: "C", type: "essential" });
+    reorderCategories([c.id, a.id, "does-not-exist"]);
+    expect(listCategories().map((x) => x.name)).toEqual(["C", "A", "B"]);
   });
 });
 

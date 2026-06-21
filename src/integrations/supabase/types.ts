@@ -80,6 +80,7 @@ export type Database = {
           id: string
           is_default: boolean
           name: string
+          sort_order: number
           type: Database["public"]["Enums"]["category_type"]
           user_id: string
         }
@@ -90,6 +91,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name: string
+          sort_order?: number
           type: Database["public"]["Enums"]["category_type"]
           user_id: string
         }
@@ -100,6 +102,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
+          sort_order?: number
           type?: Database["public"]["Enums"]["category_type"]
           user_id?: string
         }

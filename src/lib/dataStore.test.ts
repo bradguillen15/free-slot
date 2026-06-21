@@ -279,6 +279,8 @@ describe("mutations — remaining happy paths (both modes)", () => {
     expect(filterVisibleCategories(listCategories()).some((c) => c.id === deep.id)).toBe(false);
 
     // Cloud: insert + update branches resolve; errors propagate.
+    // Insert path first queries the current max sort_order, then inserts.
+    queueTableResult("categories", { data: [{ sort_order: 1 }] });
     queueTableResult("categories", { data: { id: "c9", name: "Snacks" } });
     const cloud = await upsertCategory("cloud", "u1", { name: "Snacks", type: "unproductive" });
     expect((cloud as { id: string }).id).toBe("c9");

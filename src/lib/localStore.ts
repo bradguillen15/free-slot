@@ -219,6 +219,24 @@ export function deleteCategory(id: string) {
   write(`${PREFIX}.categories`, listCategories().filter((c) => c.id !== id));
 }
 
+/** Reorder categories to match `orderedIds` (unknown ids are ignored; missing ids trail). */
+export function reorderCategories(orderedIds: string[]) {
+  const byId = new Map(listCategories().map((c) => [c.id, c]));
+  const seen = new Set<string>();
+  const next: LocalCategory[] = [];
+  for (const id of orderedIds) {
+    const cat = byId.get(id);
+    if (cat) {
+      next.push(cat);
+      seen.add(id);
+    }
+  }
+  for (const cat of byId.values()) {
+    if (!seen.has(cat.id)) next.push(cat);
+  }
+  write(`${PREFIX}.categories`, next);
+}
+
 // ---------- Activities ----------
 export function listActivities(): LocalActivity[] {
   return readArray<LocalActivity>(`${PREFIX}.activities`);

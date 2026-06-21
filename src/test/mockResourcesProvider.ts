@@ -23,6 +23,7 @@ export function createMockResourcesProvider(
       list: vi.fn().mockResolvedValue([]),
       upsert: vi.fn().mockResolvedValue(stub),
       delete: vi.fn().mockResolvedValue(undefined),
+      reorder: vi.fn().mockResolvedValue(undefined),
       insertMany: vi.fn().mockResolvedValue([]),
       ...overrides.categories,
     },

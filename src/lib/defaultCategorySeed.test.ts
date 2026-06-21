@@ -6,7 +6,7 @@ import { DEFAULT_CATEGORY_SEED } from "./localStore";
 const MIGRATIONS_DIR = resolve(__dirname, "../../supabase/migrations");
 
 const SIGNUP_INSERT =
-  /INSERT INTO public\.categories \(user_id, name, type, color, is_default, hidden\) VALUES\s*\(\s*NEW\.id,[\s\S]*?;/;
+  /INSERT INTO public\.categories \(user_id, name, type, color, is_default, hidden, sort_order\) VALUES\s*\(\s*NEW\.id,[\s\S]*?;/;
 
 /**
  * Resolve the latest migration that (re)defines handle_new_user() with a category
@@ -25,15 +25,15 @@ function latestSignupMigration(): string {
   throw new Error("No migration defines handle_new_user() with a category seed INSERT");
 }
 
-/** Parse (name, type, color) tuples from the handle_new_user() signup INSERT. */
+/** Parse (name, type, color, sort_order) tuples from the handle_new_user() signup INSERT. */
 function parseCloudSignupDefaults(sql: string) {
   const block = sql.match(SIGNUP_INSERT)?.[0];
   if (!block) throw new Error("Could not find signup category INSERT in migration");
-  const rows: { name: string; type: string; color: string }[] = [];
-  const re = /\(\s*NEW\.id,\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*true,\s*false\s*\)/g;
+  const rows: { name: string; type: string; color: string; sort_order: number }[] = [];
+  const re = /\(\s*NEW\.id,\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*true,\s*false,\s*(\d+)\s*\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(block)) !== null) {
-    rows.push({ name: m[1], type: m[2], color: m[3] });
+    rows.push({ name: m[1], type: m[2], color: m[3], sort_order: Number(m[4]) });
   }
   return rows;
 }
@@ -42,11 +42,13 @@ describe("DEFAULT_CATEGORY_SEED sync", () => {
   it("matches handle_new_user() defaults in the latest migration", () => {
     const cloud = parseCloudSignupDefaults(latestSignupMigration());
     expect(cloud).toHaveLength(DEFAULT_CATEGORY_SEED.length);
-    for (const seed of DEFAULT_CATEGORY_SEED) {
+    DEFAULT_CATEGORY_SEED.forEach((seed, index) => {
       const row = cloud.find((c) => c.name === seed.name);
       expect(row, `missing cloud default for "${seed.name}"`).toBeDefined();
       expect(row!.type).toBe(seed.type);
       expect(row!.color.toLowerCase()).toBe(seed.color.toLowerCase());
-    }
+      // sort_order must match the seed array position so guest and cloud agree on initial order.
+      expect(row!.sort_order).toBe(index);
+    });
   });
 });

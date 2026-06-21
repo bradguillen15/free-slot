@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import type { ResourcesProvider, ActivityInput, CategoryInput, ScheduleBlockInput, TimeLogInput, TimeLogPatch } from "@/resources/_providers/types";
-import { mapActivity, mapCategory, mapDailyNote, mapInboxItem, mapProfile, mapScheduleBlock, mapTimeLog, mapWeeklyPlan, sortScheduleBlocks } from "./mappers";
+import { mapActivity, mapCategory, mapDailyNote, mapInboxItem, mapProfile, mapScheduleBlock, mapTimeLog, mapWeeklyPlan, sortCategories, sortScheduleBlocks } from "./mappers";
 
 export function createSupabaseProvider(): ResourcesProvider {
   return {
@@ -9,11 +9,10 @@ export function createSupabaseProvider(): ResourcesProvider {
       async list(userId) {
         const { data, error } = await supabase
           .from("categories")
-          .select("id,name,color,type,is_default,hidden,created_at")
-          .eq("user_id", userId)
-          .order("name");
+          .select("id,name,color,type,is_default,hidden,created_at,sort_order")
+          .eq("user_id", userId);
         if (error) throw new Error(error.message);
-        return (data ?? []).map((r) => mapCategory(r as Record<string, unknown>));
+        return sortCategories((data ?? []).map((r) => mapCategory(r as Record<string, unknown>)));
       },
 
       async upsert(userId, input: CategoryInput) {
@@ -33,6 +32,14 @@ export function createSupabaseProvider(): ResourcesProvider {
           if (error) throw error;
           return mapCategory(data as Record<string, unknown>);
         }
+        const { data: existing } = await supabase
+          .from("categories")
+          .select("sort_order")
+          .eq("user_id", userId)
+          .order("sort_order", { ascending: false })
+          .limit(1);
+        const nextSort =
+          (((existing?.[0] as { sort_order?: number } | undefined)?.sort_order) ?? -1) + 1;
         const { data, error } = await supabase
           .from("categories")
           .insert({
@@ -41,11 +48,26 @@ export function createSupabaseProvider(): ResourcesProvider {
             color: input.color ?? "#3b82f6",
             type: input.type ?? "productive",
             hidden: input.hidden ?? false,
+            sort_order: nextSort,
           })
           .select()
           .single();
         if (error) throw error;
         return mapCategory(data as Record<string, unknown>);
+      },
+
+      async reorder(userId, orderedIds) {
+        const results = await Promise.all(
+          orderedIds.map((id, i) =>
+            supabase
+              .from("categories")
+              .update({ sort_order: i })
+              .eq("id", id)
+              .eq("user_id", userId)
+          )
+        );
+        const err = results.find((r) => r.error)?.error;
+        if (err) throw new Error(err.message);
       },
 
       async delete(userId, id) {

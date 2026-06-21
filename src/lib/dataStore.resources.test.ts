@@ -27,8 +27,13 @@ import {
   useScheduleBlocks,
   useTimeLogsInRange,
   useProfile,
+  reorderCategories,
 } from "./dataStore";
-import { ensureBootstrap, upsertCategory as localUpsertCategory } from "./localStore";
+import {
+  ensureBootstrap,
+  listCategories,
+  upsertCategory as localUpsertCategory,
+} from "./localStore";
 import { resetSupabaseMock } from "@/test/supabaseMock";
 
 function renderDataHook<T, P = void>(hook: (props: P) => T, initialProps?: P) {
@@ -97,6 +102,14 @@ describe("cloud mode — reads route through resources provider", () => {
     expect(mock.timeLogs.listInRange).toHaveBeenCalledWith("u1", "2024-06-01", "2024-06-07");
   });
 
+  it("reorderCategories calls resources.categories.reorder", async () => {
+    const mock = createMockResourcesProvider();
+    setResourcesProvider(mock);
+
+    await reorderCategories("cloud", "u1", ["c2", "c1"]);
+    expect(mock.categories.reorder).toHaveBeenCalledWith("u1", ["c2", "c1"]);
+  });
+
   it("useProfile calls resources.profiles.get", async () => {
     const profile = { peak_hours: null, include_weekends: false, weekly_review_day: 0, onboarding_completed: true };
     const mock = createMockResourcesProvider({
@@ -124,5 +137,17 @@ describe("guest mode — reads bypass resources and use localStore", () => {
     const { result } = renderDataHook(() => useCategories());
     await waitFor(() => expect(result.current.data.length).toBeGreaterThan(0));
     expect(mock.categories.list).not.toHaveBeenCalled();
+  });
+
+  it("reorderCategories reorders localStore without calling provider", async () => {
+    const a = localUpsertCategory({ name: "Z-A", color: "#f00", type: "productive" });
+    const b = localUpsertCategory({ name: "Z-B", color: "#0f0", type: "productive" });
+    const mock = createMockResourcesProvider();
+    setResourcesProvider(mock);
+
+    await reorderCategories("guest", null, [b.id, a.id]);
+    const names = listCategories().map((c) => c.name);
+    expect(names.indexOf("Z-B")).toBeLessThan(names.indexOf("Z-A"));
+    expect(mock.categories.reorder).not.toHaveBeenCalled();
   });
 });

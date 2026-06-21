@@ -54,6 +54,7 @@ export interface ResourcesProvider {
     list(userId: string): Promise<LocalCategory[]>;
     upsert(userId: string, input: CategoryInput): Promise<LocalCategory>;
     delete(userId: string, id: string): Promise<void>;
+    reorder(userId: string, orderedIds: string[]): Promise<void>;
     insertMany(userId: string, items: Omit<LocalCategory, "id" | "created_at">[]): Promise<LocalCategory[]>;
   };
   activities: {

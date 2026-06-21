@@ -23,6 +23,7 @@ import {
   listLogsInRange,
   listPriorities,
   listScheduleBlocks,
+  reorderCategories as localReorderCategories,
   reorderScheduleBlocks as localReorderScheduleBlocks,
   moveLog as localMoveLog,
   setPriorities,
@@ -520,6 +521,15 @@ export async function deleteCategory(mode: Mode, userId: string | null, id: stri
     await localDeleteCategory(id);
   } else {
     await resources.categories.delete(userId!, id);
+  }
+  invalidateCategories(mode, userId);
+}
+
+export async function reorderCategories(mode: Mode, userId: string | null, orderedIds: string[]) {
+  if (mode === "guest") {
+    localReorderCategories(orderedIds);
+  } else {
+    await resources.categories.reorder(userId!, orderedIds);
   }
   invalidateCategories(mode, userId);
 }

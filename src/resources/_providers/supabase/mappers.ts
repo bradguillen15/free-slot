@@ -62,3 +62,12 @@ export function sortScheduleBlocks(blocks: LocalScheduleBlock[]): LocalScheduleB
     return a.created_at.localeCompare(b.created_at);
   });
 }
+
+export function sortCategories(cats: LocalCategory[]): LocalCategory[] {
+  return [...cats].sort((a, b) => {
+    const ao = (a as unknown as { sort_order?: number }).sort_order ?? 0;
+    const bo = (b as unknown as { sort_order?: number }).sort_order ?? 0;
+    if (ao !== bo) return ao - bo;
+    return a.created_at.localeCompare(b.created_at);
+  });
+}
