@@ -65,7 +65,7 @@ vi.mock("react-i18next", () => ({
 // ── dataStore hooks mock ───────────────────────────────────────────────────
 const mockBlocks = vi.hoisted(() => ({ data: [] as { id: string }[] }));
 const mockActivities = vi.hoisted(() => ({ data: [] as { id: string; is_active: boolean }[] }));
-const mockProfile = vi.hoisted(() => ({ data: null as null | { peak_hours: { start: string; end: string }; include_weekends: boolean; weekly_review_day: number } }));
+const mockProfile = vi.hoisted(() => ({ data: null as null | { include_weekends: boolean; weekly_review_day: number } }));
 const mockUpdateProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/dataStore", () => ({
@@ -166,23 +166,22 @@ describe("Step 2 — embedded activity editor", () => {
 });
 
 describe("Step 3 — preferences pre-population", () => {
-  it("pre-populates peak hours from saved profile", async () => {
-    mockProfile.data = { peak_hours: { start: "08:00", end: "11:00" }, include_weekends: true, weekly_review_day: 0 };
+  it("shows preferences step with include weekends toggle", async () => {
+    mockProfile.data = { include_weekends: false, weekly_review_day: 0 };
     render();
     // Navigate to step 3
     fireEvent.click(screen.getByText("Continue"));
     fireEvent.click(screen.getByText("Continue"));
     await waitFor(() => expect(screen.getByText("A few preferences")).toBeInTheDocument());
-    const inputs = screen.getAllByDisplayValue("08:00");
-    expect(inputs.length).toBeGreaterThan(0);
+    expect(screen.getByRole("switch")).toBeInTheDocument();
   });
 
-  it("uses defaults when profile has no values", async () => {
+  it("renders preferences step when profile has no values", async () => {
     render();
     fireEvent.click(screen.getByText("Continue"));
     fireEvent.click(screen.getByText("Continue"));
     await waitFor(() => expect(screen.getByText("A few preferences")).toBeInTheDocument());
-    expect(screen.getAllByDisplayValue("09:00").length).toBeGreaterThan(0);
+    expect(screen.getByText("Schedule on weekends")).toBeInTheDocument();
   });
 });
 

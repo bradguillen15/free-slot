@@ -1,9 +1,21 @@
 import { test, expect, seedGuest, readGuestTimeLogs } from "./fixtures/guest";
 
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function addDaysISO(iso: string, delta: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
+  const [y, mo, d] = iso.split("-").map(Number);
+  const dt = new Date(y, mo - 1, d);
+  dt.setDate(dt.getDate() + delta);
+  const ry = dt.getFullYear();
+  const rm = String(dt.getMonth() + 1).padStart(2, "0");
+  const rd = String(dt.getDate()).padStart(2, "0");
+  return `${ry}-${rm}-${rd}`;
 }
 
 /**
@@ -17,8 +29,7 @@ test.describe("guest time logging", () => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = addDaysISO(today, -1);
+    const yesterday = addDaysISO(todayISO(), -1);
 
     await page.getByTestId("day-fab").click();
     await page.getByTestId("day-log-time").click();

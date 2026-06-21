@@ -6,9 +6,10 @@ import {
   mapTimeLog,
   mapProfile,
   mapWeeklyPlan,
+  sortCategories,
   sortScheduleBlocks,
 } from "./mappers";
-import type { LocalScheduleBlock } from "@/lib/localStore";
+import type { LocalCategory, LocalScheduleBlock } from "@/lib/localStore";
 
 describe("mapCategory", () => {
   it("sets hidden=false when missing", () => {
@@ -84,5 +85,21 @@ describe("sortScheduleBlocks", () => {
     const original = [...blocks];
     sortScheduleBlocks(blocks);
     expect(blocks).toEqual(original);
+  });
+});
+
+describe("sortCategories", () => {
+  it("sorts by sort_order ascending, then created_at", () => {
+    const c1 = { id: "c1", sort_order: 2, created_at: "2024-01-01" } as unknown as LocalCategory;
+    const c2 = { id: "c2", sort_order: 0, created_at: "2024-01-02" } as unknown as LocalCategory;
+    const c3 = { id: "c3", sort_order: 0, created_at: "2024-01-01" } as unknown as LocalCategory;
+    expect(sortCategories([c1, c2, c3]).map((c) => c.id)).toEqual(["c3", "c2", "c1"]);
+  });
+
+  it("does not mutate the original array", () => {
+    const cats = [{ id: "c1", sort_order: 1, created_at: "2024-01-01" } as unknown as LocalCategory];
+    const original = [...cats];
+    sortCategories(cats);
+    expect(cats).toEqual(original);
   });
 });

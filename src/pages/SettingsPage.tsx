@@ -37,16 +37,13 @@ export default function SettingsPage() {
 
   const form = useForm<PlannerPrefsValues>({
     resolver: zodResolver(plannerPrefsSchema),
-    defaultValues: { peakStart: "09:00", peakEnd: "12:00", includeWeekends: true, weeklyReviewDay: 0 },
+    defaultValues: { includeWeekends: true, weeklyReviewDay: 0 },
   });
 
   // Hydrate from the loaded profile; don't clobber unsaved edits on refetch.
   useEffect(() => {
     if (!profileRaw || form.formState.isDirty) return;
-    const peak = (profileRaw.peak_hours as { start: string; end: string } | null) ?? { start: "09:00", end: "12:00" };
     form.reset({
-      peakStart: peak.start ?? "09:00",
-      peakEnd: peak.end ?? "12:00",
       includeWeekends: profileRaw.include_weekends ?? true,
       weeklyReviewDay: profileRaw.weekly_review_day ?? 0,
     });
@@ -64,7 +61,6 @@ export default function SettingsPage() {
     if (mode === "cloud" && !user) return;
     try {
       await updateProfile(mode, user?.id ?? null, {
-        peak_hours: { start: values.peakStart, end: values.peakEnd },
         include_weekends: values.includeWeekends,
         weekly_review_day: values.weeklyReviewDay,
       });
@@ -145,33 +141,6 @@ export default function SettingsPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(saveProfile)} className="space-y-6" noValidate>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="peakStart"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <Label>Peak hours start</Label>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="peakEnd"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <Label>Peak hours end</Label>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div>
                   <Label className="text-base">Include weekends</Label>

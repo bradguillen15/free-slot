@@ -7,6 +7,8 @@
 // already in the cloud, so retrying after a partial failure does not duplicate data.
 import { resources } from "@/resources";
 import {
+  listAllGuestDailyNotes,
+  getGuestInboxItems,
   snapshot, clearGuestData, hasGuestData,
 } from "@/lib/localStore";
 
@@ -170,6 +172,36 @@ export async function migrateGuestToCloud(userId: string) {
     for (const [weekStart, items] of byWeek) {
       const upserted = await resources.weeklyPriorities.upsertMany(userId, weekStart, items);
       prioritiesCount += upserted.length;
+    }
+  }
+
+  // 7. Daily notes — dedupe by date for retry safety (one note per day).
+  const guestNotes = listAllGuestDailyNotes();
+  if (guestNotes.length) {
+    const existingNoteDates = new Set(await resources.dailyNotes.listDates(userId));
+    const rows = guestNotes.filter((n) => !existingNoteDates.has(n.date));
+    if (rows.length) {
+      await resources.dailyNotes.insertMany(userId, rows);
+    }
+  }
+
+  // 8. Inbox items — dedupe on (content, created_at) for retry safety. The cloud
+  // list only returns active items, so a retry after a guest item was archived
+  // cloud-side could re-insert it; acceptable for this one-shot migration.
+  const guestInbox = getGuestInboxItems();
+  if (guestInbox.length) {
+    const inboxKey = (i: { content: string; created_at: string }) => `${i.content}|${i.created_at}`;
+    const existingInboxKeys = new Set((await resources.inboxItems.list(userId)).map(inboxKey));
+    const rows = guestInbox
+      .filter((i) => !existingInboxKeys.has(inboxKey(i)))
+      .map((i) => ({
+        user_id: userId,
+        content: i.content,
+        created_at: i.created_at,
+        archived_at: i.archived_at,
+      }));
+    if (rows.length) {
+      await resources.inboxItems.insertMany(userId, rows);
     }
   }
 

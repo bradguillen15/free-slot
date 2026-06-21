@@ -43,7 +43,6 @@ describe("SettingsPage planner preferences", () => {
 
     await waitFor(() =>
       expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", {
-        peak_hours: { start: "08:00", end: "11:00" },
         include_weekends: false,
         weekly_review_day: 2,
       }),

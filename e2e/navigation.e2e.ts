@@ -37,6 +37,7 @@ test.describe("guest navigation", () => {
     await visit("week", /\/app\/week/, "page-week");
     await visit("month", /\/app\/month/, "page-month");
     await visit("schedule", /\/app\/schedule/, "page-schedule");
+    await visit("notes", /\/app\/notes/, "page-notes");
     await visit("labels", /\/app\/labels/, "page-labels");
     await visit("dashboard", /\/app\/dashboard/, "page-dashboard");
     await visit("activities", /\/app\/activities/, "page-activities");

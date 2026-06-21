@@ -7,7 +7,6 @@ import { AddLabelDialog } from "./AddLabelDialog";
 
 const baseProps = {
   open: true,
-  type: "productive" as const,
   defaultColor: "#3b82f6",
   onOpenChange: vi.fn(),
   onSave: vi.fn(),

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Loader2, Wand2, Trash2, Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { fmtDuration, toMin } from "@/lib/time";
+import { addDaysISO, fmtDuration, toMin } from "@/lib/time";
 import {
   useWeeklyPlan,
   useWeeklyPriorities,
@@ -13,8 +13,11 @@ import {
   useDeleteWeeklyPlanMutation,
   insertTimeLog,
   invalidateTimeLogs,
+  useDailyNotesForWeek,
+  useInboxItems,
 } from "@/lib/dataStore";
 import { resources } from "@/resources";
+import { tiptapToText } from "@/lib/tiptapText";
 
 export type AISlot = {
   activity_id: string;
@@ -33,7 +36,7 @@ export type WeeklyPlan = {
 };
 
 export type ActivityLite = { id: string; name: string; category_id: string | null };
-type CategoryLite = { id: string; name: string; color: string; type: "productive" | "unproductive" };
+type CategoryLite = { id: string; name: string; color: string; type: "productive" | "unproductive" | "essential" };
 
 function slotKey(s: AISlot) {
   return `${s.day}|${s.start}|${s.end}|${s.activity_id}`;
@@ -55,10 +58,26 @@ export function AIPlanPanel({
   onSlotAccepted: () => void;
 }) {
   const { user } = useAuth();
+  const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
   const { data: planData } = useWeeklyPlan(weekStart);
   const { data: priorities } = useWeeklyPriorities(weekStart);
+  const { data: rawDailyNotes } = useDailyNotesForWeek(weekStart, weekEnd);
+  const { data: rawInboxItems } = useInboxItems();
   const generateMutation = useGenerateWeeklyPlanMutation();
   const deleteMutation = useDeleteWeeklyPlanMutation();
+
+  const dailyNotes = useMemo(
+    () =>
+      (rawDailyNotes ?? [])
+        .map((n) => ({ date: n.date, text: tiptapToText(n.content as object) }))
+        .filter((n) => n.text.length > 0),
+    [rawDailyNotes]
+  );
+
+  const inboxItems = useMemo(
+    () => (rawInboxItems ?? []).map((i) => i.content),
+    [rawInboxItems]
+  );
 
   const [summary, setSummary] = useState<string>("");
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
@@ -102,6 +121,8 @@ export function AIPlanPanel({
           is_active: true,
         })),
         priorities,
+        daily_notes: dailyNotes.length ? dailyNotes : undefined,
+        inbox_items: inboxItems.length ? inboxItems : undefined,
       });
 
       if ((data as unknown as Record<string, unknown>)?.error) {
@@ -143,7 +164,7 @@ export function AIPlanPanel({
 
     const activity = activities.find((a) => a.id === slot.activity_id);
     const category = activity?.category_id ? categories.find((c) => c.id === activity.category_id) : undefined;
-    const type: "productive" | "unproductive" = category?.type ?? "productive";
+    const type: "productive" | "unproductive" | "essential" = category?.type ?? "productive";
 
     try {
       await insertTimeLog("cloud", user.id, {
@@ -178,7 +199,7 @@ export function AIPlanPanel({
         date: slot.day,
         start_time: slot.start,
         end_time: slot.end,
-        type: (category?.type ?? "productive") as "productive" | "unproductive",
+        type: (category?.type ?? "productive") as "productive" | "unproductive" | "essential",
         category_id: category?.id ?? null,
         title: slot.activity_name,
         notes: "Accepted from AI plan",

@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { StickyNote } from "lucide-react";
 import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
+import { computeLaneLayout, segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
 import type { Category } from "./QuickLogDialog";
 
 export type ScheduleBlock = {
@@ -20,11 +21,12 @@ export type TimeLog = {
   id: string;
   date?: string;
   category_id: string | null;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   start_time: string;
   end_time: string;
   title?: string | null;
   notes: string | null;
+  note_json?: object | null;
 };
 
 const PX_PER_HOUR = 56;
@@ -58,6 +60,23 @@ export function DayTimeline({
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
     [categories]
   );
+
+  // Compute collision lane layout across all rendered segments (blocks + logs).
+  const laneMap = useMemo(() => {
+    const items: { startMin: number; endMin: number; id: string }[] = [];
+    blocks.forEach((b) => {
+      visibleBlockSegments(b, logs, date).forEach((seg, i) => {
+        items.push({ startMin: seg.startMin, endMin: seg.endMin, id: `b-${b.id}-${i}` });
+      });
+    });
+    logs.forEach((l) => {
+      const segs = date ? segmentsForLogOnDay(l, date) : segmentsForLogOnDay(l, l.date ?? "");
+      segs.forEach((seg, i) => {
+        items.push({ startMin: seg.startMin, endMin: seg.endMin, id: `l-${l.id}-${i}` });
+      });
+    });
+    return computeLaneLayout(items);
+  }, [blocks, logs, date]);
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
@@ -132,19 +151,26 @@ export function DayTimeline({
           </div>
         ))}
 
-        {/* Schedule blocks — full width, z-10. Clipped against logged time so the
-            planned guide only shows where nothing has been logged yet. */}
+        {/* Schedule blocks — z-10. Clipped against logged time so the
+            planned guide only shows where nothing has been logged yet.
+            Lane position is computed from the shared collision layout. */}
         <div className="absolute inset-y-0 left-16 right-0 z-[10]">
           {blocks.flatMap((b) =>
-            visibleBlockSegments(b, logs, date).map((seg, i) => (
-              <BlockBar
-                key={`${b.id}-${i}`}
-                seg={seg}
-                color={b.color}
-                name={b.name}
-                onClick={onBlockClick ? () => onBlockClick(b) : undefined}
-              />
-            ))
+            visibleBlockSegments(b, logs, date).map((seg, i) => {
+              const key = `${b.id}-${i}`;
+              const { lane = 0, groupWidth = 1 } = laneMap.get(`b-${key}`) ?? {};
+              return (
+                <BlockBar
+                  key={key}
+                  seg={seg}
+                  color={b.color}
+                  name={b.name}
+                  lane={lane}
+                  groupWidth={groupWidth}
+                  onClick={onBlockClick ? () => onBlockClick(b) : undefined}
+                />
+              );
+            })
           )}
         </div>
 
@@ -166,27 +192,33 @@ export function DayTimeline({
           ))}
         </div>
 
-        {/* Time logs — full width, z-20 (on top of blocks) */}
+        {/* Time logs — z-20 (on top of blocks).
+            Lane position is computed from the shared collision layout. */}
         <div className="absolute inset-y-0 left-16 right-0 z-[20] pointer-events-none">
           {logs.flatMap((l, idx) => {
             const cat = l.category_id ? catMap[l.category_id] : undefined;
-            const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : "hsl(var(--unproductive))");
+            const color = cat?.color ?? (l.type === "productive" ? "hsl(var(--productive))" : l.type === "unproductive" ? "hsl(var(--unproductive))" : "hsl(var(--muted-foreground))");
             const segs = date ? segmentsForLogOnDay(l, date) : segmentsForLogOnDay(l, l.date ?? "");
-            return segs.map((seg, i) => (
-              <LogBar
-                key={`${l.id}-${i}`}
-                log={l}
-                seg={seg}
-                color={color}
-                name={l.title || (cat?.name ?? l.type)}
-                index={idx}
-                draggable={!!onLogReschedule && toMin(l.end_time) > toMin(l.start_time) && !!l.category_id}
-                onReschedule={onLogReschedule && date
-                  ? (logId, start, end) => onLogReschedule(logId, date, start, end)
-                  : undefined}
-                onClick={onLogClick ? () => onLogClick(l) : undefined}
-              />
-            ));
+            return segs.map((seg, i) => {
+              const { lane = 0, groupWidth = 1 } = laneMap.get(`l-${l.id}-${i}`) ?? {};
+              return (
+                <LogBar
+                  key={`${l.id}-${i}`}
+                  log={l}
+                  seg={seg}
+                  color={color}
+                  name={l.title || (cat?.name ?? l.type)}
+                  index={idx}
+                  lane={lane}
+                  groupWidth={groupWidth}
+                  draggable={!!onLogReschedule && toMin(l.end_time) > toMin(l.start_time) && !!l.category_id}
+                  onReschedule={onLogReschedule && date
+                    ? (logId, start, end) => onLogReschedule(logId, date, start, end)
+                    : undefined}
+                  onClick={onLogClick ? () => onLogClick(l) : undefined}
+                />
+              );
+            });
           })}
         </div>
 
@@ -231,28 +263,34 @@ export function DayTimeline({
 const COMPACT_BAR_PX = 36;
 
 function BlockBar({
-  seg, color, name, onClick,
+  seg, color, name, lane, groupWidth, onClick,
 }: {
   seg: Segment;
   color: string;
   name: string;
+  lane: number;
+  groupWidth: number;
   onClick?: () => void;
 }) {
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
   const compact = height < COMPACT_BAR_PX;
+  const pct = 100 / groupWidth;
   return (
     <motion.div
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
       className={cn(
-        "absolute left-1 right-1 rounded-md px-2 text-[11px] font-medium overflow-hidden border-l-[3px]",
+        "absolute rounded-md px-2 text-[11px] font-medium overflow-hidden border-l-[3px]",
         compact ? "py-0 flex items-center" : "py-1",
         onClick ? "cursor-pointer pointer-events-auto hover:brightness-95 transition-[filter]" : "pointer-events-none"
       )}
       style={{
         top,
         height: Math.max(height, 14),
+        left: `${lane * pct}%`,
+        width: `${pct}%`,
+        paddingRight: lane < groupWidth - 1 ? 3 : undefined,
         borderLeftColor: color,
         backgroundColor: `${color}22`,
         color: "hsl(var(--foreground) / 0.85)",
@@ -273,13 +311,15 @@ function BlockBar({
 }
 
 function LogBar({
-  log, seg, color, name, index, draggable, onReschedule, onClick,
+  log, seg, color, name, index, lane, groupWidth, draggable, onReschedule, onClick,
 }: {
   log: TimeLog;
   seg: Segment;
   color: string;
   name: string;
   index: number;
+  lane: number;
+  groupWidth: number;
   draggable: boolean;
   onReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
   onClick?: () => void;
@@ -287,6 +327,7 @@ function LogBar({
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
   const compact = height < COMPACT_BAR_PX;
+  const pct = 100 / groupWidth;
   const [dragDy, setDragDy] = useState(0);
   const dragRef = useRef<{ startY: number; origStart: number; origEnd: number; moved: boolean } | null>(null);
 
@@ -353,13 +394,16 @@ function LogBar({
         y: { duration: 0 },
       }}
       className={cn(
-        "absolute left-1 right-1 rounded-md px-2 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
+        "absolute rounded-md px-2 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
         compact ? "py-0 flex items-center" : "py-1",
         draggable ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-pointer"
       )}
       style={{
         top,
         height: Math.max(height, 14),
+        left: `${lane * pct}%`,
+        width: `${pct}%`,
+        paddingRight: lane < groupWidth - 1 ? 3 : undefined,
         backgroundColor: color,
         color: "white",
       }}
@@ -371,12 +415,16 @@ function LogBar({
       title={draggable ? "Drag to reschedule · click to edit" : undefined}
     >
       {compact ? (
-        <div className="truncate text-[10px] leading-none">
+        <div className="truncate text-[10px] leading-none flex items-center gap-1">
           {name} · {fmtDuration(seg.endMin - seg.startMin)}
+          {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
         </div>
       ) : (
         <>
-          <div className="truncate">{name}</div>
+          <div className="truncate flex items-center gap-1">
+            {name}
+            {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
+          </div>
           <div className="text-[9px] uppercase tracking-wider opacity-80 font-mono-num">
             {fmtDuration(seg.endMin - seg.startMin)}
           </div>

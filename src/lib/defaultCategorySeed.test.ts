@@ -1,38 +1,54 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CATEGORY_SEED } from "./localStore";
 
-const MIGRATION_PATH = resolve(
-  __dirname,
-  "../../supabase/migrations/20260612130000_category_hidden_and_label_defaults.sql"
-);
+const MIGRATIONS_DIR = resolve(__dirname, "../../supabase/migrations");
 
-/** Parse (name, type, color) tuples from handle_new_user() in the migration SQL. */
+const SIGNUP_INSERT =
+  /INSERT INTO public\.categories \(user_id, name, type, color, is_default, hidden, sort_order\) VALUES\s*\(\s*NEW\.id,[\s\S]*?;/;
+
+/**
+ * Resolve the latest migration that (re)defines handle_new_user() with a category
+ * seed INSERT. Hardcoding a filename silently tests stale SQL once a newer migration
+ * redefines the trigger (R-TEST-4) — so always pick the most recent one.
+ */
+function latestSignupMigration(): string {
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .reverse();
+  for (const f of files) {
+    const sql = readFileSync(resolve(MIGRATIONS_DIR, f), "utf8");
+    if (/handle_new_user/.test(sql) && SIGNUP_INSERT.test(sql)) return sql;
+  }
+  throw new Error("No migration defines handle_new_user() with a category seed INSERT");
+}
+
+/** Parse (name, type, color, sort_order) tuples from the handle_new_user() signup INSERT. */
 function parseCloudSignupDefaults(sql: string) {
-  const block = sql.match(
-    /INSERT INTO public\.categories \(user_id, name, type, color, is_default, hidden\) VALUES([\s\S]*?);/
-  )?.[1];
+  const block = sql.match(SIGNUP_INSERT)?.[0];
   if (!block) throw new Error("Could not find signup category INSERT in migration");
-  const rows: { name: string; type: string; color: string }[] = [];
-  const re = /\(\s*NEW\.id,\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*true,\s*false\s*\)/g;
+  const rows: { name: string; type: string; color: string; sort_order: number }[] = [];
+  const re = /\(\s*NEW\.id,\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*true,\s*false,\s*(\d+)\s*\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(block)) !== null) {
-    rows.push({ name: m[1], type: m[2], color: m[3] });
+    rows.push({ name: m[1], type: m[2], color: m[3], sort_order: Number(m[4]) });
   }
   return rows;
 }
 
 describe("DEFAULT_CATEGORY_SEED sync", () => {
   it("matches handle_new_user() defaults in the latest migration", () => {
-    const sql = readFileSync(MIGRATION_PATH, "utf8");
-    const cloud = parseCloudSignupDefaults(sql);
+    const cloud = parseCloudSignupDefaults(latestSignupMigration());
     expect(cloud).toHaveLength(DEFAULT_CATEGORY_SEED.length);
-    for (const seed of DEFAULT_CATEGORY_SEED) {
+    DEFAULT_CATEGORY_SEED.forEach((seed, index) => {
       const row = cloud.find((c) => c.name === seed.name);
       expect(row, `missing cloud default for "${seed.name}"`).toBeDefined();
       expect(row!.type).toBe(seed.type);
       expect(row!.color.toLowerCase()).toBe(seed.color.toLowerCase());
-    }
+      // sort_order must match the seed array position so guest and cloud agree on initial order.
+      expect(row!.sort_order).toBe(index);
+    });
   });
 });

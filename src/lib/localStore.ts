@@ -1,18 +1,20 @@
 // Guest mode storage — localStorage-backed mirror of the Supabase schema.
 // Layout:
-//   freeslot.guest.profile           -> single Profile object
-//   freeslot.guest.categories        -> Category[]
-//   freeslot.guest.activities        -> Activity[]
-//   freeslot.guest.schedule_blocks   -> ScheduleBlock[]
-//   freeslot.guest.time_logs.YYYY-MM -> TimeLog[]   (one bucket per month)
-//   freeslot.guest.bootstrapped      -> "1" once defaults seeded
+//   freeslot.guest.profile                    -> single Profile object
+//   freeslot.guest.categories                 -> Category[]
+//   freeslot.guest.activities                 -> Activity[]
+//   freeslot.guest.schedule_blocks            -> ScheduleBlock[]
+//   freeslot.guest.time_logs.YYYY-MM          -> TimeLog[]   (one bucket per month)
+//   freeslot.guest.daily_notes.<YYYY-MM-DD>   -> DailyNote   (one key per day)
+//   freeslot.guest.inbox_items                -> InboxItem[]
+//   freeslot.guest.bootstrapped               -> "1" once defaults seeded
 
 const PREFIX = "freeslot.guest";
 
 export type LocalCategory = {
   id: string;
   name: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   color: string;
   is_default: boolean;
   hidden: boolean;
@@ -46,9 +48,10 @@ export type LocalTimeLog = {
   start_time: string;
   end_time: string;
   category_id: string | null;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes: string | null;
+  note_json?: object | null;
   created_at: string;
 };
 
@@ -68,9 +71,9 @@ export const DEFAULT_CATEGORY_SEED: Omit<LocalCategory, "id" | "created_at" | "h
   { name: "Study",         type: "productive",   color: "#f59e0b", is_default: true },
   { name: "Creative work", type: "productive",   color: "#ec4899", is_default: true },
   { name: "Side project",  type: "productive",   color: "#06b6d4", is_default: true },
-  { name: "Sleep",         type: "productive",   color: "#6366f1", is_default: true },
-  { name: "Meals",         type: "productive",   color: "#84cc16", is_default: true },
-  { name: "Chores & errands", type: "productive", color: "#14b8a6", is_default: true },
+  { name: "Sleep",         type: "essential",    color: "#6366f1", is_default: true },
+  { name: "Meals",         type: "essential",    color: "#84cc16", is_default: true },
+  { name: "Chores & errands", type: "essential", color: "#14b8a6", is_default: true },
   { name: "Social media",  type: "unproductive", color: "#ef4444", is_default: true },
   { name: "Gaming",        type: "unproductive", color: "#f97316", is_default: true },
   { name: "Movies & series", type: "unproductive", color: "#a855f7", is_default: true },
@@ -216,6 +219,24 @@ export function deleteCategory(id: string) {
   write(`${PREFIX}.categories`, listCategories().filter((c) => c.id !== id));
 }
 
+/** Reorder categories to match `orderedIds` (unknown ids are ignored; missing ids trail). */
+export function reorderCategories(orderedIds: string[]) {
+  const byId = new Map(listCategories().map((c) => [c.id, c]));
+  const seen = new Set<string>();
+  const next: LocalCategory[] = [];
+  for (const id of orderedIds) {
+    const cat = byId.get(id);
+    if (cat) {
+      next.push(cat);
+      seen.add(id);
+    }
+  }
+  for (const cat of byId.values()) {
+    if (!seen.has(cat.id)) next.push(cat);
+  }
+  write(`${PREFIX}.categories`, next);
+}
+
 // ---------- Activities ----------
 export function listActivities(): LocalActivity[] {
   return readArray<LocalActivity>(`${PREFIX}.activities`);
@@ -334,7 +355,7 @@ export function listAllLogs(): LocalTimeLog[] {
   return out;
 }
 
-export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_time: string; end_time: string; type: "productive" | "unproductive" }) {
+export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_time: string; end_time: string; type: "productive" | "unproductive" | "essential" }) {
   const log: LocalTimeLog = {
     id: input.id ?? rid(),
     date: input.date,
@@ -344,6 +365,7 @@ export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_t
     type: input.type,
     title: input.title ?? null,
     notes: input.notes ?? null,
+    note_json: input.note_json ?? null,
     created_at: new Date().toISOString(),
   };
   const month = monthKey(input.date);
@@ -408,6 +430,84 @@ export function moveLog(id: string, newDate: string, patch: Partial<Omit<LocalTi
     return updated;
   }
   throw new Error("Time log not found");
+}
+
+// ---------- Daily notes ----------
+export type LocalDailyNote = {
+  user_id: string;
+  date: string;        // YYYY-MM-DD
+  content: object;     // Tiptap JSON
+  updated_at: string;
+};
+
+function dailyNoteKey(date: string) {
+  return `${PREFIX}.daily_notes.${date}`;
+}
+
+export function getGuestDailyNote(date: string): LocalDailyNote | null {
+  const raw = read<LocalDailyNote | null>(dailyNoteKey(date), null);
+  return raw;
+}
+
+export function upsertGuestDailyNote(date: string, content: object): LocalDailyNote {
+  const now = new Date().toISOString();
+  const note: LocalDailyNote = { user_id: "guest", date, content, updated_at: now };
+  write(dailyNoteKey(date), note);
+  return note;
+}
+
+export function listAllGuestDailyNotes(): LocalDailyNote[] {
+  if (typeof window === "undefined") return [];
+  const out: LocalDailyNote[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(`${PREFIX}.daily_notes.`)) {
+      const note = read<LocalDailyNote | null>(k, null);
+      if (note) out.push(note);
+    }
+  }
+  return out;
+}
+
+export function listGuestDailyNotesInRange(startISO: string, endISO: string): LocalDailyNote[] {
+  return listAllGuestDailyNotes().filter((n) => n.date >= startISO && n.date <= endISO);
+}
+
+// ---------- Inbox items ----------
+export type LocalInboxItem = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  archived_at: string | null;
+};
+
+const INBOX_KEY = `${PREFIX}.inbox_items`;
+
+export function getGuestInboxItems(): LocalInboxItem[] {
+  return readArray<LocalInboxItem>(INBOX_KEY);
+}
+
+export function addGuestInboxItem(content: string): LocalInboxItem {
+  const item: LocalInboxItem = {
+    id: rid(),
+    user_id: "guest",
+    content,
+    created_at: new Date().toISOString(),
+    archived_at: null,
+  };
+  write(INBOX_KEY, [...getGuestInboxItems(), item]);
+  return item;
+}
+
+export function archiveGuestInboxItem(id: string): void {
+  const now = new Date().toISOString();
+  write(
+    INBOX_KEY,
+    getGuestInboxItems().map((item) =>
+      item.id === id ? { ...item, archived_at: now } : item
+    )
+  );
 }
 
 // ---------- Snapshot for migration ----------
@@ -478,4 +578,64 @@ export function clearGuestData() {
   }
   toRemove.forEach((k) => localStorage.removeItem(k));
   window.dispatchEvent(new CustomEvent("freeslot:guest-change", { detail: { key: "*" } }));
+}
+
+// ---------- Recurring notes ----------
+
+const RECURRING_NOTE_PREFIX = `${PREFIX}.recurring_notes.`;
+const RECURRING_NOTE_COLLAPSED_KEY = `${PREFIX}.ui.recurring_note_collapsed`;
+
+export function getGuestRecurringNote(date: string): LocalDailyNote | null {
+  return read<LocalDailyNote | null>(`${RECURRING_NOTE_PREFIX}${date}`, null);
+}
+
+export function upsertGuestRecurringNote(date: string, content: object): LocalDailyNote {
+  const now = new Date().toISOString();
+  const note: LocalDailyNote = { user_id: "guest", date, content, updated_at: now };
+  write(`${RECURRING_NOTE_PREFIX}${date}`, note);
+  return note;
+}
+
+export function findMostRecentRecurringNote(beforeDate: string): LocalDailyNote | null {
+  for (let i = 1; i <= 30; i++) {
+    const d = new Date(beforeDate);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const note = getGuestRecurringNote(iso);
+    if (note) return note;
+  }
+  return null;
+}
+
+export function getRecurringNoteCollapseState(): boolean {
+  return read<boolean>(RECURRING_NOTE_COLLAPSED_KEY, true);
+}
+
+export function setRecurringNoteCollapseState(collapsed: boolean): void {
+  write(RECURRING_NOTE_COLLAPSED_KEY, collapsed);
+}
+
+// ---------- Dashboard card visibility ----------
+export type DashboardVisibleCards = {
+  perDay: boolean;
+  byCategory: boolean;
+  planVsLogged: boolean;
+  agenda: boolean;
+};
+
+const DASHBOARD_VISIBLE_CARDS_KEY = `${PREFIX}.dashboard.visible_cards`;
+
+const DEFAULT_VISIBLE_CARDS: DashboardVisibleCards = {
+  perDay: true,
+  byCategory: true,
+  planVsLogged: true,
+  agenda: true,
+};
+
+export function getDashboardVisibleCards(): DashboardVisibleCards {
+  return read<DashboardVisibleCards>(DASHBOARD_VISIBLE_CARDS_KEY, DEFAULT_VISIBLE_CARDS);
+}
+
+export function setDashboardVisibleCards(cards: DashboardVisibleCards): void {
+  write(DASHBOARD_VISIBLE_CARDS_KEY, cards);
 }

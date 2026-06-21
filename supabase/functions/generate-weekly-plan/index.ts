@@ -125,13 +125,14 @@ Deno.serve(async (req) => {
 
     if (insErr) {
       console.error("Insert err", insErr);
-      return json({ error: insErr.message }, 500);
+      return json({ error: "Could not save plan" }, 500);
     }
 
     return json({ plan: saved, summary: parsed.summary });
   } catch (e) {
+    // Log internals server-side; never return raw error details to the client.
     console.error("fn error", e);
-    return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
+    return json({ error: "Unexpected error" }, 500);
   }
 });
 

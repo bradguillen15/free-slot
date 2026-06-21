@@ -3,9 +3,12 @@ import { Link } from "react-router-dom";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { useCalendarDays, type DayCellData } from "@/lib/calendarDays";
-import { durationMinutes, fmtDuration, todayISO } from "@/lib/time";
+import { fmtDuration, fromMin, todayISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/StatCard";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -24,30 +27,48 @@ const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const MIN_PER_DAY = 24 * 60;
 
-function MonthDayBar({ cell }: { cell: DayCellData }) {
+function MonthDayStrip({ cell }: { cell: DayCellData }) {
   return (
-    <div className="relative hidden sm:block w-full h-3 rounded-sm overflow-hidden bg-muted/30 mt-0.5">
+    <div className="absolute left-1 right-1 top-[22px] bottom-1 rounded-sm overflow-hidden bg-muted/20">
       {cell.blocks.map((b, i) => (
-        <span
-          key={`b-${i}`}
-          className="absolute top-0 h-full rounded-[1px] opacity-60"
-          style={{
-            left: `${(b.seg.startMin / MIN_PER_DAY) * 100}%`,
-            width: `${Math.max(1, ((b.seg.endMin - b.seg.startMin) / MIN_PER_DAY) * 100)}%`,
-            backgroundColor: b.color,
-          }}
-        />
+        <Tooltip key={`b-${i}`}>
+          <TooltipTrigger asChild>
+            <span
+              className="absolute left-0 w-full rounded-[1px] opacity-50"
+              style={{
+                top: `${(b.seg.startMin / MIN_PER_DAY) * 100}%`,
+                height: `max(3px, ${((b.seg.endMin - b.seg.startMin) / MIN_PER_DAY) * 100}%)`,
+                backgroundColor: b.color,
+              }}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="right" className="bg-surface border-border">
+            <div className="text-xs font-medium">{b.name}</div>
+            <div className="text-[10px] text-muted-foreground font-mono-num">
+              {fromMin(b.seg.startMin)} – {fromMin(b.seg.endMin)}
+            </div>
+          </TooltipContent>
+        </Tooltip>
       ))}
       {cell.logs.map((l, i) => (
-        <span
-          key={`l-${i}`}
-          className="absolute top-0 h-full rounded-[1px]"
-          style={{
-            left: `${(l.seg.startMin / MIN_PER_DAY) * 100}%`,
-            width: `${Math.max(1, ((l.seg.endMin - l.seg.startMin) / MIN_PER_DAY) * 100)}%`,
-            backgroundColor: l.color,
-          }}
-        />
+        <Tooltip key={`l-${i}`}>
+          <TooltipTrigger asChild>
+            <span
+              className="absolute left-0 w-full rounded-[1px] opacity-90"
+              style={{
+                top: `${(l.seg.startMin / MIN_PER_DAY) * 100}%`,
+                height: `max(3px, ${((l.seg.endMin - l.seg.startMin) / MIN_PER_DAY) * 100}%)`,
+                backgroundColor: l.color,
+              }}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="right" className="bg-surface border-border">
+            <div className="text-xs font-medium">{l.name}</div>
+            <div className="text-[10px] text-muted-foreground font-mono-num">
+              {fromMin(l.seg.startMin)} – {fromMin(l.seg.endMin)}
+            </div>
+          </TooltipContent>
+        </Tooltip>
       ))}
     </div>
   );
@@ -73,7 +94,6 @@ export default function MonthPage() {
     [dayCells]
   );
 
-  // Build leading blanks so the grid starts on Monday
   const firstWeekday = new Date(year, month0, 1).getDay();
   const leading = (firstWeekday + 6) % 7;
   const cells = useMemo(() => {
@@ -84,29 +104,11 @@ export default function MonthPage() {
     return arr;
   }, [leading, lastDay, year, month0]);
 
-  const perDay = useMemo(() => {
-    const m: Record<string, { productive: number; unproductive: number; total: number }> = {};
-    for (const cell of dayCells) {
-      let prod = 0, unprod = 0;
-      for (const l of cell.logs) {
-        const dur = l.seg.endMin - l.seg.startMin;
-        if (l.type === "unproductive") unprod += dur;
-        else prod += dur;
-      }
-      if (prod + unprod > 0) {
-        m[cell.iso] = { productive: prod, unproductive: unprod, total: prod + unprod };
-      }
-    }
-    return m;
-  }, [dayCells]);
-
-  // Fallback total from raw log durations for stat cards (covers overnight wrapping)
   const logTotals = useMemo(() => {
     const m: Record<string, number> = {};
     for (const cell of dayCells) {
       let total = 0;
-      // Re-derive from raw logs via durationMinutes (uses time.ts wrap logic)
-      for (const _ of cell.logs) { total += _.seg.endMin - _.seg.startMin; }
+      for (const l of cell.logs) { total += l.seg.endMin - l.seg.startMin; }
       if (total > 0) m[cell.iso] = total;
     }
     return m;
@@ -115,10 +117,6 @@ export default function MonthPage() {
   const monthTotal = useMemo(
     () => Object.values(logTotals).reduce((s, v) => s + v, 0),
     [logTotals]
-  );
-  const monthProd = useMemo(
-    () => Object.values(perDay).reduce((s, d) => s + d.productive, 0),
-    [perDay]
   );
   const daysLogged = useMemo(
     () => Object.values(logTotals).filter((v) => v > 0).length,
@@ -135,7 +133,7 @@ export default function MonthPage() {
   };
 
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <CalendarViewHeader
         testId="page-month"
         label="Month view"
@@ -151,9 +149,8 @@ export default function MonthPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 mb-5">
         <StatCard label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
-        <StatCard label="Productive" value={fmtDuration(monthProd)} tone="accent" />
         <StatCard label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
       </div>
 
@@ -169,20 +166,23 @@ export default function MonthPage() {
         <div className="grid grid-cols-7 gap-1.5">
           {cells.map((c, i) => {
             if (!c.iso) {
-              return <div key={`blank-${i}`} className="min-h-[72px] rounded-xl bg-muted/20 sm:min-h-[90px]" />;
+              return <div key={`blank-${i}`} className="aspect-square rounded-xl bg-muted/20" />;
             }
             const cell = cellMap[c.iso];
             const dayTotal = logTotals[c.iso] ?? 0;
             const intensity = dayTotal > 0 ? Math.min(1, dayTotal / maxDay) : 0;
             const isToday = c.iso === today;
+
             return (
               <Link
                 key={c.iso}
                 to={`/app?date=${c.iso}`}
                 aria-label={`Open day view for ${c.iso}`}
                 className={cn(
-                  "relative flex min-h-[72px] flex-col overflow-hidden rounded-xl border border-border bg-surface p-1 transition-colors hover:border-primary/40 sm:min-h-[90px]",
-                  isToday && "border-primary ring-1 ring-primary/40"
+                  "relative flex aspect-square flex-col overflow-visible rounded-xl border p-1 transition-colors hover:border-primary/40",
+                  isToday
+                    ? "border-primary ring-1 ring-primary/40 bg-primary/[0.06]"
+                    : "border-border bg-surface"
                 )}
               >
                 {intensity > 0 && (
@@ -191,33 +191,36 @@ export default function MonthPage() {
                     style={{ opacity: 0.06 + intensity * 0.18 }}
                   />
                 )}
-                <div className="flex shrink-0 items-start justify-between gap-0.5">
+                <div className="flex shrink-0 items-start justify-between gap-0.5 z-10">
                   <span
                     className={cn(
-                      "font-display text-sm font-semibold leading-none",
+                      "font-display text-[11px] font-semibold leading-none",
                       isToday && "text-primary"
                     )}
                   >
                     {c.day}
                   </span>
                   {dayTotal > 0 && (
-                    <span className="text-[8px] font-mono-num text-muted-foreground sm:text-[9px]">
+                    <span className="text-[8px] font-mono-num text-muted-foreground hidden sm:block">
                       {fmtDuration(dayTotal)}
                     </span>
                   )}
                 </div>
-                {cell && <MonthDayBar cell={cell} />}
+                {/* Strip is clipped to the cell via overflow-hidden on the inner container */}
+                {cell && (
+                  <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                    <MonthDayStrip cell={cell} />
+                  </div>
+                )}
               </Link>
             );
           })}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-          <span className="ml-auto">Tap a cell to open that day</span>
+        <div className="mt-4 text-right text-[10px] uppercase tracking-wider text-muted-foreground">
+          Tap a cell to open that day
         </div>
       </div>
-    </>
+    </TooltipProvider>
   );
 }

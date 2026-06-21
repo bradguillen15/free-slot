@@ -31,6 +31,17 @@ describe("createSupabaseProvider", () => {
       expect(call?.methods.some(([m, args]) => m === "eq" && args[0] === "user_id")).toBe(true);
     });
 
+    it("returns categories sorted by sort_order", async () => {
+      queueTableResult("categories", {
+        data: [
+          { id: "c2", sort_order: 1, created_at: "2024-01-01", name: "B", color: "#000", type: "productive", is_default: false, hidden: false },
+          { id: "c1", sort_order: 0, created_at: "2024-01-01", name: "A", color: "#000", type: "productive", is_default: false, hidden: false },
+        ],
+      });
+      const result = await provider.categories.list(USER_ID);
+      expect(result.map((c) => c.id)).toEqual(["c1", "c2"]);
+    });
+
     it("throws on error", async () => {
       queueTableResult("categories", { error: { message: "DB error" } });
       await expect(provider.categories.list(USER_ID)).rejects.toThrow("DB error");

@@ -30,3 +30,18 @@ describe("CalendarPage — day timeline sizing", () => {
     expect(timeline!.className).toMatch(/\blg:flex-1\b/);
   });
 });
+
+describe("CalendarPage — Summary/Notes tabs", () => {
+  it("renders Summary and Notes tabs in the right panel", () => {
+    const { getByText } = renderWithProviders(<CalendarPage />);
+    expect(getByText("Summary")).toBeTruthy();
+    expect(getByText("Notes")).toBeTruthy();
+  });
+
+  it("Summary tab is active by default", () => {
+    renderWithProviders(<CalendarPage />);
+    const activeTabs = document.querySelectorAll('[role="tab"][data-state="active"]');
+    const texts = Array.from(activeTabs).map((t) => t.textContent);
+    expect(texts).toContain("Summary");
+  });
+});

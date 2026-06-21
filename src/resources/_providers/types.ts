@@ -1,4 +1,4 @@
-import type { LocalActivity, LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
+import type { LocalActivity, LocalCategory, LocalDailyNote, LocalInboxItem, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
 import type { WeeklyReview } from "@/resources/types/weeklyReview";
 import type { WeeklyPriority } from "@/resources/types/weeklyPriority";
@@ -9,7 +9,7 @@ export type TimeLogInput = {
   start_time: string;
   end_time: string;
   category_id: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes?: string | null;
 };
@@ -18,7 +18,7 @@ export type TimeLogPatch = {
   start_time: string;
   end_time: string;
   category_id: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes?: string | null;
   date?: string;
@@ -45,7 +45,7 @@ export type CategoryInput = {
   id?: string;
   name?: string;
   color?: string;
-  type?: "productive" | "unproductive";
+  type?: "productive" | "unproductive" | "essential";
   hidden?: boolean;
 };
 
@@ -54,6 +54,7 @@ export interface ResourcesProvider {
     list(userId: string): Promise<LocalCategory[]>;
     upsert(userId: string, input: CategoryInput): Promise<LocalCategory>;
     delete(userId: string, id: string): Promise<void>;
+    reorder(userId: string, orderedIds: string[]): Promise<void>;
     insertMany(userId: string, items: Omit<LocalCategory, "id" | "created_at">[]): Promise<LocalCategory[]>;
   };
   activities: {
@@ -91,6 +92,19 @@ export interface ResourcesProvider {
     listForWeek(userId: string, weekStart: string): Promise<WeeklyPriority[]>;
     upsertMany(userId: string, weekStart: string, priorities: { activity_id: string; rank: number }[]): Promise<WeeklyPriority[]>;
   };
+  dailyNotes: {
+    get(userId: string, date: string): Promise<LocalDailyNote | null>;
+    upsert(userId: string, date: string, content: object): Promise<void>;
+    listForWeek(userId: string, startISO: string, endISO: string): Promise<LocalDailyNote[]>;
+    listDates(userId: string): Promise<string[]>;
+    insertMany(userId: string, rows: LocalDailyNote[]): Promise<void>;
+  };
+  inboxItems: {
+    list(userId: string): Promise<LocalInboxItem[]>;
+    insert(userId: string, content: string): Promise<LocalInboxItem>;
+    archive(userId: string, id: string): Promise<void>;
+    insertMany(userId: string, rows: Omit<LocalInboxItem, "id">[]): Promise<LocalInboxItem[]>;
+  };
   functions: {
     generateWeeklyReview(body: {
       week_start: string;
@@ -98,12 +112,15 @@ export interface ResourcesProvider {
       actual: { name: string; minutes: number }[];
       productive_ratio: number;
       total_tracked: number;
+      daily_notes?: { date: string; text: string }[];
     }): Promise<{ review: { insights: string } }>;
     generateWeeklyPlan(body: {
       week_start: string;
       gaps: unknown[];
       activities: unknown[];
       priorities?: unknown[];
+      daily_notes?: { date: string; text: string }[];
+      inbox_items?: string[];
     }): Promise<{ slots: unknown[] }>;
     deleteAccount(userId: string): Promise<void>;
   };

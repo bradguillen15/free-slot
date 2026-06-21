@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import type { ResourcesProvider, ActivityInput, CategoryInput, ScheduleBlockInput, TimeLogInput, TimeLogPatch } from "@/resources/_providers/types";
-import { mapActivity, mapCategory, mapProfile, mapScheduleBlock, mapTimeLog, mapWeeklyPlan, sortScheduleBlocks } from "./mappers";
+import { mapActivity, mapCategory, mapDailyNote, mapInboxItem, mapProfile, mapScheduleBlock, mapTimeLog, mapWeeklyPlan, sortCategories, sortScheduleBlocks } from "./mappers";
 
 export function createSupabaseProvider(): ResourcesProvider {
   return {
@@ -9,16 +9,15 @@ export function createSupabaseProvider(): ResourcesProvider {
       async list(userId) {
         const { data, error } = await supabase
           .from("categories")
-          .select("id,name,color,type,is_default,hidden,created_at")
-          .eq("user_id", userId)
-          .order("name");
+          .select("id,name,color,type,is_default,hidden,created_at,sort_order")
+          .eq("user_id", userId);
         if (error) throw new Error(error.message);
-        return (data ?? []).map((r) => mapCategory(r as Record<string, unknown>));
+        return sortCategories((data ?? []).map((r) => mapCategory(r as Record<string, unknown>)));
       },
 
       async upsert(userId, input: CategoryInput) {
         if (input.id) {
-          const patch: { name?: string; color?: string; type?: "productive" | "unproductive"; hidden?: boolean } = {};
+          const patch: { name?: string; color?: string; type?: "productive" | "unproductive" | "essential"; hidden?: boolean } = {};
           if (input.name !== undefined) patch.name = input.name;
           if (input.color !== undefined) patch.color = input.color;
           if (input.type !== undefined) patch.type = input.type;
@@ -33,6 +32,14 @@ export function createSupabaseProvider(): ResourcesProvider {
           if (error) throw error;
           return mapCategory(data as Record<string, unknown>);
         }
+        const { data: existing } = await supabase
+          .from("categories")
+          .select("sort_order")
+          .eq("user_id", userId)
+          .order("sort_order", { ascending: false })
+          .limit(1);
+        const nextSort =
+          (((existing?.[0] as { sort_order?: number } | undefined)?.sort_order) ?? -1) + 1;
         const { data, error } = await supabase
           .from("categories")
           .insert({
@@ -41,11 +48,26 @@ export function createSupabaseProvider(): ResourcesProvider {
             color: input.color ?? "#3b82f6",
             type: input.type ?? "productive",
             hidden: input.hidden ?? false,
+            sort_order: nextSort,
           })
           .select()
           .single();
         if (error) throw error;
         return mapCategory(data as Record<string, unknown>);
+      },
+
+      async reorder(userId, orderedIds) {
+        const results = await Promise.all(
+          orderedIds.map((id, i) =>
+            supabase
+              .from("categories")
+              .update({ sort_order: i })
+              .eq("id", id)
+              .eq("user_id", userId)
+          )
+        );
+        const err = results.find((r) => r.error)?.error;
+        if (err) throw new Error(err.message);
       },
 
       async delete(userId, id) {
@@ -288,7 +310,7 @@ export function createSupabaseProvider(): ResourcesProvider {
       },
 
       async insertMany(userId, items) {
-        const rows = items.map((l) => ({ ...l, user_id: userId }));
+        const rows = items.map(({ note_json: _n, ...l }) => ({ ...l, user_id: userId }));
         const { data, error } = await supabase.from("time_logs").insert(rows).select();
         if (error) throw new Error(error.message);
         return (data ?? []).map((r) => mapTimeLog(r as Record<string, unknown>));
@@ -401,6 +423,101 @@ export function createSupabaseProvider(): ResourcesProvider {
           rank: r.rank as number,
           week_start: r.week_start as string,
         }));
+      },
+    },
+
+    dailyNotes: {
+      async get(_userId, date) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("daily_notes")
+          .select("user_id,date,content,updated_at")
+          .eq("date", date)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        return data ? mapDailyNote(data as Record<string, unknown>) : null;
+      },
+
+      async upsert(_userId, date, content) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+          .from("daily_notes")
+          .upsert({ date, content: content as Json, updated_at: new Date().toISOString() }, { onConflict: "user_id,date" });
+        if (error) throw new Error(error.message);
+      },
+
+      async listForWeek(_userId, startISO, endISO) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("daily_notes")
+          .select("user_id,date,content,updated_at")
+          .gte("date", startISO)
+          .lte("date", endISO);
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r: Record<string, unknown>) => mapDailyNote(r));
+      },
+
+      async listDates(_userId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("daily_notes")
+          .select("date")
+          .order("date", { ascending: false });
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r: { date: string }) => r.date);
+      },
+
+      async insertMany(_userId, rows) {
+        if (!rows.length) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+          .from("daily_notes")
+          .upsert(rows.map((r) => ({ date: r.date, content: r.content as Json, updated_at: r.updated_at })), { onConflict: "user_id,date" });
+        if (error) throw new Error(error.message);
+      },
+    },
+
+    inboxItems: {
+      async list(_userId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("inbox_items")
+          .select("id,user_id,content,created_at,archived_at")
+          .is("archived_at", null)
+          .order("created_at", { ascending: false });
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r: Record<string, unknown>) => mapInboxItem(r));
+      },
+
+      async insert(_userId, content) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("inbox_items")
+          .insert({ content })
+          .select("id,user_id,content,created_at,archived_at")
+          .single();
+        if (error) throw new Error(error.message);
+        return mapInboxItem(data as Record<string, unknown>);
+      },
+
+      async archive(_userId, id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+          .from("inbox_items")
+          .update({ archived_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw new Error(error.message);
+      },
+
+      async insertMany(_userId, rows) {
+        if (!rows.length) return [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("inbox_items")
+          .insert(rows.map((r) => ({ content: r.content, created_at: r.created_at, archived_at: r.archived_at })))
+          .select("id,user_id,content,created_at,archived_at");
+        if (error) throw new Error(error.message);
+        return (data ?? []).map((r: Record<string, unknown>) => mapInboxItem(r));
       },
     },
 

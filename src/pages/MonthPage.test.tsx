@@ -43,6 +43,14 @@ function buildCell(iso: string, overrides: Partial<DayCellData> = {}): DayCellDa
   };
 }
 
+/** Colored block/log segments carry an inline background-color; the cell's gradient-intensity
+ * overlay also has an inline style (opacity) but no background-color, so filter on that. */
+function coloredSegments(cell: HTMLElement): HTMLElement[] {
+  return Array.from(cell.querySelectorAll<HTMLElement>("span[style]")).filter(
+    (s) => s.style.backgroundColor !== ""
+  );
+}
+
 function renderMonth() {
   return render(
     <MemoryRouter>
@@ -63,7 +71,7 @@ describe("MonthPage", () => {
     expect(todayCell.closest("[class*='ring']") || todayCell.closest("[class]")).toBeTruthy();
   });
 
-  it("renders a colored log segment in the mini-bar", () => {
+  it("renders a colored log segment in the day strip", () => {
     vi.mocked(useCalendarDays).mockReturnValue([
       buildCell("2026-06-10", {
         logs: [{
@@ -77,14 +85,33 @@ describe("MonthPage", () => {
       }),
     ]);
     renderMonth();
-    // The mini-bar (hidden sm:block) should contain a positioned span for the log
-    const miniBar = document.querySelector(".hidden.sm\\:block, [class*='hidden'][class*='sm:block']");
-    expect(miniBar).toBeTruthy();
-    const segments = miniBar!.querySelectorAll("span[style]");
-    expect(segments.length).toBeGreaterThan(0);
+    // The day cell's strip should contain a positioned span for the log.
+    const cell = screen.getByLabelText("Open day view for 2026-06-10");
+    expect(coloredSegments(cell).length).toBeGreaterThan(0);
   });
 
-  it("does not count categorized unproductive logs as productive by color", () => {
+  it("day strip segment top position reflects time of day", () => {
+    // A log from 12:00–13:00 is 720 min into the day — should be ~50% top
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 720, endMin: 780 },
+          name: "Lunch",
+          color: "#f59e0b",
+          type: "productive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
+    renderMonth();
+    const cell = screen.getByLabelText("Open day view for 2026-06-10");
+    const segment = coloredSegments(cell)[0];
+    expect(segment).toBeTruthy();
+    expect(segment.style.top).toBe("50%");
+  });
+
+  it("counts a logged session toward total tracked time", () => {
     vi.mocked(useCalendarDays).mockReturnValue([
       buildCell("2026-06-10", {
         logs: [{
@@ -98,10 +125,10 @@ describe("MonthPage", () => {
       }),
     ]);
     renderMonth();
-    expect(screen.getByText("Productive").parentElement).toHaveTextContent("0m");
+    expect(screen.getByText("Total logged").parentElement).toHaveTextContent("1h");
   });
 
-  it("renders a colored block segment in the mini-bar", () => {
+  it("renders a colored block segment in the day strip", () => {
     vi.mocked(useCalendarDays).mockReturnValue([
       buildCell("2026-06-10", {
         blocks: [{
@@ -113,10 +140,8 @@ describe("MonthPage", () => {
       }),
     ]);
     renderMonth();
-    const miniBar = document.querySelector(".hidden.sm\\:block, [class*='hidden'][class*='sm:block']");
-    expect(miniBar).toBeTruthy();
-    const segments = miniBar!.querySelectorAll("span[style]");
-    expect(segments.length).toBeGreaterThan(0);
+    const cell = screen.getByLabelText("Open day view for 2026-06-10");
+    expect(coloredSegments(cell).length).toBeGreaterThan(0);
   });
 
   it("does not render quarter-log buttons (DAY_QUARTERS removed)", () => {
@@ -134,10 +159,29 @@ describe("MonthPage", () => {
     expect(link).toHaveAttribute("href", "/app?date=2026-06-10");
   });
 
-  it("the mini-bar container has the sm:block hidden classes (hidden on mobile)", () => {
-    vi.mocked(useCalendarDays).mockReturnValue([buildCell("2026-06-10")]);
+  it("renders the day strip inline, not hidden on mobile", () => {
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 540, endMin: 600 },
+          name: "Deep work",
+          color: "#3b82f6",
+          type: "productive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
     renderMonth();
-    const miniBar = document.querySelector(".sm\\:block.hidden, [class*='sm:block'][class*='hidden']");
-    expect(miniBar).toBeTruthy();
+    const cell = screen.getByLabelText("Open day view for 2026-06-10");
+    const segment = coloredSegments(cell)[0];
+    expect(segment).toBeTruthy();
+    // The strip is no longer gated behind `hidden sm:block` — no ancestor up to the
+    // cell hides it on mobile (the visual refactor made segments always visible).
+    let el: HTMLElement | null = segment;
+    while (el && el !== cell) {
+      expect(el.classList.contains("hidden")).toBe(false);
+      el = el.parentElement;
+    }
   });
 });

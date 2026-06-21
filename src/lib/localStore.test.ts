@@ -15,12 +15,23 @@ import {
   listLogsInRange,
   listPriorities,
   listScheduleBlocks,
+  reorderCategories,
   reorderScheduleBlocks,
   setPriorities,
+  upsertCategory,
   updateLog,
   updateProfile,
   upsertActivity,
   upsertScheduleBlock,
+  getDashboardVisibleCards,
+  setDashboardVisibleCards,
+  getGuestRecurringNote,
+  upsertGuestRecurringNote,
+  findMostRecentRecurringNote,
+  getRecurringNoteCollapseState,
+  setRecurringNoteCollapseState,
+  upsertGuestDailyNote,
+  listAllGuestDailyNotes,
 } from "./localStore";
 
 beforeEach(() => {
@@ -117,6 +128,14 @@ describe("activity / block upserts", () => {
     reorderScheduleBlocks([c.id, a.id, b.id]);
     expect(listScheduleBlocks().map((x) => x.name)).toEqual(["C", "A", "B"]);
   });
+
+  it("reorders categories by id list, ignoring unknown ids and trailing missing ones", () => {
+    const a = upsertCategory({ name: "A", type: "productive" });
+    const b = upsertCategory({ name: "B", type: "productive" });
+    const c = upsertCategory({ name: "C", type: "essential" });
+    reorderCategories([c.id, a.id, "does-not-exist"]);
+    expect(listCategories().map((x) => x.name)).toEqual(["C", "A", "B"]);
+  });
 });
 
 describe("log bucketing and deletion", () => {
@@ -176,5 +195,93 @@ describe("weekly priorities", () => {
     setPriorities("2026-06-08", [{ activity_id: "a2", rank: 0 }]);
     expect(listPriorities("2026-06-08")).toHaveLength(1);
     expect(listPriorities("2026-06-15")).toEqual([]);
+  });
+});
+
+describe("getDashboardVisibleCards / setDashboardVisibleCards", () => {
+  it("returns all-true defaults when nothing is stored", () => {
+    const cards = getDashboardVisibleCards();
+    expect(cards).toEqual({ perDay: true, byCategory: true, planVsLogged: true, agenda: true });
+  });
+
+  it("persists a partial toggle", () => {
+    setDashboardVisibleCards({ perDay: false, byCategory: true, planVsLogged: true, agenda: true });
+    const cards = getDashboardVisibleCards();
+    expect(cards.perDay).toBe(false);
+    expect(cards.byCategory).toBe(true);
+  });
+
+  it("survives a round-trip for all false", () => {
+    const allHidden = { perDay: false, byCategory: false, planVsLogged: false, agenda: false };
+    setDashboardVisibleCards(allHidden);
+    expect(getDashboardVisibleCards()).toEqual(allHidden);
+  });
+});
+
+describe("recurring notes", () => {
+  const content = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Stand-up" }] }] };
+
+  it("getGuestRecurringNote returns null when nothing stored", () => {
+    expect(getGuestRecurringNote("2026-06-20")).toBeNull();
+  });
+
+  it("upsertGuestRecurringNote stores and retrieves a note", () => {
+    upsertGuestRecurringNote("2026-06-20", content);
+    const note = getGuestRecurringNote("2026-06-20");
+    expect(note).not.toBeNull();
+    expect(note!.content).toEqual(content);
+    expect(note!.date).toBe("2026-06-20");
+  });
+
+  it("findMostRecentRecurringNote returns null when no prior notes", () => {
+    expect(findMostRecentRecurringNote("2026-06-20")).toBeNull();
+  });
+
+  it("findMostRecentRecurringNote finds the most recent prior day's note", () => {
+    upsertGuestRecurringNote("2026-06-18", content);
+    const found = findMostRecentRecurringNote("2026-06-20");
+    expect(found).not.toBeNull();
+    expect(found!.date).toBe("2026-06-18");
+  });
+
+  it("findMostRecentRecurringNote does not return same-day note", () => {
+    upsertGuestRecurringNote("2026-06-20", content);
+    const found = findMostRecentRecurringNote("2026-06-20");
+    expect(found).toBeNull();
+  });
+});
+
+describe("listAllGuestDailyNotes", () => {
+  const content = { type: "doc", content: [{ type: "paragraph" }] };
+
+  it("returns empty array when no daily notes exist", () => {
+    expect(listAllGuestDailyNotes()).toEqual([]);
+  });
+
+  it("returns all written daily notes sorted newest-first by date field", () => {
+    upsertGuestDailyNote("2026-06-18", content);
+    upsertGuestDailyNote("2026-06-20", content);
+    upsertGuestDailyNote("2026-06-15", content);
+    const dates = listAllGuestDailyNotes()
+      .map((n) => n.date)
+      .sort((a, b) => b.localeCompare(a));
+    expect(dates).toEqual(["2026-06-20", "2026-06-18", "2026-06-15"]);
+  });
+});
+
+describe("recurringNoteCollapseState", () => {
+  it("returns true by default (collapsed)", () => {
+    expect(getRecurringNoteCollapseState()).toBe(true);
+  });
+
+  it("persists collapsed state", () => {
+    setRecurringNoteCollapseState(true);
+    expect(getRecurringNoteCollapseState()).toBe(true);
+  });
+
+  it("can be toggled back to expanded", () => {
+    setRecurringNoteCollapseState(true);
+    setRecurringNoteCollapseState(false);
+    expect(getRecurringNoteCollapseState()).toBe(false);
   });
 });

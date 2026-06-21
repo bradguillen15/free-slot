@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { fmtDuration, expandRange, toMin } from "@/lib/time";
 import { segmentsForLogOnDay } from "@/lib/daySegments";
 import { Surface } from "@/components/Surface";
@@ -8,58 +7,34 @@ import type { TimeLog } from "./DayTimeline";
 
 export function DaySummary({ logs, categories, date }: { logs: TimeLog[]; categories: Category[]; date?: string }) {
   const stats = useMemo(() => {
-    const byCat = new Map<string, { name: string; color: string; type: string; mins: number }>();
-    let productive = 0;
-    let unproductive = 0;
+    const byCat = new Map<string, { name: string; color: string; mins: number }>();
+    let total = 0;
 
     for (const l of logs) {
-      const total = date
+      const mins = date
         ? segmentsForLogOnDay(l, date).reduce((a, s) => a + (s.endMin - s.startMin), 0)
         : expandRange(toMin(l.start_time), toMin(l.end_time)).reduce((a, [s, e]) => a + (e - s), 0);
-      if (total <= 0) continue;
-      if (l.type === "productive") productive += total;
-      else unproductive += total;
+      if (mins <= 0) continue;
+      total += mins;
 
       const cat = l.category_id ? categories.find((c) => c.id === l.category_id) : undefined;
-      const key = cat?.id ?? l.type;
+      const key = cat?.id ?? "other";
       const prev = byCat.get(key) ?? {
-        name: cat?.name ?? l.type,
-        color: cat?.color ?? (l.type === "productive" ? "#10b981" : "#ef4444"),
-        type: l.type,
+        name: cat?.name ?? "Other",
+        color: cat?.color ?? "#6b7280",
         mins: 0,
       };
-      prev.mins += total;
+      prev.mins += mins;
       byCat.set(key, prev);
     }
 
     const top = Array.from(byCat.values()).sort((a, b) => b.mins - a.mins).slice(0, 5);
-    return { productive, unproductive, top, total: productive + unproductive };
+    return { top, total };
   }, [logs, categories, date]);
-
-  const ratio = stats.total > 0 ? stats.productive / stats.total : 0;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Productive" value={fmtDuration(stats.productive)} accent="text-productive" />
-        <Stat label="Unproductive" value={fmtDuration(stats.unproductive)} accent="text-unproductive" />
-        <Stat label="Logged" value={fmtDuration(stats.total)} accent="text-foreground" />
-      </div>
-
-      <Surface padding="md">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs uppercase tracking-wider text-muted-foreground">Productive ratio</span>
-          <span className="font-mono-num text-sm">{Math.round(ratio * 100)}%</span>
-        </div>
-        <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${ratio * 100}%` }}
-            transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
-            className="h-full bg-productive"
-          />
-        </div>
-      </Surface>
+      <Stat label="Logged" value={fmtDuration(stats.total)} accent="text-foreground" />
 
       <Surface padding="md">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Top categories</div>

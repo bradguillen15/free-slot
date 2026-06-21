@@ -12,6 +12,8 @@ export function createMockResourcesProvider(
     weeklyPlans: Partial<ResourcesProvider["weeklyPlans"]>;
     weeklyReviews: Partial<ResourcesProvider["weeklyReviews"]>;
     weeklyPriorities: Partial<ResourcesProvider["weeklyPriorities"]>;
+    dailyNotes: Partial<ResourcesProvider["dailyNotes"]>;
+    inboxItems: Partial<ResourcesProvider["inboxItems"]>;
     functions: Partial<ResourcesProvider["functions"]>;
   }> = {}
 ): ResourcesProvider {
@@ -21,6 +23,7 @@ export function createMockResourcesProvider(
       list: vi.fn().mockResolvedValue([]),
       upsert: vi.fn().mockResolvedValue(stub),
       delete: vi.fn().mockResolvedValue(undefined),
+      reorder: vi.fn().mockResolvedValue(undefined),
       insertMany: vi.fn().mockResolvedValue([]),
       ...overrides.categories,
     },
@@ -65,6 +68,21 @@ export function createMockResourcesProvider(
       listForWeek: vi.fn().mockResolvedValue([]),
       upsertMany: vi.fn().mockResolvedValue([]),
       ...overrides.weeklyPriorities,
+    },
+    dailyNotes: {
+      get: vi.fn().mockResolvedValue(null),
+      upsert: vi.fn().mockResolvedValue(undefined),
+      listForWeek: vi.fn().mockResolvedValue([]),
+      listDates: vi.fn().mockResolvedValue([]),
+      insertMany: vi.fn().mockResolvedValue(undefined),
+      ...overrides.dailyNotes,
+    },
+    inboxItems: {
+      list: vi.fn().mockResolvedValue([]),
+      insert: vi.fn().mockResolvedValue({ id: "stub", user_id: "u", content: "", created_at: "", archived_at: null }),
+      archive: vi.fn().mockResolvedValue(undefined),
+      insertMany: vi.fn().mockResolvedValue([]),
+      ...overrides.inboxItems,
     },
     functions: {
       generateWeeklyReview: vi.fn().mockResolvedValue({ review: { insights: "" } }),

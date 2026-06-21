@@ -152,11 +152,31 @@ describe("createSupabaseProvider — writes", () => {
 
   // ---------- categories ----------
   describe("categories.upsert — insert path", () => {
-    it("inserts with defaults when no id provided", async () => {
-      const row = { id: "c1", name: "New", color: "#3b82f6", type: "productive", is_default: false, hidden: false, created_at: "" };
+    it("queries existing sort_order then inserts with defaults when no id provided", async () => {
+      queueTableResult("categories", { data: [{ sort_order: 4 }] });
+      const row = { id: "c1", name: "New", color: "#3b82f6", type: "productive", is_default: false, hidden: false, created_at: "", sort_order: 5 };
       queueTableResult("categories", { data: row });
       const result = await provider.categories.upsert(USER_ID, { name: "New" });
       expect(result.id).toBe("c1");
+      const insertCall = fromCalls.filter((c) => c.table === "categories").find((c) => c.methods.some(([m]) => m === "insert"));
+      const insertArgs = insertCall?.methods.find(([m]) => m === "insert")?.[1][0];
+      expect(insertArgs).toMatchObject({ sort_order: 5 });
+    });
+  });
+
+  describe("categories.reorder", () => {
+    it("updates sort_order for each id in sequence", async () => {
+      queueTableResult("categories", { data: null });
+      queueTableResult("categories", { data: null });
+      await provider.categories.reorder(USER_ID, ["c1", "c2"]);
+      const calls = fromCalls.filter((c) => c.table === "categories");
+      expect(calls).toHaveLength(2);
+      expect(calls[0].methods.some(([m]) => m === "update")).toBe(true);
+    });
+
+    it("throws when any update fails", async () => {
+      queueTableResult("categories", { error: { message: "denied" } });
+      await expect(provider.categories.reorder(USER_ID, ["c1"])).rejects.toThrow("denied");
     });
   });
 

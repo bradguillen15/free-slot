@@ -13,7 +13,19 @@ import { BlockActionChooser } from "@/components/day/BlockActionChooser";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { toast } from "sonner";
-import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog, upsertCategory } from "@/lib/dataStore";
+import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog, upsertCategory, useDailyNote, useUpsertDailyNote } from "@/lib/dataStore";
+import { lazy, Suspense } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  getGuestRecurringNote, upsertGuestRecurringNote, findMostRecentRecurringNote,
+} from "@/lib/localStore";
+
+const DailyNoteEditor = lazy(() =>
+  import("@/components/notes/DailyNoteEditor").then((m) => ({ default: m.DailyNoteEditor }))
+);
+const RecurringNoteEditor = lazy(() =>
+  import("@/components/notes/RecurringNoteEditor").then((m) => ({ default: m.RecurringNoteEditor }))
+);
 import { useNowMinute } from "@/hooks/useNowMinute";
 import { useAutoScrollToHour } from "./useAutoScrollToHour";
 import { useAddBlockHereListener } from "./useAddBlockHereListener";
@@ -27,7 +39,7 @@ export default function CalendarPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [logDefaults, setLogDefaults] = useState<{
     start: string; end: string; editId?: string; editDate?: string;
-    defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
+    defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string; defaultNoteJson?: object | null;
   }>({ start: "09:00", end: "10:00" });
 
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
@@ -138,6 +150,7 @@ export default function CalendarPage() {
       defaultCategoryId: log.category_id ?? undefined,
       defaultTitle: log.title ?? undefined,
       defaultNotes: log.notes ?? undefined,
+      defaultNoteJson: log.note_json ?? null,
     });
     setLogOpen(true);
   }, []);
@@ -170,6 +183,15 @@ export default function CalendarPage() {
 
   const heading = useMemo(() => fmtDayHeading(date), [date]);
 
+  // dailyNote is `undefined` while React Query is pending, `null` if no note exists.
+  // Only render DailyNoteEditor once data is resolved so useState initialises correctly.
+  const { data: dailyNote } = useDailyNote(date);
+  const upsertDailyNote = useUpsertDailyNote();
+
+  const recurringNote = getGuestRecurringNote(date);
+  const carriedNote = !recurringNote ? findMostRecentRecurringNote(date) : null;
+  const recurringInitialContent = recurringNote?.content ?? carriedNote?.content ?? null;
+
   return (
     <>
       <div data-testid="page-day" className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
@@ -189,11 +211,6 @@ export default function CalendarPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:flex-1 lg:min-h-0">
           <div className="relative lg:flex lg:flex-col lg:min-h-0">
-            <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-              <span className="ml-auto">Click a block to edit · right-click to add</span>
-            </div>
             <div
               id="day-timeline-root"
               ref={scrollRef}
@@ -225,16 +242,50 @@ export default function CalendarPage() {
           </div>
 
           <div className="lg:min-h-0 lg:overflow-y-auto">
-            <DaySummary logs={logs} categories={cats} date={date} />
+            <Tabs defaultValue="summary" className="w-full">
+              <TabsList className="w-full mb-3">
+                <TabsTrigger value="summary" className="flex-1">Summary</TabsTrigger>
+                <TabsTrigger value="notes" className="flex-1">Notes</TabsTrigger>
+              </TabsList>
+              <TabsContent value="summary" className="space-y-4 mt-0">
+                <DaySummary logs={logs} categories={cats} date={date} />
+              </TabsContent>
+              <TabsContent value="notes" className="mt-0">
+                <Tabs defaultValue="daily" className="w-full">
+                  <TabsList className="w-full mb-3">
+                    <TabsTrigger value="daily" className="flex-1">Daily</TabsTrigger>
+                    <TabsTrigger value="standing" className="flex-1">Standing</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="daily" className="mt-0">
+                    {dailyNote !== undefined && (
+                      <Suspense fallback={null}>
+                        <DailyNoteEditor
+                          key={date}
+                          date={date}
+                          initialContent={dailyNote?.content ?? null}
+                          onChange={(json) => upsertDailyNote.mutate({ date, content: json })}
+                        />
+                      </Suspense>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="standing" className="mt-0">
+                    <Suspense fallback={null}>
+                      <RecurringNoteEditor
+                        key={`recurring-${date}`}
+                        date={date}
+                        initialContent={recurringInitialContent}
+                        carriedFrom={carriedNote?.date ?? null}
+                        onChange={(json) => upsertGuestRecurringNote(date, json)}
+                      />
+                    </Suspense>
+                  </TabsContent>
+                </Tabs>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
-        <CalendarCreateMenu
-          viewId="day"
-          onLogTime={openQuickLog}
-          onAddBlock={() => { setBlockDialogTarget({}); setBlockDialogOpen(true); }}
-          onLogSleep={openSleepLog}
-        />
+        <CalendarCreateMenu viewId="day" onLogTime={openQuickLog} />
 
         <BlockActionChooser
           open={!!chooserBlock}
@@ -259,6 +310,7 @@ export default function CalendarPage() {
           defaultCategoryId={logDefaults.defaultCategoryId}
           defaultTitle={logDefaults.defaultTitle}
           defaultNotes={logDefaults.defaultNotes}
+          defaultNoteJson={logDefaults.defaultNoteJson}
           onOptimisticInsert={(log) => {
             if (log.date === date || log.date === logsStart)
               setDayLogs((prev) => [...prev, log as typeof prev[0]].sort((a, b) => a.start_time.localeCompare(b.start_time)));

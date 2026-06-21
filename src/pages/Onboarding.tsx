@@ -49,7 +49,7 @@ export default function Onboarding() {
   // Step 3 — preferences, pre-populated from saved profile on first load only
   const form = useForm<PlannerPrefsValues>({
     resolver: zodResolver(plannerPrefsSchema),
-    defaultValues: { peakStart: "09:00", peakEnd: "12:00", includeWeekends: true, weeklyReviewDay: 0 },
+    defaultValues: { includeWeekends: true, weeklyReviewDay: 0 },
   });
   const prefsLoaded = useRef(false);
 
@@ -60,8 +60,6 @@ export default function Onboarding() {
   useEffect(() => {
     if (prefsLoaded.current || !profile) return;
     form.reset({
-      peakStart: profile.peak_hours?.start ?? "09:00",
-      peakEnd: profile.peak_hours?.end ?? "12:00",
       includeWeekends: profile.include_weekends ?? true,
       weeklyReviewDay: profile.weekly_review_day ?? 0,
     });
@@ -86,7 +84,6 @@ export default function Onboarding() {
     setSaving(true);
     try {
       await updateProfile(mode, user?.id ?? null, {
-        peak_hours: { start: values.peakStart, end: values.peakEnd },
         include_weekends: values.includeWeekends,
         weekly_review_day: values.weeklyReviewDay,
         onboarding_completed: true,
@@ -176,36 +173,6 @@ export default function Onboarding() {
 
                 <Form {...form}>
                   <div className="glass rounded-xl border border-border p-5 space-y-5">
-                    <div>
-                      <Label className="mb-2 block">{t("onboarding.preferences.peak")}</Label>
-                      <div className="flex items-center gap-2">
-                        <FormField
-                          control={form.control}
-                          name="peakStart"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Input type="time" className="bg-input border-border w-32 font-mono" {...field} />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <span className="text-muted-foreground text-xs">→</span>
-                        <FormField
-                          control={form.control}
-                          name="peakEnd"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Input type="time" className="bg-input border-border w-32 font-mono" {...field} />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <span className="text-sm text-muted-foreground ml-2">{t("onboarding.preferences.peakHint")}</span>
-                      </div>
-                    </div>
-
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="block">{t("onboarding.preferences.weekends")}</Label>

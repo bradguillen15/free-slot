@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Form, FormControl, FormField, FormItem, FormMessage,
 } from "@/components/ui/form";
+import { StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, durationMinutes, fmtDuration, toMin } from "@/lib/time";
@@ -17,6 +18,8 @@ import { deleteTimeLog, insertTimeLog, updateTimeLog, upsertCategory } from "@/l
 import { CategoryPicker, type PickerCategory } from "@/components/CategoryPicker";
 import { nextCreateColor } from "@/lib/categoryColors";
 import { timeString } from "@/lib/formSchemas";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 
 const quickLogSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
@@ -35,7 +38,7 @@ export type Category = {
   id: string;
   name: string;
   color: string;
-  type: "productive" | "unproductive";
+  type: "productive" | "unproductive" | "essential";
 };
 
 type Props = {
@@ -48,6 +51,7 @@ type Props = {
   defaultCategoryId?: string;
   defaultTitle?: string;
   defaultNotes?: string;
+  defaultNoteJson?: object | null;
   editId?: string;
   /** Actual stored date of the log being edited — needed to preserve overnight log dates. */
   editDate?: string;
@@ -61,20 +65,33 @@ type Props = {
     start_time: string;
     end_time: string;
     category_id: string;
-    type: "productive" | "unproductive";
+    type: "productive" | "unproductive" | "essential";
     title: string | null;
     notes: string | null;
   }) => void;
 };
 
+const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+
 export function QuickLogDialog({
   open, onOpenChange, date, categories,
   defaultStart = "09:00", defaultEnd = "10:00",
-  defaultCategoryId, defaultTitle, defaultNotes, editId, editDate,
+  defaultCategoryId, defaultTitle, defaultNotes, defaultNoteJson, editId, editDate,
   onSaved, onDeleted, onOptimisticInsert, onCategoriesRefresh,
 }: Props) {
   const { user } = useAuth();
   const [deleting, setDeleting] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const noteJsonRef = useRef<object | null>(defaultNoteJson ?? null);
+
+  const noteEditor = useEditor({
+    extensions: [StarterKit],
+    content: defaultNoteJson ?? EMPTY_DOC,
+    editable: true,
+    onUpdate({ editor }) {
+      noteJsonRef.current = editor.getJSON();
+    },
+  });
 
   const form = useForm<QuickLogValues>({
     resolver: zodResolver(quickLogSchema),
@@ -96,8 +113,14 @@ export function QuickLogDialog({
         categoryId: defaultCategoryId ?? categories[0]?.id ?? "",
         notes: defaultNotes ?? "",
       });
+      const hasNote = defaultNoteJson != null;
+      setNoteOpen(hasNote);
+      noteJsonRef.current = defaultNoteJson ?? null;
+      if (noteEditor) {
+        noteEditor.commands.setContent(defaultNoteJson ?? EMPTY_DOC, { emitUpdate: false });
+      }
     }
-  }, [open, defaultStart, defaultEnd, defaultCategoryId, defaultTitle, defaultNotes, categories, form]);
+  }, [open, defaultStart, defaultEnd, defaultCategoryId, defaultTitle, defaultNotes, defaultNoteJson, categories, form, noteEditor]);
 
   const start = form.watch("start");
   const end = form.watch("end");
@@ -114,6 +137,7 @@ export function QuickLogDialog({
     const logDate = overnight
       ? editId ? (editDate ?? addDaysISO(date, -1)) : addDaysISO(date, -1)
       : date;
+    const noteJson = noteOpen ? (noteJsonRef.current ?? null) : null;
     onOpenChange(false);
 
     try {
@@ -126,6 +150,7 @@ export function QuickLogDialog({
           type: selected?.type ?? "productive",
           title: values.title,
           notes: values.notes || null,
+          note_json: noteJson,
         });
         toast.success(`Updated ${fmtDuration(dur)}`);
       } else {
@@ -138,7 +163,7 @@ export function QuickLogDialog({
           start_time: values.start,
           end_time: values.end,
           category_id: values.categoryId,
-          type: (selected?.type ?? "productive") as "productive" | "unproductive",
+          type: (selected?.type ?? "productive") as "productive" | "unproductive" | "essential",
           title: values.title,
           notes: values.notes || null,
         });
@@ -150,6 +175,7 @@ export function QuickLogDialog({
           type: selected?.type ?? "productive",
           title: values.title,
           notes: values.notes || null,
+          note_json: noteJson,
         });
         toast.success(`Logged ${fmtDuration(dur)}`);
       }
@@ -175,7 +201,7 @@ export function QuickLogDialog({
     }
   };
 
-  const createLabel = async (name: string, type: "productive" | "unproductive"): Promise<PickerCategory | null> => {
+  const createLabel = async (name: string, type: "productive" | "unproductive" | "essential"): Promise<PickerCategory | null> => {
     try {
       const created = await upsertCategory(user ? "cloud" : "guest", user?.id ?? null, {
         name,
@@ -285,6 +311,25 @@ export function QuickLogDialog({
               )}
             />
 
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => setNoteOpen((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <StickyNote className="h-3.5 w-3.5" />
+                {noteOpen ? "Remove rich note" : "Add rich note"}
+              </button>
+              {noteOpen && (
+                <div className="rounded-md border border-border bg-surface/50 px-3 py-2">
+                  <EditorContent
+                    editor={noteEditor}
+                    className="prose prose-sm max-w-none text-foreground [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[60px]"
+                  />
+                </div>
+              )}
+            </div>
+
             <DialogFooter className="gap-2 sm:justify-between">
               <div>
                 {editId && (
@@ -301,7 +346,7 @@ export function QuickLogDialog({
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || deleting || !categoryId} data-testid="quicklog-submit">
+                <Button type="submit" disabled={form.formState.isSubmitting || deleting || !categoryId} data-testid="quicklog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
                   {form.formState.isSubmitting ? "Saving…" : "Save log"}
                 </Button>
               </div>

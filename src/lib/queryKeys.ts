@@ -21,6 +21,14 @@ export const queryKeys = {
     ["freeslot", "weeklyReview", userId, weekStart] as const,
   weeklyPriorities: (userId: string | null, weekStart: string) =>
     ["freeslot", "weeklyPriorities", userId, weekStart] as const,
+  dailyNote: (mode: Mode, userId: string | null, date: string) =>
+    ["freeslot", "dailyNote", mode, userId, date] as const,
+  dailyNotesForWeek: (mode: Mode, userId: string | null, startISO: string, endISO: string) =>
+    ["freeslot", "dailyNotesForWeek", mode, userId, startISO, endISO] as const,
+  inboxItems: (mode: Mode, userId: string | null) =>
+    ["freeslot", "inboxItems", mode, userId] as const,
+  allDailyNoteDates: (mode: Mode, userId: string | null) =>
+    ["freeslot", "allDailyNoteDates", mode, userId] as const,
 };
 
 export function isGuestQueryKey(key: readonly unknown[]): boolean {

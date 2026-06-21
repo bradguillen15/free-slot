@@ -120,8 +120,9 @@ The core algorithm. Given:
 - a day's `schedule_blocks` (recurring),
 - the day's `time_logs` (actual),
 - a `weekday`,
-- a `bufferMinutes` setting,
+- a `minWindowMinutes` threshold (default 30),
 - optional peak window (`peakStart` / `peakEnd`),
+- optional day bounds (`dayStart` / `dayEnd`),
 
 …it returns `GapWindow[]` — contiguous free periods of at least `minWindowMinutes`, marked `isPeak` if they intersect the peak window. Overnight blocks (e.g. sleep 23:00 → 07:00) are split into two ranges via `expandRange()` in `lib/time.ts`.
 

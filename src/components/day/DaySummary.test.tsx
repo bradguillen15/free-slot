@@ -22,10 +22,10 @@ describe("DaySummary", () => {
         categories={[cat]}
       />
     );
-    // 1h + 1h30m productive = 2h 30m total
+    // 1h + 1h30m = 2h 30m total
     expect(screen.getAllByText("2h 30m").length).toBeGreaterThan(0);
     expect(screen.getByText("Deep work")).toBeInTheDocument();
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByText("Logged")).toBeInTheDocument();
   });
 
   it("counts an overnight log with the wrapped duration (23:00→01:00 = 2h)", () => {

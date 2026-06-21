@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
+import { Brain, Zap, Heart } from "lucide-react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -13,21 +14,44 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ColorInput } from "@/components/ColorInput";
 import { addLabelSchema, type AddLabelValues } from "./addLabelSchema";
+import { cn } from "@/lib/utils";
+
+type LabelType = "productive" | "unproductive" | "essential";
+
+const TYPE_OPTIONS: { value: LabelType; label: string; description: string; icon: React.ReactNode; activeClass: string }[] = [
+  {
+    value: "productive",
+    label: "Productive",
+    description: "Counts toward your ratio",
+    icon: <Brain className="h-4 w-4" />,
+    activeClass: "border-productive bg-productive/10 text-productive",
+  },
+  {
+    value: "unproductive",
+    label: "Unproductive",
+    description: "Counts against your ratio",
+    icon: <Zap className="h-4 w-4" />,
+    activeClass: "border-unproductive bg-unproductive/10 text-unproductive",
+  },
+  {
+    value: "essential",
+    label: "Essential",
+    description: "Sleep, meals, hygiene — excluded from ratio",
+    icon: <Heart className="h-4 w-4" />,
+    activeClass: "border-primary/60 bg-primary/10 text-primary",
+  },
+];
 
 type Props = {
   open: boolean;
-  type: "productive" | "unproductive";
-  /** Seed color for a fresh label (cycled palette from the caller). */
   defaultColor: string;
   onOpenChange: (open: boolean) => void;
-  /** Persist the label. Return `true` on success so the dialog can close. */
   onSave: (values: AddLabelValues) => Promise<boolean>;
 };
 
-export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave }: Props) {
+export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Props) {
   const { t } = useTranslation();
 
-  // Build the schema with a translated "required" message; the rest are static.
   const schema = useMemo(
     () => addLabelSchema.extend({ name: z.string().trim().min(1, t("labels.nameRequired")) }),
     [t],
@@ -35,17 +59,12 @@ export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave 
 
   const form = useForm<AddLabelValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", color: defaultColor, type },
+    defaultValues: { name: "", color: defaultColor, type: "productive" },
   });
 
-  // Re-seed when the dialog (re)opens for a given type/color.
   useEffect(() => {
-    if (open) form.reset({ name: "", color: defaultColor, type });
-  }, [open, defaultColor, type, form]);
-
-  const title = type === "productive"
-    ? t("labels.addModalTitleProductive")
-    : t("labels.addModalTitleUnproductive");
+    if (open) form.reset({ name: "", color: defaultColor, type: "productive" });
+  }, [open, defaultColor, form]);
 
   const onSubmit = async (values: AddLabelValues) => {
     const ok = await onSave(values);
@@ -58,7 +77,7 @@ export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave 
     <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
       <DialogContent className="bg-surface border-border max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">{title}</DialogTitle>
+          <DialogTitle className="font-display text-xl">{t("labels.addModalTitle")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -77,6 +96,40 @@ export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave 
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Type
+                  </FormLabel>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => field.onChange(opt.value)}
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 rounded-lg border p-2.5 text-center transition-colors",
+                          field.value === opt.value
+                            ? opt.activeClass
+                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        )}
+                        data-testid={`label-type-${opt.value}`}
+                      >
+                        {opt.icon}
+                        <span className="text-[11px] font-medium leading-tight">{opt.label}</span>
+                        <span className="text-[9px] leading-tight opacity-75">{opt.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="color"
@@ -92,6 +145,7 @@ export function AddLabelDialog({ open, type, defaultColor, onOpenChange, onSave 
                 </FormItem>
               )}
             />
+
             <DialogFooter className="gap-2">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
                 {t("labels.cancel")}

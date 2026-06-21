@@ -338,7 +338,7 @@ export function ScheduleBlockDialog({
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || days.length === 0} data-testid="schedule-dialog-submit">
+                <Button type="submit" disabled={form.formState.isSubmitting || days.length === 0} data-testid="schedule-dialog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
                   {form.formState.isSubmitting ? "Saving…" : block ? "Save changes" : "Add block"}
                 </Button>
               </div>
