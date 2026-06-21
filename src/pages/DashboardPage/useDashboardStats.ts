@@ -41,7 +41,7 @@ export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
       }
       return { day: SHORT[i], iso, productive: Math.round(prod), unproductive: Math.round(unprod), total: Math.round(prod + unprod) };
     });
-  }, [days, logs]);
+  }, [days, filteredLogs]);
 
   const totals = useMemo(() => {
     const prod = perDay.reduce((s, d) => s + d.productive, 0);
@@ -66,7 +66,7 @@ export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
       })
       .filter((x): x is CatBreakdownEntry => x !== null)
       .sort((a, b) => b.value - a.value);
-  }, [logs, catMap]);
+  }, [filteredLogs, catMap]);
 
   const planVsActual = useMemo(() => {
     const planned = new Map<string, number>();
@@ -85,7 +85,7 @@ export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
       planned: Math.round(planned.get(name) ?? 0),
       actual: Math.round(actualByCatName.get(name) ?? 0),
     })).sort((a, b) => (b.planned + b.actual) - (a.planned + a.actual)).slice(0, 8);
-  }, [planSlots, logs, catMap]);
+  }, [planSlots, filteredLogs, catMap]);
 
   return { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount: planSlots.length };
 }

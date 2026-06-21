@@ -337,7 +337,7 @@ export function listAllLogs(): LocalTimeLog[] {
   return out;
 }
 
-export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_time: string; end_time: string; type: "productive" | "unproductive" }) {
+export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_time: string; end_time: string; type: "productive" | "unproductive" | "essential" }) {
   const log: LocalTimeLog = {
     id: input.id ?? rid(),
     date: input.date,
