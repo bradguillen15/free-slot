@@ -38,8 +38,9 @@ test.describe("Notes page — standing note", () => {
   test("standing note editor is visible with formatting toolbar", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app/notes");
-    await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Italic" })).toBeVisible();
+    const standing = page.getByRole("heading", { name: /standing note/i }).locator("..");
+    await expect(standing.getByRole("button", { name: "Bold" })).toBeVisible();
+    await expect(standing.getByRole("button", { name: "Italic" })).toBeVisible();
   });
 
   test("typing in the standing note saves to localStorage", async ({ page }) => {
@@ -78,7 +79,7 @@ test.describe("Notes page — daily notes calendar", () => {
       dailyNotes: [{ date: todayISO(), content: NOTE_CONTENT }],
     });
     await page.goto("/app/notes");
-    await expect(page.getByText("My daily thought")).toBeVisible();
+    await expect(page.getByTestId("notes-carousel").locator(".ProseMirror")).toContainText("My daily thought");
   });
 
   test("opening the calendar popover shows the month navigation", async ({ page }) => {
@@ -111,12 +112,14 @@ test.describe("Notes page — daily notes calendar", () => {
     });
     await page.goto("/app/notes");
 
+    const carousel = page.getByTestId("notes-carousel");
+
     // Today's note card shown by default.
-    await expect(page.getByText("My daily thought")).toBeVisible();
+    await expect(carousel.locator(".ProseMirror")).toContainText("My daily thought");
 
     // Step back one day via the carousel's prev-day arrow.
     await page.getByRole("button", { name: /previous day/i }).click();
-    await expect(page.getByText("Older note")).toBeVisible();
+    await expect(carousel.locator(".ProseMirror")).toContainText("Older note");
   });
 
 });

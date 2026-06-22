@@ -100,15 +100,16 @@ The single source of truth is the Supabase schema (replicated by `localStore.ts`
 
 | Table | Purpose |
 |---|---|
-| `profiles` | Per-user prefs: `buffer_minutes`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped`. Auto-created by `handle_new_user` trigger on signup. |
-| `categories` | Productive / unproductive labels (Deep work, Reading, Gaming…). 9 defaults seeded per user. |
+| `profiles` | Per-user prefs: `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped`, plus denormalized `email` for operational lookup. Auto-created by `handle_new_user` trigger on signup. |
+| `categories` | Productive / unproductive / essential labels (Deep work, Reading, Gaming…). Defaults are seeded per user. |
 | `activities` | What the user wants to spend time on. Has `target_hours_per_week` and links to a category. |
 | `schedule_blocks` | Recurring fixed time (work, sleep, commute). Has `days_of_week` (0=Sun..6=Sat), `start_time`/`end_time` (supports overnight), `type: fixed | waste_expected`, and `sort_order` (user-defined order on the Schedule page). |
-| `time_logs` | What the user actually did. `title + date + start_time + end_time + category_id`. |
+| `time_logs` | What the user actually did. `title + date + start_time + end_time + category_id`, with optional rich `note_json`. |
 | `weekly_priorities` | Per-week ranked list of activity ids — drives AI planning. |
 | `weekly_plans` | Cached AI output per `(user_id, week_start)` — uniqueness enforced. `slots: jsonb` is the array of suggested time slots. |
-| `weekly_reviews` | One per completed week; stores planned-vs-actual + AI insights. |
-| `daily_nudges` | One AI-generated nudge per `(user_id, date)`. |
+| `weekly_reviews` | One per completed week; stores AI insights. |
+| `daily_notes` | Per-day rich notes used by dashboard review and weekly planning context. |
+| `inbox_items` | Week-view capture inbox used as optional AI planning context. |
 
 **RLS**: every table has an "own X all" policy of the form `auth.uid() = user_id`. No data is shared between users.
 

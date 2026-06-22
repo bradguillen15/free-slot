@@ -335,7 +335,7 @@ describe("mutations — remaining happy paths (both modes)", () => {
 
 describe("useWeeklyReview", () => {
   it("returns saved review data for the given week", async () => {
-    const review = { id: "r1", week_start: "2026-06-09", insights: "Great week!", planned_vs_actual: null, completed_at: "2026-06-15T10:00:00Z" };
+    const review = { id: "r1", week_start: "2026-06-09", insights: "Great week!", completed_at: "2026-06-15T10:00:00Z" };
     queueTableResult("weekly_reviews", { data: review });
     const { result } = renderDataHook(() => useWeeklyReview("2026-06-09"));
     await waitFor(() => expect(result.current.data?.id).toBe("r1"));

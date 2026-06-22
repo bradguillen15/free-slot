@@ -107,7 +107,11 @@ Verify that an implementation matches the change artifacts (specs, tasks, design
      - Add SUGGESTION: "Code pattern deviation: <details>"
      - Recommendation: "Consider following project pattern: <example>"
 
-8. **Generate Verification Report**
+8. **Run `pnpm verify` once (MANDATORY before archive)**
+
+   Run the full verify gate a single time: `pnpm verify` (lint + typecheck + unit tests + guest E2E). Do not run E2E repeatedly during verify. If it fails, add a **CRITICAL** issue and block archive until green.
+
+9. **Generate Verification Report**
 
    **Summary Scorecard**:
    ```

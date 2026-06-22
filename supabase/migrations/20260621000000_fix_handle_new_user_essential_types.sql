@@ -2,8 +2,9 @@
 -- guest mode (DEFAULT_CATEGORY_SEED) and as existing users after the
 -- 20260620000000 essential-type backfill.
 --
--- The 20260620000000 migration added the 'essential' enum value and UPDATEd
--- existing default rows (Sleep, Meals, Chores & errands) from 'productive' to
+-- The 20260620000000 migration added the 'essential' enum value and the
+-- 20260620010000 migration UPDATEd existing default rows (Sleep, Meals,
+-- Chores & errands) from 'productive' to
 -- 'essential', but it never redefined this trigger — so new signups kept getting
 -- those three as 'productive'. This re-creates the trigger with the corrected
 -- types. Enforced by src/lib/defaultCategorySeed.test.ts (R-SYNC-1).

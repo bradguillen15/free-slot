@@ -1,9 +1,10 @@
 name: CD
 
 # CD runs on every merge to main. It first re-runs the full CI suite (verify +
-# E2E) via the reusable ci.yml workflow, then deploys to Vercel — but only if
-# CI passes. This makes a green E2E run a hard prerequisite for every deploy,
-# independent of branch protection.
+# E2E) via the reusable ci.yml workflow, then pushes Supabase migrations and
+# edge functions, then deploys the frontend to Vercel — but only if CI passes.
+# This makes a green E2E run a hard prerequisite for every deploy, independent
+# of branch protection.
 on:
   push:
     branches: [main]
@@ -12,8 +13,36 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
-  deploy:
+  supabase:
     needs: ci
+    runs-on: ubuntu-latest
+    # SUPABASE_ACCESS_TOKEN — personal access token from supabase.com/dashboard/account/tokens
+    # SUPABASE_DB_PASSWORD — database password set when the project was created
+    # SUPABASE_PROJECT_ID — project ref slug (same value as VITE_SUPABASE_PROJECT_ID)
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      # config.toml references env(OPENAI_API_KEY) for local Studio; not used in CI.
+      OPENAI_API_KEY: dummy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: latest
+
+      - name: Link Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Push database migrations
+        run: supabase db push
+
+      - name: Deploy edge functions
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID"
+
+  deploy:
+    needs: [ci, supabase]
     runs-on: ubuntu-latest
     # ORG/PROJECT ids tell the Vercel CLI which project to deploy; the token
     # authenticates it. All three are stored as repo secrets.

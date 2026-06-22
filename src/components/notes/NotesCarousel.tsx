@@ -34,6 +34,9 @@ export function NotesCarousel({ dates, selectedISO, onSelectDate }: Props) {
 
   const noteDates = dates.map(parseLocal);
   const selectedDate = parseLocal(selectedISO);
+  // `note` is undefined while React Query is pending, null when no note exists.
+  // Wait for resolution before mounting DailyNoteCard so useEditor initialises
+  // with the correct content (same pattern as CalendarPage).
   const { data: note } = useDailyNote(selectedISO);
   const upsertDailyNote = useUpsertDailyNote();
 
@@ -88,12 +91,14 @@ export function NotesCarousel({ dates, selectedISO, onSelectDate }: Props) {
         </button>
       </div>
 
-      <DailyNoteCard
-        key={selectedISO}
-        date={selectedISO}
-        initialContent={note?.content ?? null}
-        onChange={(json) => upsertDailyNote.mutate({ date: selectedISO, content: json })}
-      />
+      {note !== undefined && (
+        <DailyNoteCard
+          key={selectedISO}
+          date={selectedISO}
+          initialContent={note?.content ?? null}
+          onChange={(json) => upsertDailyNote.mutate({ date: selectedISO, content: json })}
+        />
+      )}
     </div>
   );
 }

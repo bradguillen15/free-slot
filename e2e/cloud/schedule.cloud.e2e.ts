@@ -1,4 +1,5 @@
 import { test, expect, signUp, serviceClient } from "./fixtures/auth";
+import { pickDefaultLabel } from "../fixtures/guest";
 
 /**
  * Cloud schedule — proves the shared ScheduleEditor (embedded in onboarding AND
@@ -21,6 +22,7 @@ test.describe("cloud schedule", () => {
     // Add via the embedded editor's dialog on step 1.
     await page.getByTestId("schedule-add-block").click();
     await page.getByTestId("schedule-dialog-name").fill("Morning gym");
+    await pickDefaultLabel(page);
     await page.getByTestId("schedule-dialog-submit").click();
 
     await expect.poll(async () => (await blocks(userId)).map((b) => b.name)).toContain("Morning gym");
@@ -37,6 +39,7 @@ test.describe("cloud schedule", () => {
     const { userId } = await signUp(page);
     await page.getByTestId("schedule-add-block").click();
     await page.getByTestId("schedule-dialog-name").fill("Temp block");
+    await pickDefaultLabel(page);
     await page.getByTestId("schedule-dialog-submit").click();
 
     await expect.poll(async () => (await blocks(userId)).length).toBe(1);

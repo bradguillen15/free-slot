@@ -45,4 +45,4 @@
 ## Notes
 
 - Steps 1 (db push + type regeneration) and 15 (manual verification) require a live Supabase connection and dev server.
-- The `daily_notes` and `inbox_items` tables use `as any` casts in the Supabase client provider because `supabase gen types` has not been run yet (schema exists in migration files).
+- The `daily_notes` and `inbox_items` tables are now present in `src/integrations/supabase/types.ts`, so the Supabase provider no longer needs `as any` casts for those tables.

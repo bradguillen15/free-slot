@@ -108,25 +108,46 @@ export type Database = {
         }
         Relationships: []
       }
-      daily_nudges: {
+      daily_notes: {
         Row: {
-          content: string
+          content: Json
           date: string
-          generated_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: Json
+          date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: Json
+          date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      inbox_items: {
+        Row: {
+          archived_at: string | null
+          content: string
+          created_at: string
           id: string
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           content: string
-          date: string
-          generated_at?: string
+          created_at?: string
           id?: string
           user_id: string
         }
         Update: {
+          archived_at?: string | null
           content?: string
-          date?: string
-          generated_at?: string
+          created_at?: string
           id?: string
           user_id?: string
         }
@@ -134,7 +155,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          buffer_minutes: number
           created_at: string
           email: string | null
           id: string
@@ -142,11 +162,9 @@ export type Database = {
           onboarding_completed: boolean
           onboarding_skipped: boolean
           peak_hours: Json | null
-          updated_at: string
           weekly_review_day: number
         }
         Insert: {
-          buffer_minutes?: number
           created_at?: string
           email?: string | null
           id: string
@@ -154,11 +172,9 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_skipped?: boolean
           peak_hours?: Json | null
-          updated_at?: string
           weekly_review_day?: number
         }
         Update: {
-          buffer_minutes?: number
           created_at?: string
           email?: string | null
           id?: string
@@ -166,7 +182,6 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_skipped?: boolean
           peak_hours?: Json | null
-          updated_at?: string
           weekly_review_day?: number
         }
         Relationships: []
@@ -228,6 +243,7 @@ export type Database = {
           date: string
           end_time: string
           id: string
+          note_json: Json | null
           notes: string | null
           start_time: string
           title: string | null
@@ -240,6 +256,7 @@ export type Database = {
           date: string
           end_time: string
           id?: string
+          note_json?: Json | null
           notes?: string | null
           start_time: string
           title?: string | null
@@ -252,6 +269,7 @@ export type Database = {
           date?: string
           end_time?: string
           id?: string
+          note_json?: Json | null
           notes?: string | null
           start_time?: string
           title?: string | null
@@ -272,8 +290,6 @@ export type Database = {
         Row: {
           generated_at: string
           id: string
-          raw_prompt: Json | null
-          raw_response: Json | null
           slots: Json
           user_id: string
           week_start: string
@@ -281,8 +297,6 @@ export type Database = {
         Insert: {
           generated_at?: string
           id?: string
-          raw_prompt?: Json | null
-          raw_response?: Json | null
           slots?: Json
           user_id: string
           week_start: string
@@ -290,8 +304,6 @@ export type Database = {
         Update: {
           generated_at?: string
           id?: string
-          raw_prompt?: Json | null
-          raw_response?: Json | null
           slots?: Json
           user_id?: string
           week_start?: string
@@ -338,7 +350,6 @@ export type Database = {
           completed_at: string
           id: string
           insights: string | null
-          planned_vs_actual: Json | null
           user_id: string
           week_start: string
         }
@@ -346,7 +357,6 @@ export type Database = {
           completed_at?: string
           id?: string
           insights?: string | null
-          planned_vs_actual?: Json | null
           user_id: string
           week_start: string
         }
@@ -354,7 +364,6 @@ export type Database = {
           completed_at?: string
           id?: string
           insights?: string | null
-          planned_vs_actual?: Json | null
           user_id?: string
           week_start?: string
         }

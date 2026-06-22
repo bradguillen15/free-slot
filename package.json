@@ -21,7 +21,10 @@
     "supabase:start": "supabase status >/dev/null 2>&1 || supabase stop; supabase start",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit"
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "verify:fast": "pnpm lint && pnpm typecheck && pnpm test",
+    "verify": "pnpm verify:fast && pnpm test:e2e",
+    "verify:ci": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

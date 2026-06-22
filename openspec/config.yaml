@@ -34,8 +34,10 @@ rules:
 
   tasks:
     - Break tasks into chunks of max 2 hours
-    - All tasks must include: review/update tests, run `bun run test`, manual verification steps
+    - All tasks must include: review/update unit tests and run `pnpm test` for the touched area
+    - Include one **final verification** task at the end: run `pnpm verify` once before archive (guest E2E runs here, not after every task)
     - Frontend tasks must verify guest mode when the feature is not account-gated
+    - Frontend tasks that change user-visible flows must update `e2e/*.e2e.ts` in the same change
     - Backend tasks must include RLS policy verification for new tables
 
   spec:
@@ -46,7 +48,7 @@ rules:
     - Use dataStore hooks for data access in pages — never call supabase.from() directly from guest-capable views
     - Use semantic design tokens from index.css and tailwind.config.ts — no hardcoded colors
     - Never edit src/integrations/supabase/{client,types}.ts — both are generated
-    - Run `bun run test` and `bun run lint` before marking implementation complete
+    - Run `pnpm verify` once before marking the change complete (not after every task); update `e2e/*.e2e.ts` when guest UX, testids, or dialog requirements change
 
   backend:
     - New tables require user_id, RLS enabled, and own-data policy; add localStore + dataStore parity when client-accessible

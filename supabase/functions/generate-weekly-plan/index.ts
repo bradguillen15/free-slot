@@ -115,8 +115,6 @@ Deno.serve(async (req) => {
           week_start,
           slots,
           generated_at: new Date().toISOString(),
-          raw_prompt: { system: systemPrompt, user: userPrompt },
-          raw_response: aiJson,
         },
         { onConflict: "user_id,week_start" }
       )

@@ -8,12 +8,10 @@ CREATE TABLE public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
   email TEXT,
   peak_hours JSONB DEFAULT '{"start":"09:00","end":"12:00"}'::jsonb,
-  buffer_minutes INT NOT NULL DEFAULT 15,
   include_weekends BOOLEAN NOT NULL DEFAULT true,
   weekly_review_day INT NOT NULL DEFAULT 0, -- 0=Sun
   onboarding_completed BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own profile select" ON public.profiles FOR SELECT USING (auth.uid() = id);
@@ -58,7 +56,9 @@ CREATE TABLE public.time_logs (
   end_time TIME NOT NULL,
   category_id UUID REFERENCES public.categories ON DELETE SET NULL,
   type category_type NOT NULL,
+  title TEXT,
   notes TEXT,
+  note_json JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.time_logs ENABLE ROW LEVEL SECURITY;
@@ -98,24 +98,10 @@ CREATE TABLE public.weekly_plans (
   week_start DATE NOT NULL,
   generated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   slots JSONB NOT NULL DEFAULT '[]'::jsonb,
-  raw_prompt JSONB,
-  raw_response JSONB,
   UNIQUE (user_id, week_start)
 );
 ALTER TABLE public.weekly_plans ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own plan all" ON public.weekly_plans FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- Daily nudge
-CREATE TABLE public.daily_nudges (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE,
-  date DATE NOT NULL,
-  generated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  content TEXT NOT NULL,
-  UNIQUE (user_id, date)
-);
-ALTER TABLE public.daily_nudges ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "own nudge all" ON public.daily_nudges FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Weekly review
 CREATE TABLE public.weekly_reviews (
@@ -123,7 +109,6 @@ CREATE TABLE public.weekly_reviews (
   user_id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE,
   week_start DATE NOT NULL,
   completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  planned_vs_actual JSONB,
   insights TEXT,
   UNIQUE (user_id, week_start)
 );

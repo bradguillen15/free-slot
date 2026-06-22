@@ -28,19 +28,20 @@ Environment variables (`.env` — copy from `.env.example`):
 
 | Table | Key columns | Purpose |
 |---|---|---|
-| `profiles` | `id (= auth.uid)`, `buffer_minutes`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | Per-user preferences. Created by trigger on signup. `onboarding_skipped` is an alternative pass-through flag — either flag set to `true` lets the user past `OnboardingGate`. |
-| `categories` | `id`, `user_id`, `name`, `type` (productive/unproductive), `color`, `is_default` | Tags for activities and logs. 9 defaults seeded per user. |
+| `profiles` | `id (= auth.uid)`, `email`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | Per-user preferences. Created by trigger on signup. `email` is denormalized from auth for operational lookup. `onboarding_skipped` is an alternative pass-through flag — either flag set to `true` lets the user past `OnboardingGate`. |
+| `categories` | `id`, `user_id`, `name`, `type` (productive/unproductive/essential), `color`, `is_default`, `hidden`, `sort_order` | Tags for activities and logs. Defaults are seeded per user. |
 | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | What the user wants to spend time on. |
 | `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week int[]`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time. |
-| `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes` | What actually happened. |
+| `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes`, `note_json` | What actually happened, including optional rich inline notes. |
 | `weekly_priorities` | `user_id`, `week_start`, `activity_id`, `rank` | Drag-ranked focus per week — drives AI planning. |
-| `weekly_plans` | `user_id`, `week_start`, `slots jsonb`, `raw_prompt`, `raw_response` | AI-generated week plan. **`UNIQUE(user_id, week_start)`** to prevent duplicates. |
-| `weekly_reviews` | `user_id`, `week_start`, `planned_vs_actual jsonb`, `insights` | One per completed week. |
-| `daily_nudges` | `user_id`, `date`, `content` | One AI nudge per day. |
+| `weekly_plans` | `user_id`, `week_start`, `generated_at`, `slots jsonb` | AI-generated week plan. **`UNIQUE(user_id, week_start)`** to prevent duplicates. |
+| `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | One AI insight summary per completed week. |
+| `daily_notes` | `user_id`, `date`, `content jsonb`, `updated_at` | Per-day rich notes. |
+| `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | Week-view capture inbox used by AI planning. |
 
 ### Trigger
 
-`handle_new_user()` runs `AFTER INSERT ON auth.users`. It creates the `profiles` row and seeds 9 default categories. `SECURITY DEFINER` with `search_path=public`.
+`handle_new_user()` runs `AFTER INSERT ON auth.users`. It creates the `profiles` row and seeds the default categories. `SECURITY DEFINER` with `search_path=public`.
 
 ---
 

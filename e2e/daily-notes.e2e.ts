@@ -1,4 +1,5 @@
 import { test, expect, seedGuest, readGuestDailyNote } from "./fixtures/guest";
+import type { Page } from "@playwright/test";
 
 function todayISO(): string {
   const d = new Date();
@@ -16,38 +17,36 @@ const NOTE_CONTENT = {
   content: [{ type: "paragraph", content: [{ type: "text", text: "My focus note" }] }],
 };
 
+function dailyNoteEditor(page: Page) {
+  return page.getByTestId("daily-note-editor").locator(".ProseMirror");
+}
+
+async function openDailyNotesTab(page: Page) {
+  await page.getByRole("tab", { name: "Notes" }).click();
+  await page.getByRole("tab", { name: "Daily" }).click();
+}
+
 // ---------------------------------------------------------------------------
 // Daily notes — day view
 // ---------------------------------------------------------------------------
 
 test.describe("guest daily notes — day view", () => {
-  test("shows placeholder button when no note exists", async ({ page }) => {
+  test("shows the rich-text editor when no note exists", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await expect(page.getByLabel("Add a note for this day")).toBeVisible();
-  });
-
-  test("clicking placeholder expands the rich-text editor", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await page.getByLabel("Add a note for this day").click();
-    await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
-    // Placeholder is gone once the editor is open
-    await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
+    await openDailyNotesTab(page);
+    await expect(dailyNoteEditor(page)).toBeVisible();
   });
 
   test("typing saves the note to localStorage after debounce and it survives a reload", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await page.getByLabel("Add a note for this day").click();
-    const editor = page.locator(".ProseMirror[contenteditable='true']");
+    await openDailyNotesTab(page);
+    const editor = dailyNoteEditor(page);
     await expect(editor).toBeVisible();
+    await editor.click();
 
     // pressSequentially focuses the element and types char-by-char — reliable for ProseMirror
     await editor.pressSequentially("Focus deep work");
@@ -58,23 +57,21 @@ test.describe("guest daily notes — day view", () => {
     // Poll until the 300ms debounce fires and the note lands in localStorage
     await expect.poll(() => readGuestDailyNote(page, todayISO()), { timeout: 3000 }).not.toBeNull();
 
-    // After reload the note is loaded from storage → editor shows expanded, placeholder hidden
+    // After reload the note is loaded from storage → editor shows the saved content
     await page.reload();
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
-    await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
+    await openDailyNotesTab(page);
+    await expect(dailyNoteEditor(page)).toContainText("Focus deep work");
   });
 
-  test("seeded note renders the editor expanded on page load", async ({ page }) => {
+  test("seeded note renders the editor with content on page load", async ({ page }) => {
     await seedGuest(page, {
       ...skip,
       dailyNotes: [{ date: todayISO(), content: NOTE_CONTENT }],
     });
     await page.goto("/app");
 
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
-    await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
+    await openDailyNotesTab(page);
+    await expect(dailyNoteEditor(page)).toContainText("My focus note");
   });
 });
 

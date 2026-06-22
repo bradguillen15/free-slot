@@ -12,7 +12,7 @@
 
 - [x] 2.1 Add `note_json?: object` field to `LocalTimeLog` type in `src/lib/localStore.ts`
 - [x] 2.2 Update `upsertGuestTimeLog` to persist `note_json` when provided
-- [ ] 2.3 Add `note_json jsonb` nullable column to `time_logs` table via Supabase migration (SQL: `ALTER TABLE time_logs ADD COLUMN note_json jsonb;`)
+- [x] 2.3 Add `note_json jsonb` nullable column to `time_logs` table via Supabase migration (SQL: `ALTER TABLE time_logs ADD COLUMN note_json jsonb;`)
 - [x] 2.4 Update Supabase cloud mapper in `src/resources/_providers/supabase/client.ts` to read/write `note_json` for time log entries
 
 ## 3. Tests — Data Layer

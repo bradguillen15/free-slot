@@ -82,19 +82,13 @@ tests are coupled to private CSS classes, the R-TEST-1 anti-pattern. **Fix:** as
 render in the strip by behavior (positioned `span[style]` with the log/block color), drop the
 responsive-class assertions.
 
-### H-2 — Time-log `note_json` is guest-only: silently dropped in cloud mode and on migration ⚠️ flagged
-**Rule:** R-ARCH-1 (guest/cloud parity) · **Location:** `src/components/day/QuickLogDialog.tsx:153,178`, `src/resources/_providers/supabase/client.ts:291`, no `note_json` column in any `time_logs` migration
+### H-2 — Time-log `note_json` cloud parity ⚠️ resolved after review
+**Rule:** R-ARCH-1 (guest/cloud parity) · **Location:** `src/components/day/QuickLogDialog.tsx`, `src/resources/_providers/supabase/client.ts`, `supabase/migrations`
 
 `QuickLogDialog` writes `note_json` (rich Tiptap content) onto a time log and `DayTimeline` shows a
-sticky-note icon when present — but this works **only in guest mode**. The cloud `time_logs` table has
-no `note_json` column, the single-insert and `insertMany` mappers explicitly strip it
-(`{ note_json: _n, ...l }`), so for signed-in users the sticky-note content is silently discarded on
-every insert, and guest content is lost on account migration.
-
-This is a **pre-existing parity gap**, not a regression from this branch, and the correct fix needs a
-schema decision: either (a) add `note_json jsonb` to `time_logs` + thread it through the mappers and
-`TimeLogInput`/`migrateGuest`, or (b) remove `note_json` from time logs if rich notes belong only on
-daily notes. **Flagged for a dedicated change (schema + product decision), not fixed in this pass.**
+sticky-note icon when present. This was originally guest-only, but the schema now includes
+`time_logs.note_json jsonb` and the Supabase provider reads/writes it for cloud inserts, updates, and
+guest migration.
 
 ---
 
@@ -141,12 +135,12 @@ in `eslint.config.js` (alongside `dist`).
 `ARCHITECTURE.md` documented a `bufferMinutes` parameter that the current `findFreeWindows` signature
 no longer has. **Fixed:** doc now lists the real params (`minWindowMinutes`, peak window, day bounds).
 
-### L-3 — Inbox cloud provider bypasses generated Supabase types
-**Rule:** R-TYPE-2 · **Location:** `src/resources/_providers/supabase/client.ts:458-468` (and other `inbox_items` methods)
+### L-3 — Inbox cloud provider generated Supabase types ✅ resolved
+**Rule:** R-TYPE-2 · **Location:** `src/resources/_providers/supabase/client.ts` and `src/integrations/supabase/types.ts`
 
-The `inbox_items` methods use `(supabase as any)` with `eslint-disable no-explicit-any` because the
-table is missing from `src/integrations/supabase/types.ts`. Regenerate the Supabase types so the inbox
-resource is fully typed and the casts/disables can be removed. **Flagged** (requires `supabase gen types`).
+The `inbox_items` and `daily_notes` tables are now present in `src/integrations/supabase/types.ts`.
+The cloud provider no longer needs `(supabase as any)` or `eslint-disable no-explicit-any` for those
+tables.
 
 ---
 
@@ -184,18 +178,16 @@ the pre-commit hook / CI so a red baseline can't land again.
 | C-1 | Thread `essential` into `insertLog` | R-SYNC-2 | S | ✅ fixed |
 | C-2 | New migration for `handle_new_user()` essential types + de-stale sync test | R-SYNC-1 | M | ✅ fixed |
 | H-1 | Rewrite MonthPage strip tests to behavior | R-TEST-1 | M | ✅ fixed |
-| H-2 | Time-log `note_json` cloud parity (schema) | R-ARCH-1 | M | ⚠️ flagged (needs schema change) |
+| H-2 | Time-log `note_json` cloud parity (schema) | R-ARCH-1 | M | ✅ fixed |
 | M-1 | Dedupe notes/inbox migration steps | R-SYNC-3 | M | ✅ fixed |
 | M-2 | Stop leaking edge-fn error messages | R-SEC-2 | S | ✅ fixed |
 | M-3 | Fix dashboard label filter (deps bug) | R-DATA-1 | S | ✅ fixed |
 | L-1 | Ignore `coverage/` in ESLint | R-DEP | S | ✅ fixed |
 | L-2 | Reconcile `gaps.ts` buffer doc | — | S | ✅ fixed |
-| L-3 | Regenerate Supabase types for `inbox_items` | R-TYPE-2 | S | ⚠️ flagged (needs `supabase gen types`) |
+| L-3 | Regenerate Supabase types for `inbox_items` | R-TYPE-2 | S | ✅ fixed |
 
 ### Follow-ups requiring their own change (not fixed here)
 
-- **H-2** — Time-log `note_json` cloud schema + mapper (or remove the field). Schema + product decision.
-- **L-3** — Regenerate `src/integrations/supabase/types.ts` to type `inbox_items`; drop the `as any` casts.
 - **CI gate** — Wire `pnpm typecheck && pnpm test && pnpm lint` into the pre-commit hook / CI so a red
   baseline can't merge again (R-TEST-5). The `.githooks` dir exists; add the gate there.
 

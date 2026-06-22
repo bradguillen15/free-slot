@@ -2,6 +2,7 @@ import {
   test,
   expect,
   seedGuest,
+  pickDefaultLabel,
   readGuestScheduleBlocks,
   type GuestScheduleBlock,
 } from "./fixtures/guest";
@@ -32,6 +33,7 @@ test.describe("guest schedule blocks", () => {
 
     await page.getByTestId("schedule-add-block").click();
     await page.getByTestId("schedule-dialog-name").fill("Morning gym");
+    await pickDefaultLabel(page);
     await page.getByTestId("schedule-dialog-submit").click();
 
     // Dialog closes and a row appears.

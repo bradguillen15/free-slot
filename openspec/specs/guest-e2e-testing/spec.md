@@ -123,23 +123,27 @@ The suite SHALL verify that switching the interface language updates visible cop
 - **WHEN** a guest switches the language to Spanish via the language switcher
 - **THEN** representative interface copy renders in Spanish and the preference persists across reload
 
-### Requirement: E2E runs at deploy time with a local pre-push gate
+### Requirement: Guest E2E runs on every pull request and before push
 
-The guest E2E suite SHALL run automatically at continuous-deployment time (on merge to the main branch) rather than on every pull-request commit, to avoid spending CI minutes on each push of a PR. It SHALL run headless and SHALL publish diagnostic artifacts when a run fails. A local pre-push git hook SHALL run the suite before code is pushed so regressions are caught locally, and the hook MUST be bypassable for exceptional cases.
+The guest E2E suite SHALL run headless on every pull-request CI run and again via CD (reusable `ci.yml` on merge to `main`). It SHALL publish diagnostic artifacts when a run fails. A local pre-push git hook SHALL run the suite before code is pushed so regressions are caught locally, and the hook MUST be bypassable for exceptional cases. UI changes that affect user-visible flows SHALL update the matching `e2e/*.e2e.ts` specs in the same change.
 
-#### Scenario: CD runs the guest E2E suite on merge to main
-- **WHEN** code is pushed to the main branch (e.g. a pull request is merged)
-- **THEN** a dedicated workflow installs the required browser, runs the guest E2E suite headless, and fails the run if any E2E test fails
-
-#### Scenario: PR commits do not trigger the E2E suite
+#### Scenario: PR CI runs the guest E2E suite
 - **WHEN** a commit is pushed to a pull-request branch
-- **THEN** the pull-request CI runs lint, typecheck, unit tests, and build, but does NOT run the E2E suite
+- **THEN** CI runs `pnpm verify:ci` (lint, typecheck, unit tests with coverage, build, and guest E2E) and fails if any E2E test fails
+
+#### Scenario: CD re-runs the same verify gate on merge to main
+- **WHEN** code is merged to the main branch
+- **THEN** the CD workflow reuses `ci.yml`, which includes the guest E2E suite, before deploying
 
 #### Scenario: Failure artifacts are available
-- **WHEN** an E2E test fails in CD
+- **WHEN** an E2E test fails in CI
 - **THEN** the HTML report and trace for the failing run are uploaded as build artifacts
 
 #### Scenario: Pre-push hook runs the suite locally
 - **WHEN** a developer runs `git push`
 - **THEN** a pre-push hook runs the guest E2E suite and blocks the push if it fails, unless the developer bypasses it with `git push --no-verify`
+
+#### Scenario: UI flow changes update E2E specs
+- **WHEN** a change modifies guest-visible flows, dialog requirements, `data-testid` attributes, or guest persistence shape
+- **THEN** the author updates the affected `e2e/*.e2e.ts` specs (and `e2e/fixtures/guest.ts` helpers when needed) in the same change and runs `pnpm verify` once before marking work complete
 

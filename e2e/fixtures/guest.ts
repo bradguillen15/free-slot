@@ -235,6 +235,16 @@ export async function readGuestDailyNote(page: Page, date: string): Promise<Gues
   );
 }
 
+/**
+ * Pick a default bootstrap label in an open dialog (QuickLog, ScheduleBlock, etc.).
+ * Required since label assignment became mandatory on create flows.
+ */
+export async function pickDefaultLabel(page: Page, labelName = "Deep work"): Promise<void> {
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox").click();
+  await page.getByRole("option", { name: labelName }).click();
+}
+
 /** Read all (non-archived) guest inbox items from localStorage. */
 export async function readGuestInboxItems(page: Page): Promise<GuestInboxItem[]> {
   return page.evaluate((prefix) => {

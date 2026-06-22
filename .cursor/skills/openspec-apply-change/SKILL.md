@@ -83,14 +83,7 @@ Implement tasks from an OpenSpec change.
      - Document all curl commands and responses
      - **NEVER ask the user to run curl commands** - you must execute them yourself
    
-   - **E2E Testing with Playwright MCP**: If the task involves frontend/E2E testing:
-     - Start frontend and backend servers if needed
-     - Use Playwright MCP tools (`browser_navigate`, `browser_click`, `browser_type`, etc.)
-     - Execute complete user workflows
-     - Test error scenarios
-     - Verify data persistence
-     - Restore test environment and database state
-     - **NEVER ask the user to run E2E tests** - you must execute them yourself
+   - **While implementing**: run `pnpm test` for touched areas. Update `e2e/*.e2e.ts` when guest UX changes — do **not** run the full E2E suite after every task (slow).
    
    - **Mark task complete**: Only mark task as complete (`- [ ]` → `- [x]`) AFTER:
      - All code changes are complete
@@ -107,12 +100,16 @@ Implement tasks from an OpenSpec change.
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-7. **On completion or pause, show status**
+7. **Final verification (once, when all implementation tasks are done)**
+
+   Before suggesting archive, run `pnpm verify` **once** (lint + typecheck + unit tests + guest E2E). Fix failures before archive. Do not re-run E2E after every task.
+
+8. **On completion or pause, show status**
 
    Display:
    - Tasks completed this session
    - Overall progress: "N/M tasks complete"
-   - If all done: suggest archive
+   - If all done and `pnpm verify` passed: suggest archive
    - If paused: explain why and wait for guidance
 
 **Output During Implementation**
@@ -173,7 +170,7 @@ What would you like to do?
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- **For manual testing tasks**: Execute all tests yourself (curl for endpoints, Playwright MCP for E2E) - NEVER delegate to user
+- **For manual testing tasks**: Execute curl/endpoint tests yourself during implementation; run `pnpm verify` once at the end — NEVER delegate to user
 - **Mark tasks complete**: Only mark tasks as complete AFTER executing all required manual tests and verifying results
 - Update task checkbox immediately after completing each task AND verifying all tests pass
 - Pause on errors, blockers, or unclear requirements - don't guess
