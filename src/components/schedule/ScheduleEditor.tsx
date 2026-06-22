@@ -39,7 +39,7 @@ import {
 } from "@/lib/dataStore";
 import type { PickerCategory } from "@/components/CategoryPicker";
 import { useAuth } from "@/contexts/AuthContext";
-import { BLOCK_PRESETS, DAYS } from "@/lib/schedule";
+import { BLOCK_PRESETS } from "@/lib/schedule";
 import { findScheduleCollisions, groupScheduleCollisions } from "@/lib/scheduleCollisions";
 import { toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -117,6 +117,8 @@ function SortableScheduleRow({
   deleteLabel,
   dragLabel,
 }: SortableScheduleRowProps) {
+  const { t } = useTranslation();
+  const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: b.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -185,7 +187,6 @@ function SortableScheduleRow({
       </div>
       <div className="flex items-center gap-1 flex-wrap">
         {DAY_ORDER.map((idx) => {
-          const day = DAYS[idx];
           const active = b.days_of_week.includes(idx);
           return (
             <button
@@ -198,7 +199,7 @@ function SortableScheduleRow({
               )}
               style={active ? { backgroundColor: b.color } : undefined}
             >
-              {day.short}
+              {dayLabels[idx]}
             </button>
           );
         })}
@@ -226,6 +227,7 @@ function SortableScheduleRow({
  */
 export function ScheduleEditor() {
   const { t } = useTranslation();
+  const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
   const { user } = useAuth();
   const mode = user ? "cloud" : "guest";
   const { data: blocksRaw, refresh } = useScheduleBlocks();
@@ -263,17 +265,17 @@ export function ScheduleEditor() {
   const update = async (block: ScheduleBlock, patch: Partial<ScheduleBlock>) => {
     const next = { ...block, ...patch };
     if (next.start_time === next.end_time) {
-      toast.error("End time must differ from start time");
+      toast.error(t("validation.endDiffer"));
       refresh(); // snap inputs back to stored values
       return;
     }
     if (!next.name.trim()) {
-      toast.error("Name is required");
+      toast.error(t("validation.nameRequired"));
       refresh();
       return;
     }
     if (next.days_of_week.length === 0) {
-      toast.error("Select at least one day");
+      toast.error(t("validation.selectDay"));
       return;
     }
     try {
@@ -296,7 +298,7 @@ export function ScheduleEditor() {
   const toggleDay = (block: ScheduleBlock, day: number) => {
     const has = block.days_of_week.includes(day);
     if (has && block.days_of_week.length === 1) {
-      toast.error("Select at least one day");
+      toast.error(t("validation.selectDay"));
       return;
     }
     const days = has
@@ -376,7 +378,7 @@ export function ScheduleEditor() {
 
   const formatOverlapDays = (weekdays: number[]) =>
     weekdays
-      .map((w) => DAYS.find((d) => d.idx === w)?.short)
+      .map((w) => dayLabels[w])
       .filter(Boolean)
       .join(", ");
 
@@ -477,7 +479,7 @@ export function ScheduleEditor() {
             {DAY_ORDER.map((idx) => (
               <div key={idx}>
                 <div className="text-center text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                  {DAYS[idx].short}
+                  {dayLabels[idx]}
                 </div>
                 <div className="relative h-36 rounded-lg bg-muted/20 overflow-hidden">
                   {previewSegs(orderedBlocks, idx).map((s) => (

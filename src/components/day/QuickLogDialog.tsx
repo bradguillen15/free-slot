@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import type { TFunction } from "i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,18 +21,18 @@ import { CategoryPicker, type PickerCategory } from "@/components/CategoryPicker
 import { nextCreateColor } from "@/lib/categoryColors";
 import { timeString } from "@/lib/formSchemas";
 
-const quickLogSchema = z.object({
-  title: z.string().trim().min(1, "Title is required"),
-  start: timeString,
-  end: timeString,
-  categoryId: z.string().min(1, "Pick a label"),
+const makeQuickLogSchema = (t: TFunction) => z.object({
+  title: z.string().trim().min(1, t("validation.titleRequired")),
+  start: timeString(t),
+  end: timeString(t),
+  categoryId: z.string().min(1, t("validation.pickLabel")),
   notes: z.string().optional(),
 }).refine((v) => toMin(v.end) !== toMin(v.start), {
-  message: "End time must be after start",
+  message: t("validation.endDiffer"),
   path: ["end"],
 });
 
-type QuickLogValues = z.infer<typeof quickLogSchema>;
+type QuickLogValues = z.infer<ReturnType<typeof makeQuickLogSchema>>;
 
 export type Category = {
   id: string;
@@ -74,8 +76,11 @@ export function QuickLogDialog({
   defaultCategoryId, defaultTitle, defaultNotes, editId, editDate,
   onSaved, onDeleted, onOptimisticInsert, onCategoriesRefresh,
 }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [deleting, setDeleting] = useState(false);
+
+  const quickLogSchema = useMemo(() => makeQuickLogSchema(t), [t]);
 
   const form = useForm<QuickLogValues>({
     resolver: zodResolver(quickLogSchema),
@@ -127,7 +132,7 @@ export function QuickLogDialog({
           title: values.title,
           notes: values.notes || null,
         });
-        toast.success(`Updated ${fmtDuration(dur)}`);
+        toast.success(t("quickLog.updated", { duration: fmtDuration(dur) }));
       } else {
         const optimisticId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
           ? crypto.randomUUID()
@@ -151,11 +156,11 @@ export function QuickLogDialog({
           title: values.title,
           notes: values.notes || null,
         });
-        toast.success(`Logged ${fmtDuration(dur)}`);
+        toast.success(t("quickLog.logged", { duration: fmtDuration(dur) }));
       }
       onSaved?.();
     } catch (err: unknown) {
-      toast.error(`Save failed: ${err instanceof Error ? err.message : "unknown"}`);
+      toast.error(t("quickLog.saveFailed", { error: err instanceof Error ? err.message : "unknown" }));
       onSaved?.();
     }
   };
@@ -165,11 +170,11 @@ export function QuickLogDialog({
     setDeleting(true);
     try {
       await deleteTimeLog(user ? "cloud" : "guest", user?.id ?? null, editId);
-      toast.success("Log deleted");
+      toast.success(t("quickLog.logDeleted"));
       onOpenChange(false);
       onDeleted?.();
     } catch (err: unknown) {
-      toast.error(`Delete failed: ${err instanceof Error ? err.message : "unknown"}`);
+      toast.error(t("quickLog.deleteFailed", { error: err instanceof Error ? err.message : "unknown" }));
     } finally {
       setDeleting(false);
     }
@@ -185,7 +190,7 @@ export function QuickLogDialog({
       await onCategoriesRefresh?.();
       return created as PickerCategory;
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not create label");
+      toast.error(err instanceof Error ? err.message : t("quickLog.couldNotCreateLabel"));
       return null;
     }
   };
@@ -194,7 +199,7 @@ export function QuickLogDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-surface border-border max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">{editId ? "Edit log" : "Log time"}</DialogTitle>
+          <DialogTitle className="font-display text-xl">{editId ? t("quickLog.editTitle") : t("quickLog.createTitle")}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -205,11 +210,11 @@ export function QuickLogDialog({
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Title<RequiredMark />
+                    {t("fields.title")}<RequiredMark />
                   </Label>
                   <FormControl>
                     <Input
-                      placeholder="What did you do? e.g. Breakfast, Standup, Guitar practice"
+                      placeholder={t("quickLog.titlePlaceholder")}
                       autoFocus
                       data-testid="quicklog-title"
                       {...field}
@@ -226,7 +231,7 @@ export function QuickLogDialog({
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Start<RequiredMark />
+                      {t("fields.start")}<RequiredMark />
                     </Label>
                     <FormControl>
                       <Input type="time" className="font-mono-num" data-testid="quicklog-start" {...field} />
@@ -241,13 +246,13 @@ export function QuickLogDialog({
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                      End<RequiredMark />
+                      {t("fields.end")}<RequiredMark />
                     </Label>
                     <FormControl>
                       <Input type="time" className="font-mono-num" data-testid="quicklog-end" {...field} />
                     </FormControl>
                     {isOvernight && (
-                      <p className="text-[10px] text-muted-foreground">next day</p>
+                      <p className="text-[10px] text-muted-foreground">{t("quickLog.nextDayHint")}</p>
                     )}
                     <FormMessage />
                   </FormItem>
@@ -255,7 +260,7 @@ export function QuickLogDialog({
               />
             </div>
             <div className="text-center text-sm text-muted-foreground font-mono-num">
-              Duration · <span className="text-foreground">{fmtDuration(duration)}</span>
+              {t("quickLog.duration")} · <span className="text-foreground">{fmtDuration(duration)}</span>
             </div>
 
             <FormField
@@ -264,7 +269,7 @@ export function QuickLogDialog({
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Label<RequiredMark />
+                    {t("fields.label")}<RequiredMark />
                   </Label>
                   <FormControl>
                     <CategoryPicker
@@ -284,9 +289,9 @@ export function QuickLogDialog({
               name="notes"
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Notes</Label>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("fields.notes")}</Label>
                   <FormControl>
-                    <Textarea rows={2} placeholder="What were you doing?" {...field} />
+                    <Textarea rows={2} placeholder={t("quickLog.notesPlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -303,14 +308,14 @@ export function QuickLogDialog({
                     disabled={deleting || form.formState.isSubmitting}
                     size="sm"
                   >
-                    {deleting ? "Deleting…" : "Delete"}
+                    {deleting ? t("actions.deleting") : t("actions.delete")}
                   </Button>
                 )}
               </div>
               <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t("actions.cancel")}</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting || deleting} data-testid="quicklog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
-                  {form.formState.isSubmitting ? "Saving…" : "Save"}
+                  {form.formState.isSubmitting ? t("actions.saving") : t("actions.save")}
                 </Button>
               </div>
             </DialogFooter>

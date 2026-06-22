@@ -14,10 +14,6 @@ vi.mock("@/lib/dataStore", () => ({
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null }),
 }));
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-}));
-
 import { useCalendarDays } from "@/lib/calendarDays";
 import MonthPage from "./MonthPage";
 

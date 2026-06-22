@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { useCalendarDays, type DayCellData } from "@/lib/calendarDays";
@@ -19,12 +20,6 @@ function ym(year: number, month0: number) {
 function isoDate(year: number, month0: number, day: number) {
   return `${year}-${pad(month0 + 1)}-${pad(day)}`;
 }
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 const MIN_PER_DAY = 24 * 60;
 
 function MonthDayStrip({ cell }: { cell: DayCellData }) {
@@ -75,6 +70,9 @@ function MonthDayStrip({ cell }: { cell: DayCellData }) {
 }
 
 export default function MonthPage() {
+  const { t } = useTranslation();
+  const monthNames = t("month.monthNames", { returnObjects: true }) as string[];
+  const weekdayShort = t("month.weekdayShort", { returnObjects: true }) as string[];
   const today = todayISO();
   const [yearMonth, setYearMonth] = useState<string>(today.slice(0, 7));
 
@@ -136,27 +134,28 @@ export default function MonthPage() {
     <TooltipProvider delayDuration={300}>
       <CalendarViewHeader
         testId="page-month"
-        label="Month view"
-        title={`${MONTHS[month0]} ${year}`}
+        label={t("calendar.monthView")}
+        title={`${monthNames[month0]} ${year}`}
         actions={
           <CalendarNav
             onToday={() => setYearMonth(today.slice(0, 7))}
             onPrev={() => shift(-1)}
             onNext={() => shift(1)}
-            prevLabel="Previous month"
-            nextLabel="Next month"
+            todayLabel={t("calendar.today")}
+            prevLabel={t("calendar.prevMonth")}
+            nextLabel={t("calendar.nextMonth")}
           />
         }
       />
 
       <div className="grid grid-cols-2 gap-3 mb-5">
-        <StatCard label="Total logged" value={fmtDuration(monthTotal)} tone="primary" />
-        <StatCard label="Days logged" value={`${daysLogged} / ${lastDay}`} tone="muted" />
+        <StatCard label={t("month.totalLogged")} value={fmtDuration(monthTotal)} tone="primary" />
+        <StatCard label={t("month.daysLogged")} value={`${daysLogged} / ${lastDay}`} tone="muted" />
       </div>
 
       <div>
         <div className="grid grid-cols-7 gap-1.5 mb-2">
-          {WEEKDAY_SHORT.map((d) => (
+          {weekdayShort.map((d) => (
             <div key={d} className="text-center text-[10px] uppercase tracking-wider text-muted-foreground">
               {d}
             </div>
@@ -177,7 +176,7 @@ export default function MonthPage() {
               <Link
                 key={c.iso}
                 to={`/app?date=${c.iso}`}
-                aria-label={`Open day view for ${c.iso}`}
+                aria-label={t("calendar.openDayView", { label: c.iso })}
                 className={cn(
                   "relative flex aspect-square flex-col overflow-visible rounded-xl border p-1 transition-colors hover:border-primary/40",
                   isToday
@@ -218,7 +217,7 @@ export default function MonthPage() {
         </div>
 
         <div className="mt-4 text-right text-[10px] uppercase tracking-wider text-muted-foreground">
-          Tap a cell to open that day
+          {t("calendar.tapCellToOpen")}
         </div>
       </div>
     </TooltipProvider>

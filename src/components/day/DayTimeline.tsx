@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StickyNote } from "lucide-react";
 import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -324,6 +325,7 @@ function BlockBar({
   groupWidth: number;
   onClick?: () => void;
 }) {
+  const { t } = useTranslation();
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
   const compact = height < COMPACT_BAR_PX;
@@ -349,14 +351,14 @@ function BlockBar({
         color: "hsl(var(--foreground) / 0.85)",
       }}
       onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
-      title={`${name} · Planned`}
+      title={`${name} · ${t("day.planned")}`}
     >
       {compact ? (
         <div className="truncate text-[10px] leading-none">{name}</div>
       ) : (
         <>
           <div className="truncate">{name}</div>
-          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Planned</div>
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("day.planned")}</div>
         </>
       )}
     </motion.div>
@@ -377,6 +379,7 @@ function LogBar({
   onReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
   onClick?: () => void;
 }) {
+  const { t } = useTranslation();
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
   const compact = height < COMPACT_BAR_PX;
@@ -466,7 +469,7 @@ function LogBar({
       onPointerUp={draggable ? endDrag : undefined}
       onPointerCancel={draggable ? endDrag : undefined}
       onClick={!draggable ? handleClick : undefined}
-      title={draggable ? "Drag to reschedule · click to edit" : undefined}
+      title={draggable ? t("day.dragToReschedule") : undefined}
     >
       {compact ? (
         <div className="truncate text-[10px] leading-none flex items-center gap-1">
@@ -496,6 +499,7 @@ function ContextMenuPopover({
   onLog: () => void;
   onAddBlock: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className="fixed z-50 min-w-[180px] rounded-lg border border-border bg-surface shadow-lg py-1 text-sm"
@@ -507,14 +511,14 @@ function ContextMenuPopover({
         onClick={onLog}
         className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors"
       >
-        Log time here
+        {t("day.logTimeHere")}
       </button>
       <button
         type="button"
         onClick={onAddBlock}
         className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors"
       >
-        Add schedule block here
+        {t("day.addBlockHere")}
       </button>
     </div>
   );

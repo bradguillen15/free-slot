@@ -23,13 +23,12 @@ import {
 import { plannerPrefsSchema, type PlannerPrefsValues } from "@/lib/formSchemas";
 import { toast } from "sonner";
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
 const deleteAccountSchema = z.object({ confirmText: z.literal("DELETE") });
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const { t } = useTranslation();
+  const days = t("settings.days", { returnObjects: true }) as string[];
   const navigate = useNavigate();
   const mode = user ? "cloud" : "guest";
 
@@ -66,20 +65,20 @@ export default function SettingsPage() {
       });
       await refreshProfile();
       form.reset(values); // mark clean so the next profile refetch can rehydrate
-      toast.success("Preferences saved");
+      toast.success(t("settings.preferencesSaved"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not save preferences");
+      toast.error(err instanceof Error ? err.message : t("settings.couldNotSavePrefs"));
     }
   };
 
   const deleteAccount = async () => {
     try {
       await deleteAccountMutation.mutateAsync();
-      toast.success("Account deleted");
+      toast.success(t("settings.accountDeleted"));
       await signOut();
       navigate("/", { replace: true });
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to delete account");
+      toast.error(e instanceof Error ? e.message : t("settings.failedDeleteAccount"));
     }
   };
 
@@ -96,9 +95,9 @@ export default function SettingsPage() {
       <header>
         <h1 className="font-display text-3xl font-semibold tracking-tight flex items-center gap-2">
           <SettingsIcon className="h-6 w-6 text-primary" />
-          Settings
+          {t("settings.title")}
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">Tune the planner and manage your labels.</p>
+        <p className="text-muted-foreground mt-1 text-sm">{t("settings.subtitle")}</p>
       </header>
 
       <Card>
@@ -135,16 +134,16 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Planner preferences</CardTitle>
-          <CardDescription>How free time is detected and how the AI fills your week.</CardDescription>
+          <CardTitle className="text-lg">{t("settings.plannerPrefs")}</CardTitle>
+          <CardDescription>{t("settings.plannerPrefsDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(saveProfile)} className="space-y-6" noValidate>
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div>
-                  <Label className="text-base">Include weekends</Label>
-                  <p className="text-xs text-muted-foreground mt-1">Plan activities on Saturday and Sunday.</p>
+                  <Label className="text-base">{t("settings.includeWeekends")}</Label>
+                  <p className="text-xs text-muted-foreground mt-1">{t("settings.includeWeekendsDesc")}</p>
                 </div>
                 <FormField
                   control={form.control}
@@ -160,13 +159,13 @@ export default function SettingsPage() {
                 name="weeklyReviewDay"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <Label>Weekly review day</Label>
+                    <Label>{t("settings.weeklyReviewDay")}</Label>
                     <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
                       <FormControl>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}
+                        {days.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </FormItem>
@@ -174,7 +173,7 @@ export default function SettingsPage() {
               />
 
               <Button type="submit" disabled={form.formState.isSubmitting} className="gap-2">
-                <Save className="h-4 w-4" /> {form.formState.isSubmitting ? "Saving…" : "Save preferences"}
+                <Save className="h-4 w-4" /> {form.formState.isSubmitting ? t("actions.saving") : t("settings.savePreferences")}
               </Button>
             </form>
           </Form>
@@ -185,25 +184,24 @@ export default function SettingsPage() {
         <Card className="border-destructive/40">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-4 w-4" /> Danger zone
+              <AlertTriangle className="h-4 w-4" /> {t("settings.dangerZone")}
             </CardTitle>
             <CardDescription>
-              Permanently delete your account and all associated data. This cannot be undone.
+              {t("settings.dangerZoneDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <AlertDialog onOpenChange={(o) => !o && deleteForm.reset({ confirmText: "" })}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="gap-2">
-                  <Trash2 className="h-4 w-4" /> Delete account
+                  <Trash2 className="h-4 w-4" /> {t("settings.deleteAccount")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogTitle>{t("settings.deleteAccountTitle")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently erase your profile, activities, categories, time logs,
-                    weekly plans, and reviews. Type <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm.
+                    {t("settings.deleteAccountDescBefore")} <span className="font-mono font-semibold text-foreground">DELETE</span> {t("settings.deleteAccountDescAfter")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <Input
@@ -212,13 +210,13 @@ export default function SettingsPage() {
                   autoFocus
                 />
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={deleting}>{t("actions.cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     disabled={!deleteForm.formState.isValid || deleting}
                     onClick={(e) => { e.preventDefault(); deleteAccount(); }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    {deleting ? "Deleting…" : "Delete forever"}
+                    {deleting ? t("actions.deleting") : t("settings.deleteForever")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

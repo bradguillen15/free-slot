@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import type { TFunction } from "i18next";
 import { motion } from "framer-motion";
 import { Plus, Trash2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,12 +19,12 @@ import { ACTIVITY_PRESETS } from "@/lib/schedule";
 import { upsertActivity, deleteActivity } from "@/lib/dataStore";
 import { Surface } from "@/components/Surface";
 
-const activityDraftSchema = z.object({
-  name: z.string().trim().min(1, "Name required"),
+const makeActivityDraftSchema = (t: TFunction) => z.object({
+  name: z.string().trim().min(1, t("validation.nameRequiredShort")),
   categoryId: z.string().optional(),
-  target: z.coerce.number().min(0, "Must be ≥ 0"),
+  target: z.coerce.number().min(0, t("validation.targetNonNegative")),
 });
-type ActivityDraftValues = z.infer<typeof activityDraftSchema>;
+type ActivityDraftValues = z.infer<ReturnType<typeof makeActivityDraftSchema>>;
 
 type Category = { id: string; name: string; color: string; type: "productive" | "unproductive" | "essential" };
 type Activity = {
@@ -44,8 +46,11 @@ export function ActivityEditor({
   activities: Activity[];
   onChange: () => void;
 }) {
+  const { t } = useTranslation();
   const mode = userId ? "cloud" : "guest";
   const [local, setLocal] = useState<Activity[]>(activities);
+
+  const activityDraftSchema = useMemo(() => makeActivityDraftSchema(t), [t]);
 
   const form = useForm<ActivityDraftValues>({
     resolver: zodResolver(activityDraftSchema),
@@ -64,11 +69,11 @@ export function ActivityEditor({
         target_hours_per_week: values.target,
         is_active: true,
       });
-      toast.success("Activity added");
+      toast.success(t("activities.added"));
       form.reset({ name: "", categoryId: "", target: 3 });
       onChange();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not add activity");
+      toast.error(err instanceof Error ? err.message : t("activities.couldNotAdd"));
     }
   };
 
@@ -85,7 +90,7 @@ export function ActivityEditor({
       });
       onChange();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not update activity");
+      toast.error(err instanceof Error ? err.message : t("activities.couldNotUpdate"));
       setLocal(prevLocal); // revert to the state before this specific edit
     }
   };
@@ -93,10 +98,10 @@ export function ActivityEditor({
   const removeActivity = async (id: string) => {
     try {
       await deleteActivity(mode, userId, id);
-      toast.success("Removed");
+      toast.success(t("activities.removed"));
       onChange();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not remove activity");
+      toast.error(err instanceof Error ? err.message : t("activities.couldNotRemove"));
     }
   };
 
@@ -106,16 +111,16 @@ export function ActivityEditor({
     <Surface elevation="glass" padding="lg" className="space-y-5">
       <div className="flex items-center gap-2">
         <Target className="h-4 w-4 text-primary" />
-        <h2 className="font-display text-lg font-semibold">Goal stack</h2>
+        <h2 className="font-display text-lg font-semibold">{t("activities.goalStack")}</h2>
         <span className="text-xs text-muted-foreground ml-auto">
-          {local.filter((a) => a.is_active).length} active
+          {t("activities.activeCount", { count: local.filter((a) => a.is_active).length })}
         </span>
       </div>
 
       <div className="space-y-2">
         {local.length === 0 && (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            No activities yet. Add one below.
+            {t("activities.noActivities")}
           </p>
         )}
         {local.map((a) => {
@@ -148,7 +153,7 @@ export function ActivityEditor({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No category</SelectItem>
+                  <SelectItem value="none">{t("activities.noCategory")}</SelectItem>
                   {productiveCats.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -171,7 +176,7 @@ export function ActivityEditor({
                   }}
                   className="h-8 w-16 text-center"
                 />
-                <span className="text-xs text-muted-foreground">h/wk</span>
+                <span className="text-xs text-muted-foreground">{t("activities.hrsWk")}</span>
               </div>
               <Switch
                 checked={a.is_active}
@@ -187,7 +192,7 @@ export function ActivityEditor({
       </div>
 
       <div className="pt-4 border-t border-border/60 space-y-3">
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Add activity</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("activities.addActivity")}</Label>
         <div className="flex flex-wrap gap-1.5">
           {ACTIVITY_PRESETS.filter((p) => !local.some((a) => a.name.toLowerCase() === p.toLowerCase())).map((p) => (
             <button
@@ -208,7 +213,7 @@ export function ActivityEditor({
               render={({ field }) => (
                 <FormItem className="flex-1 min-w-[180px]">
                   <FormControl>
-                    <Input placeholder="Activity name" data-testid="activity-name-input" {...field} />
+                    <Input placeholder={t("activities.namePlaceholder")} data-testid="activity-name-input" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -224,10 +229,10 @@ export function ActivityEditor({
                     onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
                   >
                     <FormControl>
-                      <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
+                      <SelectTrigger className="w-[160px]"><SelectValue placeholder={t("activities.category")} /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">No category</SelectItem>
+                      <SelectItem value="none">{t("activities.noCategory")}</SelectItem>
                       {productiveCats.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
@@ -255,7 +260,7 @@ export function ActivityEditor({
               )}
             />
             <Button type="submit" className="gap-1.5 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" data-testid="activity-add">
-              <Plus className="h-4 w-4" /> Add
+              <Plus className="h-4 w-4" /> {t("actions.add")}
             </Button>
           </form>
         </Form>

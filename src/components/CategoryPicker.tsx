@@ -5,6 +5,7 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useCategoryName } from "@/lib/categoryLabels";
 
@@ -34,6 +35,7 @@ export function CategoryPicker({
   /** Offer a "No label" option that calls onChange(""). */
   allowNone?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -93,21 +95,21 @@ export function CategoryPicker({
               {categoryName(selected.name)}
             </span>
           ) : (
-            <span className="text-muted-foreground">Pick a label&hellip;</span>
+            <span className="text-muted-foreground">{t("picker.pickLabel")}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="z-[60] w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search or create&hellip;" value={query} onValueChange={setQuery} />
+          <CommandInput placeholder={t("picker.searchOrCreate")} value={query} onValueChange={setQuery} />
           <CommandList ref={listRef} className="overscroll-contain">
-            <CommandEmpty>{onCreate ? "No label found — create it below." : "No label found."}</CommandEmpty>
+            <CommandEmpty>{onCreate ? t("picker.noLabelCreate") : t("picker.noLabel")}</CommandEmpty>
             {allowNone && (
               <CommandGroup>
                 <CommandItem value="__none" onSelect={() => { onChange(""); setOpen(false); }}>
                   <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full shrink-0 border border-border" />
-                  No label
+                  {t("picker.none")}
                   <Check className={cn("ml-auto h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
                 </CommandItem>
               </CommandGroup>
@@ -116,10 +118,10 @@ export function CategoryPicker({
               <CommandGroup>{categories.map(item)}</CommandGroup>
             )}
             {onCreate && trimmed && !exactMatch && (
-              <CommandGroup heading="New label">
+              <CommandGroup heading={t("picker.newLabel")}>
                 <CommandItem value={`__create_${trimmed}`} onSelect={() => create()}>
                   <Plus className="mr-2 h-4 w-4" />
-                  {`Create "${trimmed}"`}
+                  {t("picker.create", { name: trimmed })}
                 </CommandItem>
               </CommandGroup>
             )}

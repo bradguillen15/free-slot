@@ -30,4 +30,20 @@ test.describe("cloud auth", () => {
 
     await expect(page).not.toHaveURL(/\/auth/);
   });
+
+  test("shows a friendly message when signing up with an already-registered email", async ({ page }) => {
+    const creds = await signUp(page);
+
+    // Drop the session and try to sign up again with the same email. With email
+    // confirmations off (local), GoTrue returns "User already registered", which
+    // mapAuthError() turns into the emailExists copy instead of a raw string.
+    await page.evaluate(() => localStorage.clear());
+    await page.goto("/auth");
+    await page.getByTestId("auth-email").fill(creds.email);
+    await page.getByTestId("auth-password").fill(creds.password);
+    await page.getByTestId("auth-submit").click();
+
+    await expect(page.getByText(/already has an account/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/auth/);
+  });
 });

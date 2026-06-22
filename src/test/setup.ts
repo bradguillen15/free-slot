@@ -1,4 +1,8 @@
 import "@testing-library/jest-dom";
+import i18n from "@/i18n";
+
+localStorage.setItem("freeslot.lang", "en");
+void i18n.changeLanguage("en");
 
 // jsdom 20 lacks PointerEvent; polyfill extends MouseEvent so clientX/clientY work.
 if (!("PointerEvent" in window)) {

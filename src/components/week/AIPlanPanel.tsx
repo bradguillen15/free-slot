@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Sparkles, Loader2, Wand2, Trash2, Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -57,6 +58,7 @@ export function AIPlanPanel({
   onPlanChange: (plan: WeeklyPlan | null) => void;
   onSlotAccepted: () => void;
 }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
   const { data: planData } = useWeeklyPlan(weekStart);
@@ -102,11 +104,11 @@ export function AIPlanPanel({
     generatingRef.current = true;
     try {
       if (activities.length === 0) {
-        toast.error("No active activities", { description: "Add activities on the Activities page first." });
+        toast.error(t("aiPanel.noActivitiesTitle"), { description: t("aiPanel.noActivitiesDesc") });
         return;
       }
       if (gaps.length === 0) {
-        toast.error("No free windows this week", { description: "Your week is fully booked. Try removing a block or pick another week." });
+        toast.error(t("aiPanel.noWindowsTitle"), { description: t("aiPanel.noWindowsDesc") });
         return;
       }
 
@@ -133,13 +135,13 @@ export function AIPlanPanel({
       setSummary(result.summary ?? "");
       setAccepted(new Set());
       const slotCount = result.plan?.slots?.length ?? 0;
-      toast(slotCount ? "Plan ready" : "Empty plan", {
+      toast(slotCount ? t("aiPanel.planReady") : t("aiPanel.emptyPlan"), {
         description: slotCount
-          ? `${slotCount} slots generated.`
-          : "AI couldn't fit anything — try setting priorities or adding more free time.",
+          ? t("aiPanel.slotsGenerated", { count: slotCount })
+          : t("aiPanel.emptyPlanDesc"),
       });
     } catch (e: unknown) {
-      toast.error("Couldn't generate plan", { description: e instanceof Error ? e.message : "Try again." });
+      toast.error(t("aiPanel.generateFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
     } finally {
       generatingRef.current = false;
     }
@@ -152,7 +154,7 @@ export function AIPlanPanel({
       setSummary("");
       setAccepted(new Set());
     } catch (e: unknown) {
-      toast.error("Couldn't clear plan", { description: e instanceof Error ? e.message : "Try again." });
+      toast.error(t("aiPanel.clearFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
     }
   };
 
@@ -179,7 +181,7 @@ export function AIPlanPanel({
       setAccepted((s) => new Set(s).add(key));
       onSlotAccepted();
     } catch (e: unknown) {
-      toast.error("Couldn't accept slot", { description: e instanceof Error ? e.message : "Try again." });
+      toast.error(t("aiPanel.acceptSlotFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
     } finally {
       acceptingKeysRef.current.delete(key);
     }
@@ -214,10 +216,14 @@ export function AIPlanPanel({
         pending.forEach((p) => next.add(slotKey(p)));
         return next;
       });
-      toast.success("Plan accepted", { description: `${pending.length} slot${pending.length === 1 ? "" : "s"} added to your week.` });
+      toast.success(t("aiPanel.planAccepted"), {
+        description: pending.length === 1
+          ? t("aiPanel.planAcceptedDescOne", { count: pending.length })
+          : t("aiPanel.planAcceptedDescOther", { count: pending.length }),
+      });
       onSlotAccepted();
     } catch (e: unknown) {
-      toast.error("Couldn't accept plan", { description: e instanceof Error ? e.message : "Try again." });
+      toast.error(t("aiPanel.acceptPlanFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
     } finally {
       setAcceptingAll(false);
     }
@@ -242,11 +248,11 @@ export function AIPlanPanel({
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <div className="font-display text-base font-semibold tracking-tight">AI weekly plan</div>
+              <div className="font-display text-base font-semibold tracking-tight">{t("aiPanel.title")}</div>
               <div className="text-xs text-muted-foreground">
                 {typedPlan
-                  ? `${typedPlan.slots.length} slots · ${fmtDuration(totalMin)} planned${acceptedCount ? ` · ${acceptedCount} accepted` : ""}`
-                  : "Let AI fit your priorities into your free windows."}
+                  ? `${t("aiPanel.planSummary", { count: typedPlan.slots.length, duration: fmtDuration(totalMin) })}${acceptedCount ? t("aiPanel.acceptedSuffix", { count: acceptedCount }) : ""}`
+                  : t("aiPanel.summaryFallback")}
               </div>
             </div>
           </div>
@@ -254,17 +260,17 @@ export function AIPlanPanel({
             {typedPlan && !allAccepted && (
               <Button variant="outline" size="sm" onClick={acceptAll} disabled={acceptingAll} className="gap-1.5">
                 {acceptingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
-                Accept all
+                {t("aiPanel.acceptAll")}
               </Button>
             )}
             {typedPlan && (
               <Button variant="ghost" size="sm" onClick={clearPlan} className="gap-1.5 text-muted-foreground">
-                <Trash2 className="h-3.5 w-3.5" /> Clear
+                <Trash2 className="h-3.5 w-3.5" /> {t("aiPanel.clear")}
               </Button>
             )}
             <Button onClick={generate} disabled={loading} size="sm" className="gap-1.5">
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-              {typedPlan ? "Regenerate" : "Generate plan"}
+              {typedPlan ? t("aiPanel.regenerate") : t("aiPanel.generatePlan")}
             </Button>
           </div>
         </div>
@@ -321,7 +327,7 @@ export function AIPlanPanel({
                     className="h-7 gap-1 text-xs shrink-0"
                   >
                     <Check className="h-3 w-3" />
-                    {isAccepted ? "Accepted" : "Accept"}
+                    {isAccepted ? t("aiPanel.accepted") : t("aiPanel.accept")}
                   </Button>
                 </div>
               );

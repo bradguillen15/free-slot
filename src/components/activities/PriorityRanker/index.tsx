@@ -3,6 +3,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { GripVertical, Flame, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ import { Surface } from "@/components/Surface";
 type Category = { id: string; name: string; color: string; type: string };
 
 function SortableRow({ item, idx, cat }: { item: RankItem; idx: number; cat?: Category }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -32,7 +34,7 @@ function SortableRow({ item, idx, cat }: { item: RankItem; idx: number; cat?: Ca
         {...attributes}
         {...listeners}
         className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground"
-        aria-label="Drag to reorder"
+        aria-label={t("activities.dragToReorder")}
       >
         <GripVertical className="h-4 w-4" />
       </button>
@@ -43,7 +45,7 @@ function SortableRow({ item, idx, cat }: { item: RankItem; idx: number; cat?: Ca
         <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat?.color ?? "hsl(var(--muted-foreground))" }} />
         <span className="font-medium truncate">{item.name}</span>
       </div>
-      <span className="text-xs text-muted-foreground shrink-0">{item.target_hours_per_week}h/wk</span>
+      <span className="text-xs text-muted-foreground shrink-0">{t("activities.perWeekShort", { hours: item.target_hours_per_week })}</span>
       {idx === 0 && <Flame className="h-3.5 w-3.5 text-orange-400" />}
     </div>
   );
@@ -56,6 +58,7 @@ export function PriorityRanker({
   activities: Activity[];
   categories: Category[];
 }) {
+  const { t } = useTranslation();
   const [weekStart, setWeekStart] = useState(weekStartISO());
   const { items, setItems, loading } = usePriorityData({ weekStart, activities });
   const upsertMutation = useUpsertWeeklyPrioritiesMutation();
@@ -73,7 +76,7 @@ export function PriorityRanker({
         items: next.map((it, i) => ({ activity_id: it.id, rank: i })),
       });
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Could not save priorities");
+      toast.error(e instanceof Error ? e.message : t("activities.couldNotSavePriorities"));
     }
   };
 
@@ -93,7 +96,7 @@ export function PriorityRanker({
     <Surface elevation="glass" padding="lg" className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <Trophy className="h-4 w-4 text-primary" />
-        <h2 className="font-display text-lg font-semibold">This week's priorities</h2>
+        <h2 className="font-display text-lg font-semibold">{t("activities.prioritiesTitle")}</h2>
         <div className="ml-auto flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setWeekStart(addDaysISO(weekStart, -7))}>
             <ChevronLeft className="h-4 w-4" />
@@ -106,7 +109,7 @@ export function PriorityRanker({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Drag to rank. Top three drive AI scheduling and daily nudges.
+        {t("activities.prioritiesHint")}
       </p>
 
       {loading ? (
@@ -115,7 +118,7 @@ export function PriorityRanker({
         </div>
       ) : items.length === 0 ? (
         <div className="text-sm text-muted-foreground py-8 text-center border border-dashed border-border rounded-lg">
-          Add and activate activities above to rank them.
+          {t("activities.rankEmpty")}
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { fmtDuration, expandRange, toMin } from "@/lib/time";
 import { segmentsForLogOnDay } from "@/lib/daySegments";
 import { Surface } from "@/components/Surface";
@@ -7,6 +8,7 @@ import type { Category } from "./QuickLogDialog";
 import type { TimeLog } from "./DayTimeline";
 
 export function DaySummary({ logs, categories, date }: { logs: TimeLog[]; categories: Category[]; date?: string }) {
+  const { t } = useTranslation();
   const categoryName = useCategoryName();
   const stats = useMemo(() => {
     const byCat = new Map<string, { name: string; color: string; mins: number }>();
@@ -22,7 +24,7 @@ export function DaySummary({ logs, categories, date }: { logs: TimeLog[]; catego
       const cat = l.category_id ? categories.find((c) => c.id === l.category_id) : undefined;
       const key = cat?.id ?? "other";
       const prev = byCat.get(key) ?? {
-        name: cat?.name ?? "Other",
+        name: cat?.name ?? t("day.other"),
         color: cat?.color ?? "#6b7280",
         mins: 0,
       };
@@ -32,16 +34,16 @@ export function DaySummary({ logs, categories, date }: { logs: TimeLog[]; catego
 
     const top = Array.from(byCat.values()).sort((a, b) => b.mins - a.mins).slice(0, 5);
     return { top, total };
-  }, [logs, categories, date]);
+  }, [logs, categories, date, t]);
 
   return (
     <div className="space-y-4">
-      <Stat label="Logged" value={fmtDuration(stats.total)} accent="text-foreground" />
+      <Stat label={t("day.logged")} value={fmtDuration(stats.total)} accent="text-foreground" />
 
       <Surface padding="md">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Top categories</div>
+        <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t("day.topCategories")}</div>
         {stats.top.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No logs yet today.</div>
+          <div className="text-sm text-muted-foreground">{t("day.noLogsToday")}</div>
         ) : (
           <ul className="space-y-2">
             {stats.top.map((c) => (
