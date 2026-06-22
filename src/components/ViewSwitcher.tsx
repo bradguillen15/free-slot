@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Calendar, CalendarRange, CalendarDays } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 const items = [
-  { to: "/app",        label: "Day",   icon: Calendar },
-  { to: "/app/week",   label: "Week",  icon: CalendarRange },
-  { to: "/app/month",  label: "Month", icon: CalendarDays },
+  { to: "/app",        labelKey: "nav.day",   icon: Calendar },
+  { to: "/app/week",   labelKey: "nav.week",  icon: CalendarRange },
+  { to: "/app/month",  labelKey: "nav.month", icon: CalendarDays },
 ];
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -26,6 +27,7 @@ function viewHref(base: string, search: string): string {
 }
 
 export function ViewSwitcher({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const { pathname, search } = useLocation();
   const activeIdx = items.findIndex((i) =>
     i.to === "/app" ? pathname === "/app" : pathname.startsWith(i.to)
@@ -46,7 +48,7 @@ export function ViewSwitcher({ className }: { className?: string }) {
         className
       )}
       role="tablist"
-      aria-label="Calendar view"
+      aria-label={t("calendar.viewLabel")}
     >
       {items.map((it, idx) => {
         const isActive = idx === activeIdx;
@@ -65,7 +67,7 @@ export function ViewSwitcher({ className }: { className?: string }) {
             )}
           >
             <Icon className="h-3.5 w-3.5" />
-            <span>{it.label}</span>
+            <span>{t(it.labelKey)}</span>
           </Link>
         );
       })}

@@ -3,6 +3,7 @@ import { forwardRef } from "react";
 import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -53,18 +54,21 @@ interface SheetContentProps
     VariantProps<typeof sheetVariants> {}
 
 const SheetContent = forwardRef<ElementRef<typeof Content>, SheetContentProps>(
-  ({ side = "right", className, children, ...props }, ref) => (
-    <SheetPortal>
-      <SheetOverlay />
-      <Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
-        {children}
-        <Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </Close>
-      </Content>
-    </SheetPortal>
-  ),
+  ({ side = "right", className, children, ...props }, ref) => {
+    const { t } = useTranslation();
+    return (
+      <SheetPortal>
+        <SheetOverlay />
+        <Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+          {children}
+          <Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+            <X className="h-4 w-4" />
+            <span className="sr-only">{t("actions.close")}</span>
+          </Close>
+        </Content>
+      </SheetPortal>
+    );
+  },
 );
 SheetContent.displayName = Content.displayName;
 

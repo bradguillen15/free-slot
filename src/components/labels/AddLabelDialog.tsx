@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Brain, Zap, Heart } from "lucide-react";
 import {
@@ -53,10 +52,7 @@ type Props = {
 export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Props) {
   const { t } = useTranslation();
 
-  const schema = useMemo(
-    () => addLabelSchema.extend({ name: z.string().trim().min(1, t("labels.nameRequired")) }),
-    [t],
-  );
+  const schema = useMemo(() => addLabelSchema(t), [t]);
 
   const form = useForm<AddLabelValues>({
     resolver: zodResolver(schema),

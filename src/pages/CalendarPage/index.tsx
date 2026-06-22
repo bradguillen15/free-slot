@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +32,7 @@ import { useAutoScrollToHour } from "./useAutoScrollToHour";
 import { useAddBlockHereListener } from "./useAddBlockHereListener";
 
 export default function CalendarPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date") || todayISO();
@@ -158,7 +160,7 @@ export default function CalendarPage() {
     async (logId: string, newDate: string, newStartMin: number, newEndMin: number) => {
       const log = logs.find((l) => l.id === logId);
       if (!log?.category_id) {
-        toast.error("Assign a category before dragging this block.");
+        toast.error(t("week.assignCategory"));
         return;
       }
       try {
@@ -170,14 +172,14 @@ export default function CalendarPage() {
           type: log.type,
           notes: log.notes,
         });
-        toast.success("Block rescheduled");
+        toast.success(t("week.rescheduled"));
         await refreshLogs();
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Could not reschedule";
+        const msg = e instanceof Error ? e.message : t("week.couldNotReschedule");
         toast.error(msg);
       }
     },
-    [logs, mode, user?.id, refreshLogs]
+    [logs, mode, user?.id, refreshLogs, t]
   );
 
   const heading = useMemo(() => fmtDayHeading(date), [date]);
@@ -196,15 +198,16 @@ export default function CalendarPage() {
       <div data-testid="page-day" className="pt-4 pb-4 w-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
         <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Day view</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">{t("calendar.dayView")}</div>
             <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
           </div>
           <CalendarNav
             onToday={() => setDate(todayISO())}
             onPrev={() => setDate(addDaysISO(date, -1))}
             onNext={() => setDate(addDaysISO(date, 1))}
-            prevLabel="Previous day"
-            nextLabel="Next day"
+            todayLabel={t("calendar.today")}
+            prevLabel={t("calendar.prevDay")}
+            nextLabel={t("calendar.nextDay")}
           />
         </div>
 
@@ -231,9 +234,9 @@ export default function CalendarPage() {
               <div className="mt-3">
                 <EmptyState
                   icon={<Sparkles className="h-5 w-5" />}
-                  title="Nothing logged yet — that's a clean canvas"
-                  description="Click any hour to log time, right-click to add a repeating schedule block."
-                  ctaLabel="Quick log"
+                  title={t("calendar.nothingLoggedTitle")}
+                  description={t("calendar.nothingLoggedDesc")}
+                  ctaLabel={t("calendar.quickLog")}
                   onCtaClick={openQuickLog}
                 />
               </div>
@@ -243,8 +246,8 @@ export default function CalendarPage() {
           <div className="lg:min-h-0 lg:overflow-y-auto">
             <Tabs defaultValue="summary" className="w-full">
               <TabsList className="w-full mb-3">
-                <TabsTrigger value="summary" className="flex-1">Summary</TabsTrigger>
-                <TabsTrigger value="notes" className="flex-1">Notes</TabsTrigger>
+                <TabsTrigger value="summary" className="flex-1">{t("calendar.summary")}</TabsTrigger>
+                <TabsTrigger value="notes" className="flex-1">{t("calendar.notes")}</TabsTrigger>
               </TabsList>
               <TabsContent value="summary" className="space-y-4 mt-0">
                 <DaySummary logs={logs} categories={cats} date={date} />
@@ -252,8 +255,8 @@ export default function CalendarPage() {
               <TabsContent value="notes" className="mt-0">
                 <Tabs defaultValue="daily" className="w-full">
                   <TabsList className="w-full mb-3">
-                    <TabsTrigger value="daily" className="flex-1">Daily</TabsTrigger>
-                    <TabsTrigger value="standing" className="flex-1">Standing</TabsTrigger>
+                    <TabsTrigger value="daily" className="flex-1">{t("calendar.daily")}</TabsTrigger>
+                    <TabsTrigger value="standing" className="flex-1">{t("calendar.standing")}</TabsTrigger>
                   </TabsList>
                   <TabsContent value="daily" forceMount className="mt-0 data-[state=inactive]:hidden">
                     {dailyNote !== undefined && (

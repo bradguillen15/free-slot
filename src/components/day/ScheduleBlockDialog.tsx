@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import type { TFunction } from "i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,25 +27,24 @@ const COLORS = [
   "#ef4444", "#8b5cf6", "#ec4899", "#94a3b8",
 ];
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAYS = [1, 2, 3, 4, 5];
 const WEEKEND = [0, 6];
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
-const scheduleBlockSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
-  startTime: timeString,
-  endTime: timeString,
-  color: hexColor,
-  days: z.array(z.number().int().min(0).max(6)).min(1, "Select at least one day"),
-  categoryId: z.string().min(1, "Pick a label"),
+const makeScheduleBlockSchema = (t: TFunction) => z.object({
+  name: z.string().trim().min(1, t("validation.nameRequired")),
+  startTime: timeString(t),
+  endTime: timeString(t),
+  color: hexColor(t),
+  days: z.array(z.number().int().min(0).max(6)).min(1, t("validation.selectDay")),
+  categoryId: z.string().min(1, t("validation.pickLabel")),
 }).refine((v) => v.startTime !== v.endTime, {
   // end < start is a valid overnight block; equal times would expand to nothing.
-  message: "End time must differ from start time",
+  message: t("validation.endDiffer"),
   path: ["endTime"],
 });
 
-type ScheduleBlockValues = z.infer<typeof scheduleBlockSchema>;
+type ScheduleBlockValues = z.infer<ReturnType<typeof makeScheduleBlockSchema>>;
 
 type Props = {
   open: boolean;
@@ -67,8 +68,12 @@ export function ScheduleBlockDialog({
   onSaved, onDeleted,
   categories, onCategoriesRefresh,
 }: Props) {
+  const { t } = useTranslation();
+  const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
   const { user } = useAuth();
   const mode = user ? "cloud" : "guest";
+
+  const scheduleBlockSchema = useMemo(() => makeScheduleBlockSchema(t), [t]);
 
   const buildDefaults = (): ScheduleBlockValues => ({
     name: block?.name ?? "",
@@ -109,11 +114,11 @@ export function ScheduleBlockDialog({
         type: "fixed",
         category_id: values.categoryId,
       });
-      toast.success(block ? "Block updated" : "Block created");
+      toast.success(block ? t("scheduleBlock.updated") : t("scheduleBlock.created"));
       onOpenChange(false);
       onSaved?.();
     } catch (err: unknown) {
-      toast.error(`Save failed: ${err instanceof Error ? err.message : "unknown"}`);
+      toast.error(t("scheduleBlock.saveFailed", { error: err instanceof Error ? err.message : "unknown" }));
     }
   };
 
@@ -122,11 +127,11 @@ export function ScheduleBlockDialog({
     setDeleting(true);
     try {
       await deleteScheduleBlock(mode, user?.id ?? null, block.id);
-      toast.success("Block deleted");
+      toast.success(t("scheduleBlock.deleted"));
       onOpenChange(false);
       onDeleted?.();
     } catch (err: unknown) {
-      toast.error(`Delete failed: ${err instanceof Error ? err.message : "unknown"}`);
+      toast.error(t("scheduleBlock.deleteFailed", { error: err instanceof Error ? err.message : "unknown" }));
     } finally {
       setDeleting(false);
     }
@@ -137,7 +142,7 @@ export function ScheduleBlockDialog({
       <DialogContent className="bg-surface border-border max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">
-            {block ? "Edit schedule block" : "Add schedule block"}
+            {block ? t("scheduleBlock.editTitle") : t("scheduleBlock.createTitle")}
           </DialogTitle>
         </DialogHeader>
 
@@ -150,10 +155,10 @@ export function ScheduleBlockDialog({
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Name<RequiredMark />
+                    {t("fields.name")}<RequiredMark />
                   </Label>
                   <FormControl>
-                    <Input placeholder="e.g. Work, College, Gym…" data-testid="schedule-dialog-name" {...field} />
+                    <Input placeholder={t("scheduleBlock.namePlaceholder")} data-testid="schedule-dialog-name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -168,7 +173,7 @@ export function ScheduleBlockDialog({
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Start<RequiredMark />
+                      {t("fields.start")}<RequiredMark />
                     </Label>
                     <FormControl>
                       <Input type="time" className="font-mono-num" {...field} />
@@ -183,7 +188,7 @@ export function ScheduleBlockDialog({
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                      End<RequiredMark />
+                      {t("fields.end")}<RequiredMark />
                     </Label>
                     <FormControl>
                       <Input type="time" className="font-mono-num" {...field} />
@@ -201,14 +206,14 @@ export function ScheduleBlockDialog({
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Color<RequiredMark />
+                    {t("fields.color")}<RequiredMark />
                   </Label>
                   <div className="flex gap-2 flex-wrap">
                     {COLORS.map((c) => (
                       <button
                         key={c}
                         type="button"
-                        aria-label={`Color ${c}`}
+                        aria-label={t("scheduleBlock.colorAria", { color: c })}
                         onClick={() => field.onChange(c)}
                         className={cn(
                           "h-7 w-7 rounded-full border-2 transition-transform",
@@ -222,7 +227,7 @@ export function ScheduleBlockDialog({
                     <ColorInput
                       value={field.value}
                       onChange={field.onChange}
-                      ariaLabel="Custom color"
+                      ariaLabel={t("scheduleBlock.customColor")}
                       placeholder="#6366f1"
                       className="pt-1"
                     />
@@ -239,7 +244,7 @@ export function ScheduleBlockDialog({
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Label<RequiredMark />
+                    {t("fields.label")}<RequiredMark />
                   </Label>
                   <FormControl>
                     <CategoryPicker
@@ -256,7 +261,7 @@ export function ScheduleBlockDialog({
                           await onCategoriesRefresh?.();
                           return created as PickerCategory;
                         } catch (err: unknown) {
-                          toast.error(err instanceof Error ? err.message : "Could not create label");
+                          toast.error(err instanceof Error ? err.message : t("scheduleBlock.couldNotCreateLabel"));
                           return null;
                         }
                       }}
@@ -274,15 +279,15 @@ export function ScheduleBlockDialog({
               render={({ field }) => (
                 <FormItem className="space-y-2">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Repeats on<RequiredMark />
+                    {t("scheduleBlock.repeatsOn")}<RequiredMark />
                   </Label>
 
                   {/* Preset chips */}
                   <div className="flex gap-2">
                     {([
-                      { label: "Every day", preset: ALL_DAYS },
-                      { label: "Weekdays", preset: WEEKDAYS },
-                      { label: "Weekends", preset: WEEKEND },
+                      { label: t("scheduleBlock.everyDay"), preset: ALL_DAYS },
+                      { label: t("scheduleBlock.weekdays"), preset: WEEKDAYS },
+                      { label: t("scheduleBlock.weekends"), preset: WEEKEND },
                     ] as const).map(({ label, preset }) => (
                       <button
                         key={label}
@@ -302,7 +307,7 @@ export function ScheduleBlockDialog({
 
                   {/* Individual day toggles */}
                   <div className="flex gap-1.5 flex-wrap">
-                    {DAY_LABELS.map((label, idx) => (
+                    {dayLabels.map((label, idx) => (
                       <button
                         key={idx}
                         type="button"
@@ -341,14 +346,14 @@ export function ScheduleBlockDialog({
                     disabled={deleting || form.formState.isSubmitting}
                     size="sm"
                   >
-                    {deleting ? "Deleting…" : "Delete"}
+                    {deleting ? t("actions.deleting") : t("actions.delete")}
                   </Button>
                 )}
               </div>
               <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t("actions.cancel")}</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting || deleting} data-testid="schedule-dialog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
-                  {form.formState.isSubmitting ? "Saving…" : block ? "Save" : "Add"}
+                  {form.formState.isSubmitting ? t("actions.saving") : block ? t("actions.save") : t("actions.add")}
                 </Button>
               </div>
             </DialogFooter>

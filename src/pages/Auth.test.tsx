@@ -121,6 +121,25 @@ describe("Auth — Google sign-in", () => {
     );
   });
 
+  it("shows a friendly message instead of the raw error when signup is rate-limited", async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: null, session: null },
+      error: { status: 429, message: "Request rate limit reached" },
+    } as never);
+
+    const user = userEvent.setup();
+    renderAuth();
+    await user.type(screen.getByLabelText("Email"), "a@b.com");
+    await user.type(screen.getByLabelText("Password"), "secret1");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Too many attempts. Please wait a minute and try again.",
+      ),
+    );
+  });
+
   it("disables the Google button while OAuth is pending", async () => {
     let resolveOAuth!: (value: { data: { provider: string; url: string }; error: null }) => void;
     const pendingOAuth = new Promise<{ data: { provider: string; url: string }; error: null }>((resolve) => {

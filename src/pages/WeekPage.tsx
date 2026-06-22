@@ -189,7 +189,7 @@ export default function WeekPage() {
   const handleLogReschedule = async (logId: string, newDate: string, newStartMin: number, newEndMin: number) => {
     const log = (logsRaw ?? []).find((l) => (l as { id?: string }).id === logId);
     if (!(log as { category_id?: string | null } | undefined)?.category_id) {
-      toast.error("Assign a category before dragging this block.");
+      toast.error(t("week.assignCategory"));
       return;
     }
     try {
@@ -202,10 +202,10 @@ export default function WeekPage() {
         type: (log as { type: "productive" | "unproductive" | "essential" }).type,
         notes: (log as { notes: string | null }).notes,
       });
-      toast.success("Block rescheduled");
+      toast.success(t("week.rescheduled"));
       await refreshLogs();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Could not reschedule");
+      toast.error(e instanceof Error ? e.message : t("week.couldNotReschedule"));
     }
   };
 
@@ -229,15 +229,16 @@ export default function WeekPage() {
     <>
       <CalendarViewHeader
         testId="page-week"
-        label="Week view"
+        label={t("calendar.weekView")}
         title={fmtWeekRange(weekStart)}
         actions={
           <CalendarNav
             onToday={() => setWeekStart(weekStartISO())}
             onPrev={() => setWeekStart(addDaysISO(weekStart, -7))}
             onNext={() => setWeekStart(addDaysISO(weekStart, 7))}
-            prevLabel="Previous week"
-            nextLabel="Next week"
+            todayLabel={t("calendar.today")}
+            prevLabel={t("calendar.prevWeek")}
+            nextLabel={t("calendar.nextWeek")}
           />
         }
       />
@@ -245,8 +246,8 @@ export default function WeekPage() {
       <CalendarCreateMenu viewId="week" onLogTime={openQuickLog} />
 
       <div className="grid grid-cols-2 gap-3 mb-5">
-        <StatCard icon={<Sparkles className="h-4 w-4" />} label="Total free time" value={fmtDuration(totalWeekFree)} tone="primary" />
-        <StatCard icon={<CalendarDays className="h-4 w-4" />} label="Avg per day" value={fmtDuration(Math.round(totalWeekFree / 7))} tone="muted" />
+        <StatCard icon={<Sparkles className="h-4 w-4" />} label={t("week.totalFreeTime")} value={fmtDuration(totalWeekFree)} tone="primary" />
+        <StatCard icon={<CalendarDays className="h-4 w-4" />} label={t("week.avgPerDay")} value={fmtDuration(Math.round(totalWeekFree / 7))} tone="muted" />
       </div>
 
       {isGuest ? (
@@ -255,22 +256,22 @@ export default function WeekPage() {
             <Lock className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm">AI weekly planning is a member feature</div>
+            <div className="font-semibold text-sm">{t("week.aiMemberTitle")}</div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Create a free account to let FreeSlot fit your activities into your free windows automatically.
+              {t("week.aiMemberDesc")}
             </p>
           </div>
           <Button asChild size="sm" className="gradient-primary shadow-glow">
-            <Link to="/auth">Create account</Link>
+            <Link to="/auth">{t("common.createAccount")}</Link>
           </Button>
         </div>
       ) : activities.length === 0 ? (
         <div className="mb-5">
           <EmptyState
             icon={<CalendarRange className="h-5 w-5" />}
-            title="Add a few activities to unlock AI planning"
-            description="Tell FreeSlot what you want to spend more time on and the AI will fit them into your free windows."
-            ctaLabel="Add activities"
+            title={t("week.addActivitiesTitle")}
+            description={t("week.addActivitiesDesc")}
+            ctaLabel={t("week.addActivitiesCta")}
             ctaTo="/app/activities"
           />
         </div>
@@ -287,19 +288,19 @@ export default function WeekPage() {
 
       <div>
         <div className="flex items-center gap-3 px-1 mb-2 text-[10px] uppercase tracking-wider text-muted-foreground flex-wrap">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> Planned</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> Logged</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> AI suggestion</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> {t("week.planned")}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> {t("week.logged")}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> {t("week.aiSuggestion")}</span>
           <span className="ml-auto flex items-center gap-3">
-            <span className="hidden lg:inline">Click a block or log to edit</span>
+            <span className="hidden lg:inline">{t("week.clickToEdit")}</span>
             <button
               type="button"
-              aria-label="Toggle inbox"
+              aria-label={t("week.toggleInbox")}
               onClick={() => setInboxOpen((v) => !v)}
               className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
             >
               <Inbox className="h-3.5 w-3.5" />
-              <span>Inbox</span>
+              <span>{t("week.inbox")}</span>
               {inboxItems.length > 0 && (
                 <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full gradient-primary px-1 text-[10px] font-medium text-primary-foreground">
                   {inboxItems.length}

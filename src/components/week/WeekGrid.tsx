@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
 import { Surface } from "@/components/Surface";
@@ -54,6 +55,7 @@ export function WeekGrid({
   onLogReschedule?: (logId: string, newDate: string, newStartMin: number, newEndMin: number) => void;
   notedDates?: Set<string>;
 }) {
+  const { t } = useTranslation();
   const hours = useMemo(
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
     []
@@ -74,14 +76,14 @@ export function WeekGrid({
               "px-2 py-3 text-center border-l border-border/40 transition-colors hover:bg-muted/30",
               d.isToday && "bg-primary/[0.06] border border-primary ring-1 ring-primary/40 rounded-lg"
             )}
-            aria-label={`Open day view for ${d.label}`}
+            aria-label={t("calendar.openDayView", { label: d.label })}
           >
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{d.short}</div>
             <div className={cn("font-display text-lg font-semibold mt-0.5", d.isToday && "text-primary")}>
               {Number(d.iso.split("-")[2])}
             </div>
             {notedDates?.has(d.iso) && (
-              <div className="mx-auto mt-1 h-1 w-1 rounded-full bg-primary" aria-label="Has note" />
+              <div className="mx-auto mt-1 h-1 w-1 rounded-full bg-primary" aria-label={t("calendar.hasNote")} />
             )}
             <div className="text-[10px] text-muted-foreground font-mono-num mt-0.5">
               {fmtDuration(d.totalFree)} free
@@ -132,7 +134,7 @@ export function WeekGrid({
               <button
                 key={h}
                 type="button"
-                aria-label={`Log ${d.short} ${h}:00`}
+                aria-label={t("calendar.logSlot", { day: d.short, hour: h })}
                 onClick={() => onSlotClick(d.iso, h * 60)}
                 className="absolute left-0 right-0 hover:bg-primary/[0.05] transition-colors z-[5]"
                 style={{ top: (h - HOURS_START) * PX_PER_HOUR, height: PX_PER_HOUR }}
@@ -158,12 +160,12 @@ export function WeekGrid({
                 >
                   {compact ? (
                     <div className="truncate text-[9px] font-mono-num text-muted-foreground leading-none">
-                      Free · {fmtDuration(g.durationMin)}
+                      {t("calendar.free")} · {fmtDuration(g.durationMin)}
                     </div>
                   ) : (
                     <>
                       <div className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                        Free
+                        {t("calendar.free")}
                       </div>
                       <div className="text-[10px] font-mono-num text-foreground/80">
                         {fmtDuration(g.durationMin)}
@@ -232,10 +234,10 @@ export function WeekGrid({
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
                 >
                   {aiCompact ? (
-                    <div className="truncate text-[9px] font-semibold text-foreground leading-none">AI · {s.name}</div>
+                    <div className="truncate text-[9px] font-semibold text-foreground leading-none">{t("calendar.aiShort")} · {s.name}</div>
                   ) : (
                     <>
-                      <div className="text-[9px] uppercase tracking-wider text-primary/90">AI</div>
+                      <div className="text-[9px] uppercase tracking-wider text-primary/90">{t("calendar.aiShort")}</div>
                       <div className="text-[10px] font-semibold truncate text-foreground">{s.name}</div>
                     </>
                   )}
@@ -276,6 +278,7 @@ function WeekLogBar({
   onReschedule?: (logId: string, newDate: string, newStartMin: number, newEndMin: number) => void;
   onClick?: () => void;
 }) {
+  const { t } = useTranslation();
   const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
   const dragRef = useRef<{
     startX: number; startY: number;
@@ -362,7 +365,7 @@ function WeekLogBar({
           : "pointer-events-none"
       )}
       style={{ top, height, backgroundColor: log.color }}
-      aria-label={`Log: ${log.name}`}
+      aria-label={t("calendar.logAria", { name: log.name })}
       onPointerDown={draggable ? onPointerDown : undefined}
       onPointerMove={draggable ? onPointerMove : undefined}
       onPointerUp={draggable ? endDrag : undefined}

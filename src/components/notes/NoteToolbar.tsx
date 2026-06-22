@@ -1,4 +1,5 @@
 import { Bold, Italic, Heading1, Heading2, List, ListOrdered } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Editor } from "@tiptap/react";
 
@@ -14,39 +15,40 @@ type ToolbarBtn = {
 };
 
 export function NoteToolbar({ editor }: Props) {
+  const { t } = useTranslation();
   const buttons: ToolbarBtn[] = [
     {
-      label: "Bold",
+      label: t("notes.toolbar.bold"),
       icon: <Bold className="h-3.5 w-3.5" />,
       action: () => editor.chain().focus().toggleBold().run(),
       isActive: editor.isActive("bold"),
     },
     {
-      label: "Italic",
+      label: t("notes.toolbar.italic"),
       icon: <Italic className="h-3.5 w-3.5" />,
       action: () => editor.chain().focus().toggleItalic().run(),
       isActive: editor.isActive("italic"),
     },
     {
-      label: "Heading 1",
+      label: t("notes.toolbar.heading1"),
       icon: <Heading1 className="h-3.5 w-3.5" />,
       action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
       isActive: editor.isActive("heading", { level: 1 }),
     },
     {
-      label: "Heading 2",
+      label: t("notes.toolbar.heading2"),
       icon: <Heading2 className="h-3.5 w-3.5" />,
       action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
       isActive: editor.isActive("heading", { level: 2 }),
     },
     {
-      label: "Bullet list",
+      label: t("notes.toolbar.bulletList"),
       icon: <List className="h-3.5 w-3.5" />,
       action: () => editor.chain().focus().toggleBulletList().run(),
       isActive: editor.isActive("bulletList"),
     },
     {
-      label: "Numbered list",
+      label: t("notes.toolbar.numberedList"),
       icon: <ListOrdered className="h-3.5 w-3.5" />,
       action: () => editor.chain().focus().toggleOrderedList().run(),
       isActive: editor.isActive("orderedList"),

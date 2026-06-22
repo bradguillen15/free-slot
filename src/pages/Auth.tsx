@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { clearGuestData, hasGuestData } from "@/lib/localStore";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
+import { mapAuthError } from "@/lib/authErrors";
 import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import {
@@ -90,7 +91,7 @@ export default function Auth() {
         }
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toast.error(t(mapAuthError(err)));
     }
   };
 
@@ -103,7 +104,7 @@ export default function Auth() {
       });
       if (error) throw error;
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toast.error(t(mapAuthError(err)));
     } finally {
       setGoogleLoading(false);
     }

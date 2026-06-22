@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom";
+import "@/i18n";
 
 // jsdom 20 lacks PointerEvent; polyfill extends MouseEvent so clientX/clientY work.
 if (!("PointerEvent" in window)) {
