@@ -80,9 +80,30 @@ export function DayTimeline({
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
+  const [hoverHour, setHoverHour] = useState<number | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressOriginRef = useRef<{ x: number; y: number; startMin: number } | null>(null);
+
+  const minuteAtClientY = useCallback((clientY: number) => {
+    const el = gridRef.current;
+    if (!el) return 0;
+    const y = clientY - el.getBoundingClientRect().top;
+    const hour = Math.min(23, Math.max(0, Math.floor(y / PX_PER_HOUR)));
+    return hour * 60;
+  }, []);
+
+  const hourAtClientY = useCallback((clientY: number) => {
+    const el = gridRef.current;
+    if (!el) return 0;
+    const y = clientY - el.getBoundingClientRect().top;
+    return Math.min(23, Math.max(0, Math.floor(y / PX_PER_HOUR)));
+  }, []);
+
+  const isBarTarget = useCallback((target: EventTarget | null) => {
+    return !!(target as HTMLElement | null)?.closest("[data-timeline-block], [data-timeline-log]");
+  }, []);
 
   const openContextMenu = useCallback((x: number, y: number, startMin: number) => {
     setContextMenu({ x, y, startMin });
@@ -90,17 +111,10 @@ export function DayTimeline({
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  const handleHourContextMenu = useCallback(
-    (e: React.MouseEvent, startMin: number) => {
-      e.preventDefault();
-      openContextMenu(e.clientX, e.clientY, startMin);
-    },
-    [openContextMenu]
-  );
-
   const handleHourPointerDown = useCallback(
-    (e: React.PointerEvent, startMin: number) => {
-      if (e.button !== 0) return;
+    (e: React.PointerEvent) => {
+      if (e.button !== 0 || isBarTarget(e.target)) return;
+      const startMin = minuteAtClientY(e.clientY);
       longPressOriginRef.current = { x: e.clientX, y: e.clientY, startMin };
       longPressRef.current = setTimeout(() => {
         if (longPressOriginRef.current) {
@@ -112,7 +126,7 @@ export function DayTimeline({
         }
       }, LONG_PRESS_MS);
     },
-    [openContextMenu]
+    [openContextMenu, isBarTarget, minuteAtClientY]
   );
 
   const handleHourPointerMove = useCallback((e: React.PointerEvent) => {
@@ -132,29 +146,85 @@ export function DayTimeline({
     longPressOriginRef.current = null;
   }, []);
 
+  const handleGridClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (contextMenu) {
+        closeContextMenu();
+        return;
+      }
+      if (isBarTarget(e.target)) return;
+      closeContextMenu();
+      onSlotClick(minuteAtClientY(e.clientY));
+    },
+    [contextMenu, closeContextMenu, isBarTarget, minuteAtClientY, onSlotClick]
+  );
+
+  const handleGridContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (isBarTarget(e.target)) return;
+      e.preventDefault();
+      openContextMenu(e.clientX, e.clientY, minuteAtClientY(e.clientY));
+    },
+    [isBarTarget, minuteAtClientY, openContextMenu]
+  );
+
+  const handleGridMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      setHoverHour(hourAtClientY(e.clientY));
+    },
+    [hourAtClientY]
+  );
+
   return (
     <div
       className="relative rounded-2xl border border-border bg-surface overflow-hidden"
       onClick={contextMenu ? closeContextMenu : undefined}
     >
-      <div className="relative" style={{ height: TOTAL_HEIGHT }}>
-        {/* Hour grid */}
+      <div
+        ref={gridRef}
+        className="relative cursor-pointer"
+        style={{ height: TOTAL_HEIGHT }}
+        onClick={handleGridClick}
+        onContextMenu={handleGridContextMenu}
+        onMouseMove={handleGridMouseMove}
+        onMouseLeave={() => setHoverHour(null)}
+        onPointerDown={handleHourPointerDown}
+        onPointerMove={handleHourPointerMove}
+        onPointerUp={handleHourPointerUp}
+        onPointerCancel={handleHourPointerUp}
+      >
+        {/* Hour grid lines */}
         {hours.map((h) => (
           <div
-            key={h}
-            className="absolute left-0 right-0 border-t border-border/40 flex"
+            key={`line-${h}`}
+            className="absolute left-0 right-0 border-t border-border/40 pointer-events-none"
+            style={{ top: h * PX_PER_HOUR }}
+          />
+        ))}
+
+        {/* Full-row hover for the active hour */}
+        {hoverHour !== null && !contextMenu && (
+          <div
+            className="absolute left-0 right-0 bg-primary/[0.05] pointer-events-none z-[4]"
+            style={{ top: hoverHour * PX_PER_HOUR, height: PX_PER_HOUR }}
+          />
+        )}
+
+        {/* Hour labels — always visible, never intercept clicks */}
+        {hours.map((h) => (
+          <div
+            key={`label-${h}`}
+            className="absolute left-0 w-16 pl-3 -mt-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-mono-num pointer-events-none select-none z-[35]"
             style={{ top: h * PX_PER_HOUR }}
           >
-            <div className="w-16 shrink-0 -mt-2.5 pl-3 text-[10px] uppercase tracking-wider text-muted-foreground font-mono-num">
-              {fmtTimeLabel(`${String(h).padStart(2, "0")}:00`)}
-            </div>
+            {fmtTimeLabel(`${String(h).padStart(2, "0")}:00`)}
           </div>
         ))}
 
         {/* Schedule blocks — z-10. Clipped against logged time so the
             planned guide only shows where nothing has been logged yet.
             Lane position is computed from the shared collision layout. */}
-        <div className="absolute inset-y-0 left-16 right-0 z-[10]">
+        <div className="absolute inset-y-0 left-16 right-0 z-[10] pointer-events-none">
           {blocks.flatMap((b) =>
             visibleBlockSegments(b, logs, date).map((seg, i) => {
               const key = `${b.id}-${i}`;
@@ -172,24 +242,6 @@ export function DayTimeline({
               );
             })
           )}
-        </div>
-
-        {/* Click-to-log hour zones — z-8, below blocks */}
-        <div className="absolute inset-y-0 left-16 right-0 z-[8]">
-          {hours.map((h) => (
-            <button
-              key={h}
-              type="button"
-              aria-label={`Log at ${h}:00`}
-              onClick={() => { closeContextMenu(); onSlotClick(h * 60); }}
-              onContextMenu={(e) => handleHourContextMenu(e, h * 60)}
-              onPointerDown={(e) => handleHourPointerDown(e, h * 60)}
-              onPointerMove={handleHourPointerMove}
-              onPointerUp={handleHourPointerUp}
-              className="absolute left-0 right-0 hover:bg-primary/[0.04] transition-colors"
-              style={{ top: h * PX_PER_HOUR, height: PX_PER_HOUR }}
-            />
-          ))}
         </div>
 
         {/* Time logs — z-20 (on top of blocks).
@@ -280,6 +332,7 @@ function BlockBar({
     <motion.div
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
+      data-timeline-block=""
       className={cn(
         "absolute rounded-md px-2 text-[11px] font-medium overflow-hidden border-l-[3px]",
         compact ? "py-0 flex items-center" : "py-1",
@@ -295,7 +348,7 @@ function BlockBar({
         backgroundColor: `${color}22`,
         color: "hsl(var(--foreground) / 0.85)",
       }}
-      onClick={onClick}
+      onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
       title={`${name} · Planned`}
     >
       {compact ? (
@@ -388,6 +441,7 @@ function LogBar({
     <motion.div
       initial={{ opacity: 0, x: 4 }}
       animate={{ opacity: 1, x: 0, y: dragDy }}
+      data-timeline-log=""
       transition={{
         opacity: { delay: index * 0.02 },
         x: { delay: index * 0.02 },

@@ -34,9 +34,13 @@ export function EmptyState({ icon, title, description, ctaLabel, ctaTo, onCtaCli
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {ctaLabel && (ctaTo ? (
-        <Button asChild size="sm" className="mt-1"><Link to={ctaTo}>{ctaLabel}</Link></Button>
+        <Button asChild size="sm" className="mt-1 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
+          <Link to={ctaTo}>{ctaLabel}</Link>
+        </Button>
       ) : (
-        <Button size="sm" className="mt-1" onClick={onCtaClick}>{ctaLabel}</Button>
+        <Button size="sm" className="mt-1 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" onClick={onCtaClick}>
+          {ctaLabel}
+        </Button>
       ))}
     </motion.div>
   );

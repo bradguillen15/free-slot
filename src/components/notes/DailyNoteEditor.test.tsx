@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { DailyNoteEditor } from "./DailyNoteEditor";
 
@@ -45,16 +45,10 @@ describe("DailyNoteEditor", () => {
     vi.useRealTimers();
   });
 
-  it("renders collapsed when initialContent is null", () => {
+  it("renders the rich text editor immediately when initialContent is null", () => {
     render(<DailyNoteEditor date="2026-06-19" initialContent={null} onChange={vi.fn()} />);
-    expect(screen.getByLabelText("Add a note for this day")).toBeTruthy();
-    expect(screen.queryByTestId("editor-content")).toBeNull();
-  });
-
-  it("expands when the placeholder is clicked", () => {
-    render(<DailyNoteEditor date="2026-06-19" initialContent={null} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByLabelText("Add a note for this day"));
     expect(screen.getByTestId("editor-content")).toBeTruthy();
+    expect(screen.queryByLabelText("Add a note for this day")).toBeNull();
   });
 
   it("calls onChange with Tiptap JSON after 300ms debounce", () => {

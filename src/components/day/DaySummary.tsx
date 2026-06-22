@@ -2,10 +2,12 @@ import { useMemo } from "react";
 import { fmtDuration, expandRange, toMin } from "@/lib/time";
 import { segmentsForLogOnDay } from "@/lib/daySegments";
 import { Surface } from "@/components/Surface";
+import { useCategoryName } from "@/lib/categoryLabels";
 import type { Category } from "./QuickLogDialog";
 import type { TimeLog } from "./DayTimeline";
 
 export function DaySummary({ logs, categories, date }: { logs: TimeLog[]; categories: Category[]; date?: string }) {
+  const categoryName = useCategoryName();
   const stats = useMemo(() => {
     const byCat = new Map<string, { name: string; color: string; mins: number }>();
     let total = 0;
@@ -46,7 +48,7 @@ export function DaySummary({ logs, categories, date }: { logs: TimeLog[]; catego
               <li key={c.name} className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                  <span className="truncate">{c.name}</span>
+                  <span className="truncate">{categoryName(c.name)}</span>
                 </span>
                 <span className="font-mono-num text-muted-foreground">{fmtDuration(c.mins)}</span>
               </li>

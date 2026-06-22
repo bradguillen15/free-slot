@@ -18,20 +18,21 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Brain, ChevronDown, Eye, EyeOff, GripVertical, Heart, Plus, Trash2, Zap } from "lucide-react";
+import { Brain, ChevronDown, Eye, EyeOff, GripVertical, Heart, Lock, Plus, Trash2, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCategories, upsertCategory, deleteCategory, reorderCategories } from "@/lib/dataStore";
 import type { LocalCategory } from "@/lib/localStore";
 import { nextCreateColor } from "@/lib/categoryColors";
+import { useCategoryName } from "@/lib/categoryLabels";
 import { AddLabelDialog } from "@/components/labels/AddLabelDialog";
 import type { AddLabelValues } from "@/components/labels/addLabelSchema";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -53,11 +54,7 @@ type RowLabels = {
   show: string;
   delete: string;
   defaultBadge: string;
-  typeLabel: string;
   dragLabel: string;
-  productive: string;
-  essential: string;
-  unproductive: string;
 };
 
 function SortableLabelRow({
@@ -74,6 +71,8 @@ function SortableLabelRow({
   labels: RowLabels;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
+  const categoryName = useCategoryName();
+  const displayName = categoryName(cat.name);
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -87,7 +86,7 @@ function SortableLabelRow({
       elevation="muted"
       radius="lg"
       data-testid={`label-row-${cat.id}`}
-      className="flex flex-wrap items-center gap-2 p-2"
+      className="flex items-center gap-2 p-2"
     >
       <button
         type="button"
@@ -104,52 +103,68 @@ function SortableLabelRow({
         value={cat.color}
         onChange={(e) => onUpdate(cat.id, { color: e.target.value })}
         className="h-8 w-9 rounded cursor-pointer bg-transparent border border-border shrink-0"
-        aria-label={`Color for ${cat.name}`}
+        aria-label={`Color for ${displayName}`}
       />
       <Input
-        key={`${cat.id}-${cat.name}`}
-        defaultValue={cat.name}
+        key={`${cat.id}-${displayName}`}
+        defaultValue={displayName}
         data-testid={`label-name-${cat.id}`}
         onBlur={(e) => {
           const name = e.target.value.trim();
-          if (name && name !== cat.name) onUpdate(cat.id, { name });
+          // Compare against the displayed (possibly translated) name so blurring
+          // a translated default without edits never overwrites the stored name.
+          if (name && name !== displayName) onUpdate(cat.id, { name });
         }}
-        className="flex-1 h-9 min-w-[120px]"
+        className="flex-1 h-9 min-w-0"
       />
-      <Select value={cat.type} onValueChange={(v) => onUpdate(cat.id, { type: v as LabelType })}>
-        <SelectTrigger className="h-9 w-[140px] shrink-0" data-testid={`label-type-${cat.id}`} aria-label={labels.typeLabel}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="productive">{labels.productive}</SelectItem>
-          <SelectItem value="essential">{labels.essential}</SelectItem>
-          <SelectItem value="unproductive">{labels.unproductive}</SelectItem>
-        </SelectContent>
-      </Select>
-      <div className="flex items-center gap-1 ml-auto shrink-0">
+      <div className="flex items-center gap-0.5 ml-auto shrink-0">
         {cat.is_default && (
-          <Badge variant="secondary" className="text-[10px]">{labels.defaultBadge}</Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="grid h-8 w-6 place-items-center text-muted-foreground"
+                aria-label={labels.defaultBadge}
+              >
+                <Lock className="h-3.5 w-3.5" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{labels.defaultBadge}</TooltipContent>
+          </Tooltip>
         )}
-        <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => onToggleHidden(cat)}>
-          <EyeOff className="h-3.5 w-3.5" /> {labels.hide}
-        </Button>
         {!cat.is_default && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`label-delete-${cat.id}`} onClick={() => onDelete(cat)} aria-label={labels.delete}>
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`label-delete-${cat.id}`} onClick={() => onDelete(cat)} aria-label={labels.delete}>
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{labels.delete}</TooltipContent>
+          </Tooltip>
         )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onToggleHidden(cat)}
+              aria-label={labels.hide}
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{labels.hide}</TooltipContent>
+        </Tooltip>
       </div>
     </Surface>
   );
 }
 
-function CollapsibleColumn({
+function BoardColumn({
   type,
   title,
   ids,
   cats,
-  open,
-  onOpenChange,
   emptyLabel,
   rowLabels,
   onUpdate,
@@ -160,53 +175,55 @@ function CollapsibleColumn({
   title: string;
   ids: string[];
   cats: Map<string, LocalCategory>;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   emptyLabel: string;
   rowLabels: RowLabels;
   onUpdate: (id: string, patch: Partial<LocalCategory>) => void;
   onToggleHidden: (cat: LocalCategory) => void;
   onDelete: (cat: LocalCategory) => void;
 }) {
-  const { setNodeRef } = useDroppable({ id: type });
+  const { setNodeRef, isOver } = useDroppable({ id: type });
 
   return (
-    <Collapsible open={open} onOpenChange={onOpenChange} className="rounded-xl border border-border bg-surface/40">
-      <CollapsibleTrigger
+    <div className="flex flex-col rounded-xl border border-border bg-surface/40 lg:min-h-0">
+      <div
         data-testid={`label-column-${type}`}
-        className="flex w-full items-center gap-2 p-3 text-sm font-semibold"
+        className="flex shrink-0 items-center gap-2 border-b border-border/60 p-3 text-sm font-semibold"
       >
         {typeIcon(type)}
         <span>{title}</span>
         <Badge variant="outline" className="text-[10px]">{ids.length}</Badge>
-        <ChevronDown className={cn("ml-auto h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div ref={setNodeRef} className="space-y-2 p-3 pt-0 min-h-[3.5rem]">
-          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-            {ids.map((id) => {
-              const cat = cats.get(id);
-              if (!cat) return null;
-              return (
-                <SortableLabelRow
-                  key={id}
-                  cat={cat}
-                  onUpdate={onUpdate}
-                  onToggleHidden={onToggleHidden}
-                  onDelete={onDelete}
-                  labels={rowLabels}
-                />
-              );
-            })}
-          </SortableContext>
-          {ids.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-              {emptyLabel}
-            </div>
-          )}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+      {/* Body scrolls within the fixed column height on large screens. */}
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "space-y-2 p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto transition-colors",
+          isOver && "bg-primary/5"
+        )}
+      >
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          {ids.map((id) => {
+            const cat = cats.get(id);
+            if (!cat) return null;
+            return (
+              <SortableLabelRow
+                key={id}
+                cat={cat}
+                onUpdate={onUpdate}
+                onToggleHidden={onToggleHidden}
+                onDelete={onDelete}
+                labels={rowLabels}
+              />
+            );
+          })}
+        </SortableContext>
+        {ids.length === 0 && (
+          <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            {emptyLabel}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -216,11 +233,11 @@ export function LabelsEditor() {
   const mode = user ? "cloud" : "guest";
   const { data: categoriesRaw, refresh } = useCategories();
   const categories = categoriesRaw as LocalCategory[];
+  const categoryName = useCategoryName();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LocalCategory | null>(null);
   const [items, setItems] = useState<Record<LabelType, string[]>>({ productive: [], essential: [], unproductive: [] });
-  const [openColumns, setOpenColumns] = useState<Record<LabelType, boolean>>({ productive: true, essential: true, unproductive: true });
   const [hiddenOpen, setHiddenOpen] = useState(false);
 
   const catById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
@@ -246,11 +263,7 @@ export function LabelsEditor() {
     show: t("labels.restore"),
     delete: t("labels.delete"),
     defaultBadge: t("labels.defaultBadge"),
-    typeLabel: t("labels.typeLabel"),
     dragLabel: t("labels.dragToReorder"),
-    productive: t("labels.typeProductive"),
-    essential: t("labels.typeEssential"),
-    unproductive: t("labels.typeUnproductive"),
   };
 
   const updateLabel = async (id: string, patch: Partial<LocalCategory>) => {
@@ -369,8 +382,8 @@ export function LabelsEditor() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground max-w-xl">{t("labels.dragHint")}</p>
         <Button
           size="sm"
@@ -383,42 +396,34 @@ export function LabelsEditor() {
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragOver={onDragOver} onDragEnd={onDragEnd}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <CollapsibleColumn
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:min-h-0 lg:flex-1">
+          <BoardColumn
             type="productive"
             title={t("labels.typeProductive")}
             ids={items.productive}
             cats={catById}
-            open={openColumns.productive}
-            onOpenChange={(o) => setOpenColumns((p) => ({ ...p, productive: o }))}
             emptyLabel={t("labels.emptyColumn")}
             rowLabels={rowLabels}
             onUpdate={updateLabel}
             onToggleHidden={toggleHidden}
             onDelete={requestDelete}
           />
-          <CollapsibleColumn
+          <BoardColumn
             type="essential"
             title={t("labels.typeEssential")}
             ids={items.essential}
             cats={catById}
-            open={openColumns.essential}
-            onOpenChange={(o) => setOpenColumns((p) => ({ ...p, essential: o }))}
             emptyLabel={t("labels.emptyColumn")}
             rowLabels={rowLabels}
             onUpdate={updateLabel}
             onToggleHidden={toggleHidden}
             onDelete={requestDelete}
           />
-        </div>
-        <div className="mt-4">
-          <CollapsibleColumn
+          <BoardColumn
             type="unproductive"
             title={t("labels.typeUnproductive")}
             ids={items.unproductive}
             cats={catById}
-            open={openColumns.unproductive}
-            onOpenChange={(o) => setOpenColumns((p) => ({ ...p, unproductive: o }))}
             emptyLabel={t("labels.emptyColumn")}
             rowLabels={rowLabels}
             onUpdate={updateLabel}
@@ -428,7 +433,7 @@ export function LabelsEditor() {
         </div>
       </DndContext>
 
-      <Collapsible open={hiddenOpen} onOpenChange={setHiddenOpen} className="rounded-xl border border-border bg-surface/40">
+      <Collapsible open={hiddenOpen} onOpenChange={setHiddenOpen} className="shrink-0 rounded-xl border border-border bg-surface/40">
         <CollapsibleTrigger data-testid="labels-hidden-section" className="flex w-full items-center gap-2 p-3 text-sm font-semibold text-muted-foreground">
           <EyeOff className="h-4 w-4" />
           <span>{t("labels.hiddenSection")}</span>
@@ -436,7 +441,7 @@ export function LabelsEditor() {
           <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", hiddenOpen && "rotate-180")} />
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="space-y-2 p-3 pt-0">
+          <div className="max-h-48 space-y-2 overflow-y-auto p-3 pt-0">
             <p className="text-xs text-muted-foreground">{t("labels.hiddenSectionDesc")}</p>
             {hiddenCats.length === 0 && (
               <p className="text-xs text-muted-foreground">—</p>
@@ -450,7 +455,7 @@ export function LabelsEditor() {
                 className="flex items-center gap-2 p-2 opacity-70"
               >
                 <span className="h-4 w-4 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: cat.color }} aria-hidden />
-                <span className="text-sm flex-1 min-w-0 truncate">{cat.name}</span>
+                <span className="text-sm flex-1 min-w-0 truncate">{categoryName(cat.name)}</span>
                 {typeIcon(cat.type)}
                 <Button variant="ghost" size="sm" className="h-8 gap-1 shrink-0" data-testid={`label-restore-${cat.id}`} onClick={() => toggleHidden(cat)}>
                   <Eye className="h-3.5 w-3.5" /> {t("labels.restore")}

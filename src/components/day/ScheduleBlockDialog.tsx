@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RequiredMark } from "@/components/ui/required-mark";
 import {
   Form, FormControl, FormField, FormItem, FormMessage,
 } from "@/components/ui/form";
@@ -35,7 +36,7 @@ const scheduleBlockSchema = z.object({
   endTime: timeString,
   color: hexColor,
   days: z.array(z.number().int().min(0).max(6)).min(1, "Select at least one day"),
-  categoryId: z.string().optional(),
+  categoryId: z.string().min(1, "Pick a label"),
 }).refine((v) => v.startTime !== v.endTime, {
   // end < start is a valid overnight block; equal times would expand to nothing.
   message: "End time must differ from start time",
@@ -106,7 +107,7 @@ export function ScheduleBlockDialog({
         days_of_week: values.days,
         color: values.color,
         type: "fixed",
-        category_id: values.categoryId || null,
+        category_id: values.categoryId,
       });
       toast.success(block ? "Block updated" : "Block created");
       onOpenChange(false);
@@ -148,7 +149,9 @@ export function ScheduleBlockDialog({
               name="name"
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Name</Label>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Name<RequiredMark />
+                  </Label>
                   <FormControl>
                     <Input placeholder="e.g. Work, College, Gym…" data-testid="schedule-dialog-name" {...field} />
                   </FormControl>
@@ -164,7 +167,9 @@ export function ScheduleBlockDialog({
                 name="startTime"
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Start</Label>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Start<RequiredMark />
+                    </Label>
                     <FormControl>
                       <Input type="time" className="font-mono-num" {...field} />
                     </FormControl>
@@ -177,7 +182,9 @@ export function ScheduleBlockDialog({
                 name="endTime"
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">End</Label>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                      End<RequiredMark />
+                    </Label>
                     <FormControl>
                       <Input type="time" className="font-mono-num" {...field} />
                     </FormControl>
@@ -193,7 +200,9 @@ export function ScheduleBlockDialog({
               name="color"
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Color</Label>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Color<RequiredMark />
+                  </Label>
                   <div className="flex gap-2 flex-wrap">
                     {COLORS.map((c) => (
                       <button
@@ -230,13 +239,14 @@ export function ScheduleBlockDialog({
                 name="categoryId"
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Label (optional)</Label>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Label<RequiredMark />
+                    </Label>
                     <FormControl>
                       <CategoryPicker
                         categories={categories}
-                        value={field.value || undefined}
-                        onChange={field.onChange}
-                        allowNone
+                        value={field.value}
+                        onChange={(id) => field.onChange(id || "")}
                         onCreate={async (catName, type) => {
                           try {
                             const created = await upsertCategory(mode, user?.id ?? null, {
@@ -253,6 +263,7 @@ export function ScheduleBlockDialog({
                         }}
                       />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -264,7 +275,9 @@ export function ScheduleBlockDialog({
               name="days"
               render={({ field }) => (
                 <FormItem className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Repeats on</Label>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Repeats on<RequiredMark />
+                  </Label>
 
                   {/* Preset chips */}
                   <div className="flex gap-2">
@@ -315,9 +328,7 @@ export function ScheduleBlockDialog({
                     ))}
                   </div>
 
-                  {field.value.length === 0 && (
-                    <p className="text-xs text-destructive">Select at least one day</p>
-                  )}
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -338,8 +349,8 @@ export function ScheduleBlockDialog({
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || days.length === 0} data-testid="schedule-dialog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
-                  {form.formState.isSubmitting ? "Saving…" : block ? "Save changes" : "Add block"}
+                <Button type="submit" disabled={form.formState.isSubmitting || deleting} data-testid="schedule-dialog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
+                  {form.formState.isSubmitting ? "Saving…" : block ? "Save" : "Add"}
                 </Button>
               </div>
             </DialogFooter>

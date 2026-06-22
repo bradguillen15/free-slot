@@ -22,6 +22,9 @@ const baseProps = {
   defaultTitle: "Test session", // title is required; tests target the later validations
 };
 
+/** Props with a pre-selected label — use when exercising save/submit paths. */
+const withCategory = { ...baseProps, defaultCategoryId: cat.id };
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -29,9 +32,9 @@ beforeEach(() => {
 describe("QuickLogDialog", () => {
   it("rejects a zero-length entry (start === end) with no insert", async () => {
     const user = userEvent.setup();
-    render(<QuickLogDialog {...baseProps} defaultStart="09:00" defaultEnd="09:00" />);
+    render(<QuickLogDialog {...withCategory} defaultStart="09:00" defaultEnd="09:00" />);
 
-    await user.click(screen.getByRole("button", { name: "Save log" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("End time must be after start")).toBeInTheDocument();
     expect(insertTimeLog).not.toHaveBeenCalled();
@@ -41,8 +44,8 @@ describe("QuickLogDialog", () => {
     const user = userEvent.setup();
     vi.mocked(insertTimeLog).mockResolvedValue({ id: "row" });
 
-    render(<QuickLogDialog {...baseProps} defaultStart="23:00" defaultEnd="06:00" />);
-    await user.click(screen.getByRole("button", { name: "Save log" }));
+    render(<QuickLogDialog {...withCategory} defaultStart="23:00" defaultEnd="06:00" />);
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(insertTimeLog).toHaveBeenCalled());
     expect(vi.mocked(insertTimeLog).mock.calls[0][2]).toMatchObject({
@@ -58,8 +61,8 @@ describe("QuickLogDialog", () => {
     vi.mocked(insertTimeLog).mockResolvedValue({ id: "row" });
 
     // date prop is "2026-06-10"; overnight sleep starts the night of June 9.
-    render(<QuickLogDialog {...baseProps} defaultStart="23:00" defaultEnd="07:00" />);
-    await user.click(screen.getByRole("button", { name: "Save log" }));
+    render(<QuickLogDialog {...withCategory} defaultStart="23:00" defaultEnd="07:00" />);
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(insertTimeLog).toHaveBeenCalled());
     expect(vi.mocked(insertTimeLog).mock.calls[0][2]).toMatchObject({
@@ -76,14 +79,14 @@ describe("QuickLogDialog", () => {
 
     render(
       <QuickLogDialog
-        {...baseProps}
+        {...withCategory}
         editId="log-1"
         editDate="2026-06-09"
         defaultStart="23:00"
         defaultEnd="07:00"
       />
     );
-    await user.click(screen.getByRole("button", { name: "Save log" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(updateTimeLog).toHaveBeenCalled());
     expect(vi.mocked(updateTimeLog).mock.calls[0][3]).toMatchObject({
@@ -93,9 +96,20 @@ describe("QuickLogDialog", () => {
     });
   });
 
-  it("disables Save when there is no category to pick", () => {
+  it("shows Pick a label when submitting without a label", async () => {
+    const user = userEvent.setup();
+    render(<QuickLogDialog {...baseProps} />);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Pick a label")).toBeInTheDocument();
+    expect(insertTimeLog).not.toHaveBeenCalled();
+  });
+
+  it("shows Pick a label when there are no categories to pick", async () => {
+    const user = userEvent.setup();
     render(<QuickLogDialog {...baseProps} categories={[]} />);
-    expect(screen.getByRole("button", { name: "Save log" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Pick a label")).toBeInTheDocument();
+    expect(insertTimeLog).not.toHaveBeenCalled();
   });
 
   it("fires the optimistic insert immediately but the success toast only after the insert resolves", async () => {
@@ -104,8 +118,8 @@ describe("QuickLogDialog", () => {
     vi.mocked(insertTimeLog).mockReturnValue(new Promise((r) => { resolveInsert = r; }));
     const onOptimisticInsert = vi.fn();
 
-    render(<QuickLogDialog {...baseProps} onOptimisticInsert={onOptimisticInsert} />);
-    await user.click(screen.getByRole("button", { name: "Save log" }));
+    render(<QuickLogDialog {...withCategory} onOptimisticInsert={onOptimisticInsert} />);
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onOptimisticInsert).toHaveBeenCalledOnce();
     expect(toast.success).not.toHaveBeenCalled(); // insert still in flight
@@ -122,7 +136,7 @@ describe("QuickLogDialog", () => {
 
     render(
       <QuickLogDialog
-        {...baseProps}
+        {...withCategory}
         editId="log-42"
         onDeleted={onDeleted}
         onOpenChange={onOpenChange}
@@ -145,7 +159,7 @@ describe("QuickLogDialog", () => {
   });
 
   it('shows a "next day" hint near the end time when the range wraps past midnight', () => {
-    render(<QuickLogDialog {...baseProps} defaultStart="23:00" defaultEnd="06:00" />);
+    render(<QuickLogDialog {...withCategory} defaultStart="23:00" defaultEnd="06:00" />);
     expect(screen.getByText(/next day/i)).toBeInTheDocument();
   });
 });

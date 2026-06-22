@@ -65,10 +65,10 @@ test.describe("Notes page — standing note", () => {
 });
 
 test.describe("Notes page — daily notes calendar", () => {
-  test("shows empty state when selected date has no note", async ({ page }) => {
+  test("shows an editable daily note card when selected date has no note", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app/notes");
-    await expect(page.getByText(/no note for this day/i)).toBeVisible();
+    await expect(page.locator(".ProseMirror[contenteditable='true']").nth(1)).toBeVisible();
   });
 
   test("shows the daily note card for today (the default selected date)", async ({ page }) => {

@@ -19,6 +19,7 @@ import { fmtWeekRange, weekStartISO } from "@/lib/week";
 import { StatCard } from "@/components/StatCard";
 import { Surface } from "@/components/Surface";
 import { useVisibleCategories } from "@/lib/dataStore";
+import { useCategoryName } from "@/lib/categoryLabels";
 import { useCalendarDays } from "@/lib/calendarDays";
 import { getDashboardVisibleCards, setDashboardVisibleCards } from "@/lib/localStore";
 import type { DashboardVisibleCards } from "@/lib/localStore";
@@ -43,6 +44,11 @@ export default function DashboardPage() {
   const isCurrentWeek = weekStart === weekStartISO();
 
   const { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount } = useDashboardStats(weekStart, selectedLabelIds);
+
+  // Translate default-label names for display (pie tooltip + legend). The stored
+  // name stays canonical; only the shown label changes per locale.
+  const categoryName = useCategoryName();
+  const catBreakdownDisplay = catBreakdown.map((c) => ({ ...c, name: categoryName(c.name) }));
 
   const { data: allCategories } = useVisibleCategories();
 
@@ -158,8 +164,8 @@ export default function DashboardPage() {
                   <div className="h-56">
                     <ResponsiveContainer>
                       <PieChart>
-                        <Pie data={catBreakdown} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
-                          {catBreakdown.map((c, i) => <Cell key={i} fill={c.color} />)}
+                        <Pie data={catBreakdownDisplay} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                          {catBreakdownDisplay.map((c, i) => <Cell key={i} fill={c.color} />)}
                         </Pie>
                         <Tooltip
                           contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
@@ -169,7 +175,7 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                   </div>
                   <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                    {catBreakdown.map((c) => (
+                    {catBreakdownDisplay.map((c) => (
                       <li key={c.name} className="flex items-center justify-between gap-2 text-sm">
                         <span className="flex items-center gap-2 truncate">
                           <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: c.color }} />

@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useCategoryName } from "@/lib/categoryLabels";
 
 export type PickerCategory = {
   id: string;
@@ -37,6 +38,7 @@ export function CategoryPicker({
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const selected = categories.find((c) => c.id === value);
+  const categoryName = useCategoryName();
 
   // Dialog scroll-lock (react-remove-scroll) swallows trackpad wheel events on portaled
   // popovers unless we handle wheel locally on the list.
@@ -68,14 +70,15 @@ export function CategoryPicker({
   const item = (c: PickerCategory) => (
     <CommandItem
       key={c.id}
-      value={c.name}
+      // Use the displayed (possibly translated) name so cmdk search matches what the user sees.
+      value={categoryName(c.name)}
       onSelect={() => {
         onChange(c.id);
         setOpen(false);
       }}
     >
       <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-      <span className="truncate">{c.name}</span>
+      <span className="truncate">{categoryName(c.name)}</span>
       <Check className={cn("ml-auto h-4 w-4", c.id === value ? "opacity-100" : "opacity-0")} />
     </CommandItem>
   );
@@ -87,7 +90,7 @@ export function CategoryPicker({
           {selected ? (
             <span className="flex items-center gap-2 truncate">
               <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: selected.color }} />
-              {selected.name}
+              {categoryName(selected.name)}
             </span>
           ) : (
             <span className="text-muted-foreground">Pick a label&hellip;</span>

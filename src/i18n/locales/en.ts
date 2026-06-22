@@ -64,7 +64,7 @@ const en = {
     nameRequired: "Name is required",
     color: "Color",
     cancel: "Cancel",
-    save: "Add label",
+    save: "Add",
     deleteTitle: "Delete this label?",
     deleteDesc: "Logs and activities using it will keep working but lose this color grouping. This cannot be undone.",
     confirmDelete: "Delete label",
@@ -89,6 +89,25 @@ const en = {
     hiddenSectionDesc: "Disabled labels are tucked away here so they stay out of your way.",
     emptyColumn: "Drop a label here",
     restore: "Show",
+    // Display names for the seeded default labels. Keys map to the canonical
+    // English names in DEFAULT_CATEGORY_SEED; English values must match those
+    // names exactly (translation is display-only — stored names stay English).
+    defaults: {
+      deepWork: "Deep work",
+      reading: "Reading",
+      exercise: "Exercise",
+      study: "Study",
+      creativeWork: "Creative work",
+      sideProject: "Side project",
+      sleep: "Sleep",
+      meals: "Meals",
+      choresErrands: "Chores & errands",
+      socialMedia: "Social media",
+      gaming: "Gaming",
+      moviesSeries: "Movies & series",
+      anime: "Anime",
+      idle: "Idle",
+    },
   },
   dashboard: {
     title: "Dashboard",

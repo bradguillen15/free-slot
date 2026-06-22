@@ -66,7 +66,7 @@ const es: Translations = {
     nameRequired: "El nombre es obligatorio",
     color: "Color",
     cancel: "Cancelar",
-    save: "Añadir etiqueta",
+    save: "Añadir",
     deleteTitle: "¿Eliminar esta etiqueta?",
     deleteDesc: "Los registros y actividades que la usen seguirán funcionando, pero perderán este agrupamiento por color. Esto no se puede deshacer.",
     confirmDelete: "Eliminar etiqueta",
@@ -91,6 +91,25 @@ const es: Translations = {
     hiddenSectionDesc: "Las etiquetas deshabilitadas se guardan aquí para no estorbarte.",
     emptyColumn: "Suelta una etiqueta aquí",
     restore: "Mostrar",
+    // Nombres mostrados para las etiquetas predeterminadas. Las claves mapean
+    // a los nombres canónicos en inglés de DEFAULT_CATEGORY_SEED (la traducción
+    // es solo para mostrar — el nombre almacenado permanece en inglés).
+    defaults: {
+      deepWork: "Trabajo profundo",
+      reading: "Lectura",
+      exercise: "Ejercicio",
+      study: "Estudio",
+      creativeWork: "Trabajo creativo",
+      sideProject: "Proyecto paralelo",
+      sleep: "Sueño",
+      meals: "Comidas",
+      choresErrands: "Tareas y recados",
+      socialMedia: "Redes sociales",
+      gaming: "Videojuegos",
+      moviesSeries: "Películas y series",
+      anime: "Anime",
+      idle: "Inactivo",
+    },
   },
   dashboard: {
     title: "Panel",

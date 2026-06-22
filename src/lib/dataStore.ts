@@ -644,6 +644,7 @@ export function useUpsertDailyNote() {
     onSuccess: (_data, { date }) => {
       queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNote", mode, userId, date] });
       queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNotesForWeek", mode, userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.allDailyNoteDates(mode, userId) });
     },
   });
 }
