@@ -91,9 +91,9 @@ const es: Translations = {
     hiddenSectionDesc: "Las etiquetas deshabilitadas se guardan aquí para no estorbarte.",
     emptyColumn: "Suelta una etiqueta aquí",
     restore: "Mostrar",
-    // Nombres mostrados para las etiquetas predeterminadas. Las claves mapean
-    // a los nombres canónicos en inglés de DEFAULT_CATEGORY_SEED (la traducción
-    // es solo para mostrar — el nombre almacenado permanece en inglés).
+    // Display names for seeded default labels. Keys map to canonical
+    // English names in DEFAULT_CATEGORY_SEED (translation is display-only —
+    // the stored name remains in English).
     defaults: {
       deepWork: "Trabajo profundo",
       reading: "Lectura",

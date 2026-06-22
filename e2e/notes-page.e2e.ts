@@ -1,6 +1,11 @@
+import type { Page } from "@playwright/test";
 import { test, expect, seedGuest } from "./fixtures/guest";
 
 const skip = { profile: { onboarding_skipped: true } };
+
+function dailyEditor(page: Page) {
+  return page.getByTestId("notes-carousel").getByTestId("daily-note-editor");
+}
 
 const NOTE_CONTENT = {
   type: "doc",
@@ -69,7 +74,7 @@ test.describe("Notes page — daily notes calendar", () => {
   test("shows an editable daily note card when selected date has no note", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app/notes");
-    await expect(page.locator(".ProseMirror[contenteditable='true']").nth(1)).toBeVisible();
+    await expect(dailyEditor(page)).toBeVisible();
   });
 
   test("shows the daily note card for today (the default selected date)", async ({ page }) => {
@@ -79,7 +84,7 @@ test.describe("Notes page — daily notes calendar", () => {
       dailyNotes: [{ date: todayISO(), content: NOTE_CONTENT }],
     });
     await page.goto("/app/notes");
-    await expect(page.getByTestId("notes-carousel").locator(".ProseMirror")).toContainText("My daily thought");
+    await expect(dailyEditor(page)).toContainText("My daily thought");
   });
 
   test("opening the calendar popover shows the month navigation", async ({ page }) => {
@@ -112,14 +117,12 @@ test.describe("Notes page — daily notes calendar", () => {
     });
     await page.goto("/app/notes");
 
-    const carousel = page.getByTestId("notes-carousel");
-
     // Today's note card shown by default.
-    await expect(carousel.locator(".ProseMirror")).toContainText("My daily thought");
+    await expect(dailyEditor(page)).toContainText("My daily thought");
 
     // Step back one day via the carousel's prev-day arrow.
     await page.getByRole("button", { name: /previous day/i }).click();
-    await expect(carousel.locator(".ProseMirror")).toContainText("Older note");
+    await expect(dailyEditor(page)).toContainText("Older note");
   });
 
 });

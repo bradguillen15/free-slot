@@ -35,9 +35,9 @@ describe("NotesPage", () => {
     expect(getByText(/standing note/i)).toBeTruthy();
   });
 
-  it("renders an editable daily note card when selected date has no note", () => {
-    const { getByTestId } = renderWithProviders(<NotesPage />);
-    expect(getByTestId("editor-content")).toBeTruthy();
+  it("renders an editable daily note card when selected date has no note", async () => {
+    const { findByTestId } = renderWithProviders(<NotesPage />);
+    expect(await findByTestId("editor-content")).toBeTruthy();
   });
 
   it("has page-notes testid for E2E navigation", () => {

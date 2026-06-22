@@ -34,10 +34,11 @@ export function NotesCarousel({ dates, selectedISO, onSelectDate }: Props) {
 
   const noteDates = dates.map(parseLocal);
   const selectedDate = parseLocal(selectedISO);
-  // `note` is undefined while React Query is pending, null when no note exists.
-  // Wait for resolution before mounting DailyNoteCard so useEditor initialises
-  // with the correct content (same pattern as CalendarPage).
-  const { data: note } = useDailyNote(selectedISO);
+  // Wait for the query to settle before mounting DailyNoteCard so useEditor
+  // initialises with the correct content (same pattern as CalendarPage). Guard
+  // on status rather than `data` so the editor still renders (allowing note
+  // creation) when the fetch fails and `data` stays undefined.
+  const dailyNoteQuery = useDailyNote(selectedISO);
   const upsertDailyNote = useUpsertDailyNote();
 
   const handleDayClick = (day: Date) => {
@@ -91,11 +92,11 @@ export function NotesCarousel({ dates, selectedISO, onSelectDate }: Props) {
         </button>
       </div>
 
-      {note !== undefined && (
+      {dailyNoteQuery.status !== "pending" && (
         <DailyNoteCard
           key={selectedISO}
           date={selectedISO}
-          initialContent={note?.content ?? null}
+          initialContent={dailyNoteQuery.data?.content ?? null}
           onChange={(json) => upsertDailyNote.mutate({ date: selectedISO, content: json })}
         />
       )}

@@ -56,8 +56,8 @@ type Props = {
   defaultWeekday?: number;
   onSaved?: () => void;
   onDeleted?: () => void;
-  /** Optional label assignment; omit to hide the picker. */
-  categories?: PickerCategory[];
+  /** Label options for the picker. Required so the mandatory categoryId field is always satisfiable. */
+  categories: PickerCategory[];
   onCategoriesRefresh?: () => void | Promise<void>;
 };
 
@@ -232,42 +232,40 @@ export function ScheduleBlockDialog({
               )}
             />
 
-            {/* Optional label */}
-            {categories && (
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Label<RequiredMark />
-                    </Label>
-                    <FormControl>
-                      <CategoryPicker
-                        categories={categories}
-                        value={field.value}
-                        onChange={(id) => field.onChange(id || "")}
-                        onCreate={async (catName, type) => {
-                          try {
-                            const created = await upsertCategory(mode, user?.id ?? null, {
-                              name: catName,
-                              type,
-                              color: nextCreateColor(categories.length),
-                            });
-                            await onCategoriesRefresh?.();
-                            return created as PickerCategory;
-                          } catch (err: unknown) {
-                            toast.error(err instanceof Error ? err.message : "Could not create label");
-                            return null;
-                          }
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+            {/* Label */}
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Label<RequiredMark />
+                  </Label>
+                  <FormControl>
+                    <CategoryPicker
+                      categories={categories}
+                      value={field.value}
+                      onChange={(id) => field.onChange(id || "")}
+                      onCreate={async (catName, type) => {
+                        try {
+                          const created = await upsertCategory(mode, user?.id ?? null, {
+                            name: catName,
+                            type,
+                            color: nextCreateColor(categories.length),
+                          });
+                          await onCategoriesRefresh?.();
+                          return created as PickerCategory;
+                        } catch (err: unknown) {
+                          toast.error(err instanceof Error ? err.message : "Could not create label");
+                          return null;
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Recurrence day-picker */}
             <FormField

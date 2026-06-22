@@ -39,7 +39,10 @@ export function DailyNoteCard({ date, initialContent, onChange }: Props) {
   }, []);
 
   return (
-    <div className="rounded-md border border-border bg-surface focus-within:border-primary/60 transition-colors">
+    <div
+      data-testid="daily-note-editor"
+      className="rounded-md border border-border bg-surface focus-within:border-primary/60 transition-colors"
+    >
       {editor && <NoteToolbar editor={editor} />}
       <EditorContent
         editor={editor}

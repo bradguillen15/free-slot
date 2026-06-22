@@ -5,6 +5,9 @@ name: CD
 # edge functions, then deploys the frontend to Vercel — but only if CI passes.
 # This makes a green E2E run a hard prerequisite for every deploy, independent
 # of branch protection.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -27,6 +30,8 @@ jobs:
       OPENAI_API_KEY: dummy
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: supabase/setup-cli@v2
         with:
@@ -51,6 +56,8 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
