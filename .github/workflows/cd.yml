@@ -59,6 +59,18 @@ jobs:
         with:
           persist-credentials: false
 
+      # `vercel build` detects pnpm-lock.yaml and shells out to pnpm to install
+      # dependencies, so pnpm (and a matching Node) must be on PATH. Pin the same
+      # pnpm major as ci.yml/e2e.yml to keep the deploy build consistent with CI.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
