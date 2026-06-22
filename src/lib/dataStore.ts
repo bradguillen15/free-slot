@@ -135,7 +135,6 @@ function invalidateWeeklyPriorities(mode: Mode, userId: string | null, weekStart
   getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyPriorities(mode === "guest" ? null : userId, weekStart) });
 }
 
-// ---------- Categories ----------
 export function filterVisibleCategories(categories: LocalCategory[]): LocalCategory[] {
   return categories.filter((c) => !c.hidden);
 }
@@ -176,7 +175,6 @@ export function pickerCategories<T extends { id: string }>(
   return selected ? [...visible, selected] : visible;
 }
 
-// ---------- Activities ----------
 export function useActivities() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
@@ -191,7 +189,6 @@ export function useActivities() {
   return { data: query.data ?? EMPTY_ACTIVITIES, error: fetchError, refresh, mode };
 }
 
-// ---------- Schedule blocks ----------
 export function useScheduleBlocks() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
@@ -206,7 +203,6 @@ export function useScheduleBlocks() {
   return { data: query.data ?? EMPTY_BLOCKS, error: fetchError, refresh, mode };
 }
 
-// ---------- Time logs in date range ----------
 export function useTimeLogsInRange(startISO: string, endISO: string) {
   const { mode, userId } = useAuthScope();
   const queryClient = useQueryClient();
@@ -240,7 +236,6 @@ export function useTimeLogsInRange(startISO: string, endISO: string) {
   };
 }
 
-// ---------- Profile ----------
 export function useProfile() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
@@ -261,7 +256,6 @@ export function useProfile() {
   };
 }
 
-// ---------- Cloud-only weekly review ----------
 export function useWeeklyReview(weekStart: string) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -287,7 +281,6 @@ export function useGenerateWeeklyReviewMutation() {
   });
 }
 
-// ---------- Weekly priorities (guest + cloud) ----------
 const EMPTY_PRIORITIES: import("@/lib/localStore").LocalPriority[] = [];
 
 export function useWeeklyPriorities(weekStart: string) {
@@ -319,7 +312,6 @@ export function useUpsertWeeklyPrioritiesMutation() {
   });
 }
 
-// ---------- Cloud-only weekly plan mutations ----------
 export function useGenerateWeeklyPlanMutation() {
   const { user } = useAuth();
   return useMutation({
@@ -348,7 +340,6 @@ export function useDeleteAccountMutation() {
   });
 }
 
-// ---------- Cloud-only weekly plan ----------
 export function useWeeklyPlan(weekStart: string) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -366,7 +357,6 @@ export function useWeeklyPlan(weekStart: string) {
   };
 }
 
-// ---------- Mutations (async functions + invalidation) ----------
 export async function insertTimeLog(
   mode: Mode,
   userId: string | null,
@@ -547,7 +537,6 @@ export async function updateProfile(
   invalidateProfile(mode, userId);
 }
 
-// ---------- useMutation wrappers (for components that prefer hooks) ----------
 export function useInsertTimeLogMutation() {
   const { mode, userId } = useAuthScope();
   return useMutation({
@@ -607,8 +596,6 @@ export function useUpdateProfileMutation() {
 
 export { invalidateWeeklyPlan };
 
-// ---------- Daily notes ----------
-
 export function useDailyNote(date: string) {
   const { mode, userId } = useAuthScope();
   return useQuery<LocalDailyNote | null>({
@@ -644,6 +631,7 @@ export function useUpsertDailyNote() {
     onSuccess: (_data, { date }) => {
       queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNote", mode, userId, date] });
       queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNotesForWeek", mode, userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.allDailyNoteDates(mode, userId) });
     },
   });
 }
@@ -664,8 +652,6 @@ export function useAllDailyNoteDates(): string[] {
   });
   return data ?? [];
 }
-
-// ---------- Inbox items ----------
 
 export function useInboxItems() {
   const { mode, userId } = useAuthScope();

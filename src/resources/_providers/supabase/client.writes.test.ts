@@ -21,14 +21,29 @@ describe("createSupabaseProvider — writes", () => {
   // ---------- timeLogs ----------
   describe("timeLogs.insert", () => {
     it("inserts into time_logs with all required fields", async () => {
-      const row = { id: "l1", date: "2024-06-01", start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive" };
+      const row = {
+        id: "l1",
+        date: "2024-06-01",
+        start_time: "09:00",
+        end_time: "10:00",
+        category_id: "c1",
+        type: "productive",
+        note_json: { type: "doc" },
+      };
       queueTableResult("time_logs", { data: row });
       const result = await provider.timeLogs.insert(USER_ID, {
-        date: "2024-06-01", start_time: "09:00", end_time: "10:00", category_id: "c1", type: "productive",
+        date: "2024-06-01",
+        start_time: "09:00",
+        end_time: "10:00",
+        category_id: "c1",
+        type: "productive",
+        note_json: { type: "doc" },
       });
       expect(result.id).toBe("l1");
       const call = fromCalls.find((c) => c.table === "time_logs");
       expect(call?.methods.some(([m]) => m === "insert")).toBe(true);
+      const insertArgs = call?.methods.find(([m]) => m === "insert")?.[1][0];
+      expect(insertArgs).toMatchObject({ note_json: { type: "doc" } });
     });
 
     it("throws on error", async () => {
@@ -63,6 +78,29 @@ describe("createSupabaseProvider — writes", () => {
       const call = fromCalls.find((c) => c.table === "time_logs");
       const updateArgs = call?.methods.find(([m]) => m === "update")?.[1][0];
       expect(updateArgs).toMatchObject({ date: "2026-07-01" });
+    });
+
+    it("includes note_json in the supabase update payload when provided", async () => {
+      const row = {
+        id: "l1",
+        date: "2026-07-01",
+        start_time: "10:00",
+        end_time: "11:00",
+        category_id: "c1",
+        type: "productive",
+        note_json: { type: "doc" },
+      };
+      queueTableResult("time_logs", { data: row });
+      await provider.timeLogs.update(USER_ID, "l1", {
+        start_time: "10:00",
+        end_time: "11:00",
+        category_id: "c1",
+        type: "productive",
+        note_json: { type: "doc" },
+      });
+      const call = fromCalls.find((c) => c.table === "time_logs");
+      const updateArgs = call?.methods.find(([m]) => m === "update")?.[1][0];
+      expect(updateArgs).toMatchObject({ note_json: { type: "doc" } });
     });
   });
 
@@ -217,6 +255,30 @@ describe("createSupabaseProvider — writes", () => {
     it("throws on error", async () => {
       queueTableResult("profiles", { error: { message: "not found" } });
       await expect(provider.profiles.update(USER_ID, {})).rejects.toThrow("not found");
+    });
+  });
+
+  // ---------- dailyNotes ----------
+  describe("dailyNotes.upsert", () => {
+    it("upserts daily_notes with user_id", async () => {
+      queueTableResult("daily_notes", { data: null });
+      await provider.dailyNotes.upsert(USER_ID, "2026-06-22", { type: "doc" });
+      const call = fromCalls.find((c) => c.table === "daily_notes");
+      const upsertArgs = call?.methods.find(([m]) => m === "upsert")?.[1][0];
+      expect(upsertArgs).toMatchObject({ user_id: USER_ID, date: "2026-06-22" });
+    });
+  });
+
+  // ---------- inboxItems ----------
+  describe("inboxItems.insert", () => {
+    it("inserts inbox_items with user_id", async () => {
+      queueTableResult("inbox_items", {
+        data: { id: "i1", user_id: USER_ID, content: "Capture this", created_at: "", archived_at: null },
+      });
+      await provider.inboxItems.insert(USER_ID, "Capture this");
+      const call = fromCalls.find((c) => c.table === "inbox_items");
+      const insertArgs = call?.methods.find(([m]) => m === "insert")?.[1][0];
+      expect(insertArgs).toMatchObject({ user_id: USER_ID, content: "Capture this" });
     });
   });
 });

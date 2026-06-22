@@ -2,16 +2,16 @@ import { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { NoteToolbar } from "./NoteToolbar";
-import { upsertGuestDailyNote } from "@/lib/localStore";
 
 type Props = {
   date: string;
   initialContent: object | null;
+  onChange: (json: object) => void;
 };
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
-export function DailyNoteCard({ date, initialContent }: Props) {
+export function DailyNoteCard({ date, initialContent, onChange }: Props) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
@@ -21,7 +21,7 @@ export function DailyNoteCard({ date, initialContent }: Props) {
     onUpdate({ editor }) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        upsertGuestDailyNote(date, editor.getJSON());
+        onChange(editor.getJSON());
       }, 300);
     },
   });
@@ -39,7 +39,10 @@ export function DailyNoteCard({ date, initialContent }: Props) {
   }, []);
 
   return (
-    <div className="rounded-md border border-border bg-surface focus-within:border-primary/60 transition-colors">
+    <div
+      data-testid="daily-note-editor"
+      className="rounded-md border border-border bg-surface focus-within:border-primary/60 transition-colors"
+    >
       {editor && <NoteToolbar editor={editor} />}
       <EditorContent
         editor={editor}

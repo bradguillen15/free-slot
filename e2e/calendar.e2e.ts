@@ -7,7 +7,13 @@ import { test, expect, seedGuest } from "./fixtures/guest";
 const skip = { profile: { onboarding_skipped: true } };
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Use the local date — `toISOString()` is UTC and can roll to the next day
+  // in western timezones, seeding the log on a day outside the dashboard week.
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 test.describe("guest calendar views", () => {

@@ -11,6 +11,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { Button } from "@/components/ui/button";
 import { ColorInput } from "@/components/ColorInput";
 import { addLabelSchema, type AddLabelValues } from "./addLabelSchema";
@@ -80,7 +81,7 @@ export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Pro
           <DialogTitle className="font-display text-xl">{t("labels.addModalTitle")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <FormField
               control={form.control}
               name="name"
@@ -88,6 +89,7 @@ export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Pro
                 <FormItem>
                   <FormLabel htmlFor="label-name" className="text-xs uppercase tracking-wider text-muted-foreground">
                     {t("labels.namePlaceholder")}
+                    <RequiredMark />
                   </FormLabel>
                   <FormControl>
                     <Input id="label-name" placeholder={t("labels.namePlaceholder")} data-testid="label-dialog-name" autoFocus {...field} />
@@ -104,6 +106,7 @@ export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Pro
                 <FormItem>
                   <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground">
                     Type
+                    <RequiredMark />
                   </FormLabel>
                   <div className="grid grid-cols-3 gap-2">
                     {TYPE_OPTIONS.map((opt) => (
@@ -137,6 +140,7 @@ export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Pro
                 <FormItem>
                   <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground">
                     {t("labels.color")}
+                    <RequiredMark />
                   </FormLabel>
                   <FormControl>
                     <ColorInput value={field.value} onChange={field.onChange} ariaLabel={t("labels.color")} />
@@ -150,7 +154,12 @@ export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Pro
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
                 {t("labels.cancel")}
               </Button>
-              <Button type="submit" disabled={submitting} data-testid="label-dialog-submit">
+              <Button
+                type="submit"
+                disabled={submitting}
+                data-testid="label-dialog-submit"
+                className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+              >
                 {submitting ? t("common.loading") : t("labels.save")}
               </Button>
             </DialogFooter>

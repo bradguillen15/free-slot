@@ -119,7 +119,7 @@ describe("createSupabaseProvider", () => {
 
   describe("weeklyReviews.getForWeek", () => {
     it("queries weekly_reviews filtered by user_id and week_start", async () => {
-      const review = { id: "r1", week_start: "2024-06-03", insights: "Great week!", planned_vs_actual: null, completed_at: "2024-06-09T10:00:00Z" };
+      const review = { id: "r1", week_start: "2024-06-03", insights: "Great week!", completed_at: "2024-06-09T10:00:00Z" };
       queueTableResult("weekly_reviews", { data: review });
       const result = await provider.weeklyReviews.getForWeek(USER_ID, "2024-06-03");
       expect(result?.id).toBe("r1");

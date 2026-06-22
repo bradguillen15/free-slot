@@ -9,6 +9,7 @@ alwaysApply: true
 - **Test-Driven Development**: Start with failing tests for any new functionality (TDD), according to the task details.
 - **Type Safety**: All code must be fully typed.
 - **Clear Naming**: Use clear, descriptive names for all variables and functions.
+- **Minimal Comments**: Do not write comments by default. Let clear naming and structure make the code self-explanatory. Add a comment ONLY when it explains something the code cannot — non-obvious rationale ("why"), an edge case, a gotcha, or an external assumption. Never add comments that restate what the code does (e.g. section-divider banners like `// ---- Categories ----`, or `// build the map` above a `.map`). When editing existing code, remove redundant comments you come across.
 - **Incremental Changes**: Prefer incremental, focused changes over large, complex modifications.
 - **Question Assumptions**: Always question assumptions and inferences.
 - **Pattern Detection**: Detect and highlight repeated code patterns.

@@ -31,6 +31,8 @@ vi.mock("@/lib/localStore", () => ({
   upsertGuestDailyNote: vi.fn(),
 }));
 
+const onChange = vi.fn();
+
 import { DailyNoteCard } from "./DailyNoteCard";
 
 beforeEach(() => {
@@ -41,12 +43,12 @@ describe("DailyNoteCard", () => {
   const content = { type: "doc", content: [{ type: "paragraph" }] };
 
   it("renders the editor content", () => {
-    render(<DailyNoteCard date="2026-06-20" initialContent={content} />);
+    render(<DailyNoteCard date="2026-06-20" initialContent={content} onChange={onChange} />);
     expect(screen.getByTestId("editor-content")).toBeTruthy();
   });
 
   it("shows the formatting toolbar", () => {
-    render(<DailyNoteCard date="2026-06-20" initialContent={content} />);
+    render(<DailyNoteCard date="2026-06-20" initialContent={content} onChange={onChange} />);
     expect(screen.getByRole("button", { name: "Bold" })).toBeTruthy();
   });
 });

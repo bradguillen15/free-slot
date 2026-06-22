@@ -12,6 +12,7 @@ export type TimeLogInput = {
   type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes?: string | null;
+  note_json?: object | null;
 };
 
 export type TimeLogPatch = {
@@ -21,6 +22,7 @@ export type TimeLogPatch = {
   type: "productive" | "unproductive" | "essential";
   title?: string | null;
   notes?: string | null;
+  note_json?: object | null;
   date?: string;
 };
 

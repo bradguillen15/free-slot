@@ -28,7 +28,6 @@ const review = (insights: string): WeeklyReview => ({
   id: "r1",
   week_start: "2026-06-09",
   insights,
-  planned_vs_actual: null,
   completed_at: "",
 });
 

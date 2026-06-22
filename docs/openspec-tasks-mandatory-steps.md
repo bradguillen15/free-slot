@@ -28,7 +28,7 @@ All implementation tasks MUST include these steps in the correct order:
 - **Step N**: Review and Update Existing Unit Tests (MANDATORY)
 - **Step N+1**: Run Unit Tests and Verify Database State (MANDATORY)
 - **Step N+2**: Manual Endpoint Testing with curl (MANDATORY) - **AGENT MUST EXECUTE**
-- **Step N+3**: E2E Testing with Playwright MCP (MANDATORY if applicable) - **AGENT MUST EXECUTE**
+- **Step N+3**: Final guest E2E verification (`pnpm verify`) — **once before archive**, not after every task
 - **Step N+4**: Update Technical Documentation (MANDATORY)
 
 ## 3. Manual Testing Requirements - CRITICAL: Agent Must Execute
@@ -171,9 +171,9 @@ All implementation tasks MUST include these steps in the correct order:
 - Do not skip manual testing even if unit tests pass
 - **Task completion in tasks.md can only be marked after successful execution of all curl tests**
 
-### Step N+3: E2E Testing with Playwright MCP (MANDATORY if applicable)
+### Step N+3: Final guest E2E verification (`pnpm verify`) — once before archive
 
-**Agent Responsibility**: The coding agent MUST execute all E2E tests using Playwright MCP tools. This is NOT optional and cannot be delegated to the user.
+**Agent Responsibility**: Run the full verify gate **once** when implementation is finished and before archive — not after every individual task. During implementation, use `pnpm test` (and update `e2e/*.e2e.ts` when UI flows change). Guest E2E is included in `pnpm verify`, not a separate loop.
 
 **When This Applies**:
 - Frontend changes that affect user workflows
@@ -181,54 +181,20 @@ All implementation tasks MUST include these steps in the correct order:
 - User-facing features that require browser interaction
 
 **Implementation Steps** (Agent must perform):
-1. **Prepare Test Environment**:
-   - Ensure both frontend and backend servers are running (start if needed)
-   - Verify database is in a known state
-   - Check available Playwright MCP tools using MCP file system
-
-2. **Navigate to Application**:
-   - Use Playwright MCP `browser_navigate` to open the application URL
-   - Wait for page to load completely
-   - Take a snapshot to verify initial state
-
-3. **Execute User Workflows**:
-   - Use Playwright MCP tools to interact with the UI:
-     - `browser_click` for button clicks and navigation
-     - `browser_type` or `browser_fill` for form inputs
-     - `browser_snapshot` to verify state changes
-     - `browser_wait` for async operations
-   - Test the complete user workflow from start to finish
-   - Verify expected outcomes at each step
-
-4. **Test Error Scenarios**:
-   - Test form validation errors
-   - Test error messages display correctly
-   - Test error recovery flows
-
-5. **Verify Data Persistence**:
-   - After creating/updating data through UI, verify it persists correctly
-   - Check database state matches UI state
-   - Verify data appears correctly in lists/details views
-
-6. **Restore Test Environment**:
-   - Clean up any test data created during E2E tests
-   - Restore database to original state
-   - Close browser sessions
-
-7. **Mark Task as Completed**: Only after all E2E tests pass and environment is restored, mark the task as completed in `tasks.md`
+1. **While implementing**: run `pnpm test` for touched areas; update `e2e/*.e2e.ts` when guest UX, testids, or dialog requirements change.
+2. **Once, before archive**: run `pnpm verify` (lint + typecheck + unit tests + guest E2E). If auth/DB/migration changed and Docker is available, also run `pnpm test:e2e:cloud`.
+3. **Fix failures before archiving**: a red verify run blocks archive.
+4. **Mark the final verification task complete** only after `pnpm verify` passes.
 
 **Dependencies**:
-- Frontend server running (agent must start if needed)
-- Backend server running (agent must start if needed)
-- Playwright MCP tools available
-- Database access for verification and cleanup
+- `@playwright/test` installed (`pnpm install`)
+- Chromium browser (`pnpm exec playwright install chromium`)
+- For cloud lane: Docker + Supabase CLI
 
 **Notes**:
-- **The agent MUST execute all E2E tests itself** - never ask the user to run tests
-- Use incremental waits (1-3 seconds) with snapshot checks rather than long waits
-- Always restore database state after tests that modify data
-- Document test scenarios and outcomes in a report in the spec folder with proper naming
-- **Task completion in tasks.md can only be marked after successful execution of all E2E tests**
+- **Run `pnpm verify` once at the end** — do not re-run guest E2E after every task (slow, expensive)
+- Update committed specs in `e2e/` when flows change
+- **Archive is blocked until `pnpm verify` passes**
 
 ## 4. Verification Checklist
 
@@ -284,14 +250,10 @@ This rule applies when:
 - [ ] 10.7 Document all curl commands and responses
 - [ ] 10.8 Verify database state matches pre-test state
 
-## 11. Frontend: E2E Testing with Playwright MCP (MANDATORY if applicable - AGENT MUST EXECUTE)
-- [ ] 11.1 Ensure frontend and backend servers are running
-- [ ] 11.2 Navigate to application using Playwright MCP browser_navigate
-- [ ] 11.3 Execute complete user workflow using Playwright MCP tools
-- [ ] 11.4 Test error scenarios and validation
-- [ ] 11.5 Verify data persistence and UI state
-- [ ] 11.6 Restore test environment and database state
-- [ ] 11.7 Document test scenarios and outcomes
+## 11. Final verification: `pnpm verify` (MANDATORY once before archive - AGENT MUST EXECUTE)
+- [ ] 11.1 Update `e2e/*.e2e.ts` (and fixtures) during implementation if guest UX changed
+- [ ] 11.2 Run `pnpm verify` **once** when all implementation tasks are done (add `pnpm test:e2e:cloud` only if auth/DB/migration touched and Docker is available)
+- [ ] 11.3 Fix any failures before archiving
 
 ## 16. Update Technical Documentation (MANDATORY)
 ...
@@ -304,7 +266,7 @@ This rule applies when:
 1. **Execute All Manual Tests**: Never ask the user to run curl commands or E2E tests. The agent must:
    - Start servers if needed (backend, frontend)
    - Execute all curl commands for endpoint testing
-   - Execute all E2E tests using Playwright MCP tools
+   - Run `pnpm verify` once before archive (not after every task)
    - Verify all responses and outcomes
    - Restore database state after tests
 
@@ -317,7 +279,7 @@ This rule applies when:
 3. **Never Delegate Testing**: The agent must never:
    - Ask the user to run curl commands
    - Ask the user to test endpoints manually
-   - Ask the user to run E2E tests
+   - Ask the user to run `pnpm verify`
    - Mark tasks as completed without executing tests
    - Skip manual testing steps
 

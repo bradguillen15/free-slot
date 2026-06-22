@@ -1,9 +1,13 @@
 name: CI
 
+# CI gates pull requests: lint, typecheck, unit tests, build, and the guest
+# E2E suite all run on every PR, so a change can't merge unless they pass.
+# It is also exposed as a reusable workflow (workflow_call) so the CD pipeline
+# can re-run the exact same checks on main before deploying.
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -23,14 +27,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      # Cache the Playwright browser binaries, keyed by the resolved version
+      # in the lockfile so the cache invalidates when @playwright/test updates.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
 
-      - name: Test (with coverage)
-        run: pnpm test:coverage
+      - name: Verify (lint, typecheck, unit tests, build, guest E2E)
+        run: pnpm verify:ci
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
 
       - name: Upload coverage report
         if: always()
@@ -40,8 +53,12 @@ jobs:
           path: coverage/
           retention-days: 14
 
-      - name: Build
-        run: pnpm build
-        env:
-          VITE_SUPABASE_URL: https://placeholder.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

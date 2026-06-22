@@ -1,7 +1,7 @@
 #!/bin/sh
 # Pre-push gate: run the guest E2E suite so regressions are caught before they
-# reach the remote. E2E does not run on every PR commit in CI (only at deploy
-# time, see .github/workflows/e2e.yml), so this hook is the per-developer guard.
+# reach the remote. PR CI also runs guest E2E via `pnpm verify:ci` in ci.yml;
+# this hook is an additional local guard before push.
 #
 # After the guest suite, run the CLOUD E2E suite (real local Supabase) when the
 # environment supports it. It is skipped gracefully — never blocking the push —

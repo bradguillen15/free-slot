@@ -32,6 +32,10 @@ export function AppLayoutOutlet() {
   const outlet = useOutlet();
   const isCalendar = isCalendarRoute(location.pathname);
   const isDayRoute = location.pathname === "/app";
+  // The Labels board fills the viewport (like the Day view) so the page itself
+  // never scrolls — its columns scroll internally instead.
+  const isLabelsRoute = location.pathname.startsWith("/app/labels");
+  const fillViewport = isDayRoute || isLabelsRoute;
 
   const animatedOutlet = (
     <AnimatePresence initial={false}>
@@ -40,7 +44,7 @@ export function AppLayoutOutlet() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className={isDayRoute ? CALENDAR_PAGE_SHELL_FILL : undefined}
+        className={fillViewport ? CALENDAR_PAGE_SHELL_FILL : undefined}
       >
         {outlet}
       </motion.div>
@@ -48,7 +52,7 @@ export function AppLayoutOutlet() {
   );
 
   return (
-    <AppLayout fillViewport={isDayRoute}>
+    <AppLayout fillViewport={fillViewport}>
       {isCalendar ? (
         <div className={cn(CALENDAR_PAGE_SHELL, isDayRoute && CALENDAR_PAGE_SHELL_FILL)}>
           <div className="pt-5 pb-3">

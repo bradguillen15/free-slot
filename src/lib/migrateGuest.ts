@@ -35,7 +35,6 @@ export async function migrateGuestToCloud(userId: string) {
     );
     inserted.forEach((row) => cloudCatByName.set(row.name, row.id));
   }
-  // Build local-id -> cloud-id map
   snap.categories.forEach((c) => {
     const cloudId = cloudCatByName.get(c.name);
     if (cloudId) catIdMap.set(c.id, cloudId);

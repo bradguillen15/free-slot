@@ -21,7 +21,7 @@ describe("AddLabelDialog", () => {
     const user = userEvent.setup();
     render(<AddLabelDialog {...baseProps} />);
 
-    await user.click(screen.getByRole("button", { name: "Add label" }));
+    await user.click(screen.getByRole("button", { name: "Add" }));
 
     expect(await screen.findByText("Name is required")).toBeInTheDocument();
     expect(baseProps.onSave).not.toHaveBeenCalled();
@@ -33,8 +33,8 @@ describe("AddLabelDialog", () => {
     const onOpenChange = vi.fn();
     render(<AddLabelDialog {...baseProps} onSave={onSave} onOpenChange={onOpenChange} />);
 
-    await user.type(screen.getByLabelText("Label name"), "  Deep work  ");
-    await user.click(screen.getByRole("button", { name: "Add label" }));
+    await user.type(screen.getByTestId("label-dialog-name"), "  Deep work  ");
+    await user.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({ name: "Deep work", color: "#3b82f6", type: "productive" }),
@@ -48,8 +48,8 @@ describe("AddLabelDialog", () => {
     const onOpenChange = vi.fn();
     render(<AddLabelDialog {...baseProps} onSave={onSave} onOpenChange={onOpenChange} />);
 
-    await user.type(screen.getByLabelText("Label name"), "Reading");
-    await user.click(screen.getByRole("button", { name: "Add label" }));
+    await user.type(screen.getByTestId("label-dialog-name"), "Reading");
+    await user.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(onOpenChange).not.toHaveBeenCalledWith(false);

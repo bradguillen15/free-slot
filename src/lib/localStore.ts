@@ -116,7 +116,6 @@ function write<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
-    // Same-tab listeners
     window.dispatchEvent(new CustomEvent("freeslot:guest-change", { detail: { key } }));
   } catch (e) {
     console.error("localStore write failed", e);
@@ -170,7 +169,6 @@ export function ensureBootstrap() {
   topUpDefaultCategories();
 }
 
-// ---------- Profile ----------
 export function getProfile(): LocalProfile {
   const p = read<unknown>(`${PREFIX}.profile`, DEFAULT_PROFILE);
   if (!p || typeof p !== "object" || Array.isArray(p)) return DEFAULT_PROFILE;
@@ -188,7 +186,6 @@ export function updateProfile(patch: Partial<LocalProfile>) {
   return next;
 }
 
-// ---------- Categories ----------
 export function listCategories(): LocalCategory[] {
   return readArray<LocalCategory>(`${PREFIX}.categories`).map(normalizeCategory);
 }
@@ -237,7 +234,6 @@ export function reorderCategories(orderedIds: string[]) {
   write(`${PREFIX}.categories`, next);
 }
 
-// ---------- Activities ----------
 export function listActivities(): LocalActivity[] {
   return readArray<LocalActivity>(`${PREFIX}.activities`);
 }
@@ -265,7 +261,6 @@ export function deleteActivity(id: string) {
   write(`${PREFIX}.activities`, listActivities().filter((a) => a.id !== id));
 }
 
-// ---------- Schedule blocks ----------
 export function listScheduleBlocks(): LocalScheduleBlock[] {
   return readArray<LocalScheduleBlock>(`${PREFIX}.schedule_blocks`);
 }
@@ -314,7 +309,6 @@ export function reorderScheduleBlocks(orderedIds: string[]) {
   write(`${PREFIX}.schedule_blocks`, next);
 }
 
-// ---------- Time logs (monthly buckets) ----------
 export function listLogsForMonth(month: string): LocalTimeLog[] {
   return readArray<LocalTimeLog>(logsKey(month));
 }
@@ -432,7 +426,6 @@ export function moveLog(id: string, newDate: string, patch: Partial<Omit<LocalTi
   throw new Error("Time log not found");
 }
 
-// ---------- Daily notes ----------
 export type LocalDailyNote = {
   user_id: string;
   date: string;        // YYYY-MM-DD
@@ -473,7 +466,6 @@ export function listGuestDailyNotesInRange(startISO: string, endISO: string): Lo
   return listAllGuestDailyNotes().filter((n) => n.date >= startISO && n.date <= endISO);
 }
 
-// ---------- Inbox items ----------
 export type LocalInboxItem = {
   id: string;
   user_id: string;
@@ -510,7 +502,6 @@ export function archiveGuestInboxItem(id: string): void {
   );
 }
 
-// ---------- Snapshot for migration ----------
 export type LocalPriority = { week_start: string; activity_id: string; rank: number };
 
 function prioKey(weekStart: string) {
@@ -580,8 +571,6 @@ export function clearGuestData() {
   window.dispatchEvent(new CustomEvent("freeslot:guest-change", { detail: { key: "*" } }));
 }
 
-// ---------- Recurring notes ----------
-
 const RECURRING_NOTE_PREFIX = `${PREFIX}.recurring_notes.`;
 const RECURRING_NOTE_COLLAPSED_KEY = `${PREFIX}.ui.recurring_note_collapsed`;
 
@@ -615,7 +604,6 @@ export function setRecurringNoteCollapseState(collapsed: boolean): void {
   write(RECURRING_NOTE_COLLAPSED_KEY, collapsed);
 }
 
-// ---------- Dashboard card visibility ----------
 export type DashboardVisibleCards = {
   perDay: boolean;
   byCategory: boolean;

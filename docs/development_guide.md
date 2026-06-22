@@ -56,21 +56,17 @@ flow** end to end. Key facts:
 - **Scope:** guest flows only. Authenticated/cloud flows, Settings, and edge
   functions are intentionally out of scope (they need real Supabase infra).
 
-### When E2E runs (CD + pre-push, not per-PR-commit)
+### When E2E runs
 
-E2E is too expensive to run on every PR commit, so:
+- **While implementing:** use `pnpm test` (and `pnpm lint` / `pnpm typecheck` as needed). Do **not** run the full E2E suite after every small change — it is slow.
+- **Final verification (once):** `pnpm verify` runs lint, typecheck, unit tests, **and** guest E2E. Run this when you believe the change is done, before archive or PR.
+- **PR CI:** `.github/workflows/ci.yml` runs `pnpm verify:ci` on every pull request (same gate, plus build and coverage).
+- **CD:** merge to `main` reuses `ci.yml` before deploy.
+- **Optional local pre-push:** `.githooks/pre-push` runs `pnpm test:e2e` before push if you want an extra guard; bypass with `git push --no-verify`. Agents should rely on one `pnpm verify` at completion instead of re-running E2E repeatedly.
+- **One-time setup:** `pnpm install` and `pnpm exec playwright install chromium`.
+- `pnpm test:e2e:ui` is for interactive debugging only.
 
-- **CD:** `.github/workflows/e2e.yml` runs the suite on **merge to `main`** (and
-  manual `workflow_dispatch`), uploading the HTML report/trace on failure. PR CI
-  (`ci.yml`) runs only lint, typecheck, unit tests, and build.
-- **Local pre-push hook:** `.githooks/pre-push` runs `pnpm test:e2e` before every
-  push and blocks on failure. It is wired automatically — `pnpm install` runs the
-  `prepare` script which sets `git config core.hooksPath .githooks`. Bypass for
-  exceptional cases with `git push --no-verify`.
-- **One-time setup:** after cloning, run `pnpm install` (wires the hook) and
-  `pnpm exec playwright install chromium` (installs the browser the hook/CD need).
-- `pnpm test:e2e:ui` is a **manual dev tool** for debugging — it opens the
-  Playwright UI and cannot run headless in CI/CD.
+When guest-visible flows change, update matching `e2e/*.e2e.ts` specs in the same change. Use `pickDefaultLabel()` from `e2e/fixtures/guest.ts` when create dialogs require a label.
 
 ## OpenSpec / Harness Workflow
 
@@ -101,8 +97,7 @@ openspec schemas
 
 - [ ] Feature works in **guest mode** (if not account-gated)
 - [ ] Feature works when **signed in** (cloud mode)
-- [ ] `bun run test` passes
-- [ ] `bun run lint` passes
+- [ ] `pnpm verify` passes once at the end (lint, typecheck, unit tests, guest E2E)
 - [ ] No hardcoded colors; semantic tokens used
 - [ ] Data access via `dataStore` hooks where required
 

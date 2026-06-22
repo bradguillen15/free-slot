@@ -1,10 +1,5 @@
-import {
-  test,
-  expect,
-  seedGuest,
-  readGuestDailyNote,
-  readGuestInboxItems,
-} from "./fixtures/guest";
+import { test, expect, seedGuest, readGuestDailyNote } from "./fixtures/guest";
+import type { Page } from "@playwright/test";
 
 function todayISO(): string {
   const d = new Date();
@@ -22,38 +17,36 @@ const NOTE_CONTENT = {
   content: [{ type: "paragraph", content: [{ type: "text", text: "My focus note" }] }],
 };
 
+function dailyNoteEditor(page: Page) {
+  return page.getByTestId("daily-note-editor").locator(".ProseMirror");
+}
+
+async function openDailyNotesTab(page: Page) {
+  await page.getByRole("tab", { name: "Notes" }).click();
+  await page.getByRole("tab", { name: "Daily" }).click();
+}
+
 // ---------------------------------------------------------------------------
 // Daily notes — day view
 // ---------------------------------------------------------------------------
 
 test.describe("guest daily notes — day view", () => {
-  test("shows placeholder button when no note exists", async ({ page }) => {
+  test("shows the rich-text editor when no note exists", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await expect(page.getByLabel("Add a note for this day")).toBeVisible();
-  });
-
-  test("clicking placeholder expands the rich-text editor", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await page.getByLabel("Add a note for this day").click();
-    await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
-    // Placeholder is gone once the editor is open
-    await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
+    await openDailyNotesTab(page);
+    await expect(dailyNoteEditor(page)).toBeVisible();
   });
 
   test("typing saves the note to localStorage after debounce and it survives a reload", async ({ page }) => {
     await seedGuest(page, skip);
     await page.goto("/app");
 
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await page.getByLabel("Add a note for this day").click();
-    const editor = page.locator(".ProseMirror[contenteditable='true']");
+    await openDailyNotesTab(page);
+    const editor = dailyNoteEditor(page);
     await expect(editor).toBeVisible();
+    await editor.click();
 
     // pressSequentially focuses the element and types char-by-char — reliable for ProseMirror
     await editor.pressSequentially("Focus deep work");
@@ -64,23 +57,21 @@ test.describe("guest daily notes — day view", () => {
     // Poll until the 300ms debounce fires and the note lands in localStorage
     await expect.poll(() => readGuestDailyNote(page, todayISO()), { timeout: 3000 }).not.toBeNull();
 
-    // After reload the note is loaded from storage → editor shows expanded, placeholder hidden
+    // After reload the note is loaded from storage → editor shows the saved content
     await page.reload();
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
-    await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
+    await openDailyNotesTab(page);
+    await expect(dailyNoteEditor(page)).toContainText("Focus deep work");
   });
 
-  test("seeded note renders the editor expanded on page load", async ({ page }) => {
+  test("seeded note renders the editor with content on page load", async ({ page }) => {
     await seedGuest(page, {
       ...skip,
       dailyNotes: [{ date: todayISO(), content: NOTE_CONTENT }],
     });
     await page.goto("/app");
 
-    await page.getByRole("tab", { name: "Notes" }).click();
-    await expect(page.locator(".ProseMirror[contenteditable='true']")).toBeVisible();
-    await expect(page.getByLabel("Add a note for this day")).not.toBeVisible();
+    await openDailyNotesTab(page);
+    await expect(dailyNoteEditor(page)).toContainText("My focus note");
   });
 });
 
@@ -108,88 +99,10 @@ test.describe("guest daily notes — week view", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Inbox — day view
-// ---------------------------------------------------------------------------
-
-test.describe("guest inbox — day view", () => {
-  test("shows empty state when no items exist", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    await expect(page.getByText(/Nothing pending/)).toBeVisible();
-  });
-
-  test("typing and pressing Enter adds an item to the list", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    const input = page.getByLabel("New inbox item");
-    await input.fill("Buy oat milk");
-    await input.press("Enter");
-
-    await expect(page.getByText("Buy oat milk")).toBeVisible();
-    // Input should be cleared after submission
-    await expect(input).toHaveValue("");
-  });
-
-  test("added item persists after reload", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    await page.getByLabel("New inbox item").fill("Call dentist");
-    await page.getByLabel("New inbox item").press("Enter");
-    await expect(page.getByText("Call dentist")).toBeVisible();
-
-    await page.reload();
-    await expect(page.getByText("Call dentist")).toBeVisible();
-  });
-
-  test("archiving an item removes it from the list immediately", async ({ page }) => {
-    await seedGuest(page, {
-      ...skip,
-      inboxItems: [{ id: "i1", content: "Review PR #42" }],
-    });
-    await page.goto("/app");
-
-    await expect(page.getByText("Review PR #42")).toBeVisible();
-    await page.getByLabel("Archive: Review PR #42").click();
-    await expect(page.getByText("Review PR #42")).not.toBeVisible();
-  });
-
-  test("archived item stays gone after reload and is not in active storage", async ({ page }) => {
-    await seedGuest(page, {
-      ...skip,
-      inboxItems: [{ id: "i1", content: "Plan sprint" }],
-    });
-    await page.goto("/app");
-
-    await page.getByLabel("Archive: Plan sprint").click();
-    await expect(page.getByText("Plan sprint")).not.toBeVisible();
-
-    await page.reload();
-    await expect(page.getByText("Plan sprint")).not.toBeVisible();
-
-    const active = await readGuestInboxItems(page);
-    expect(active.find((i) => i.content === "Plan sprint")).toBeUndefined();
-  });
-
-  test("seeded items are listed on load", async ({ page }) => {
-    await seedGuest(page, {
-      ...skip,
-      inboxItems: [
-        { id: "i1", content: "Write blog post" },
-        { id: "i2", content: "Update README" },
-      ],
-    });
-    await page.goto("/app");
-
-    await expect(page.getByText("Write blog post")).toBeVisible();
-    await expect(page.getByText("Update README")).toBeVisible();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Inbox — week view
+//
+// The inbox was removed from the day view (it now lives only in the week view
+// toggle panel), so the day-view inbox specs were dropped.
 // ---------------------------------------------------------------------------
 
 test.describe("guest inbox — week view", () => {

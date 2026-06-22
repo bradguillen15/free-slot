@@ -93,8 +93,10 @@ truth for "what good looks like here", and a review is only complete if the rubr
   mock `dataStore`/`localStore`. Component tests wrap with `renderWithProviders()`.
 - **R-TEST-4 — Guard cross-source invariants with sync tests** (see `defaultCategorySeed.test.ts`).
   Such tests must resolve the *latest* relevant migration, not hardcode a filename that goes stale.
-- **R-TEST-5 — Run unit + typecheck + E2E after each step**, not only at the end. A failing test is a
-  blocker before the next step. Green baseline = `pnpm typecheck && pnpm test && pnpm lint`.
+- **R-TEST-5 — Fast checks while iterating; full verify once at the end.** During implementation run
+  `pnpm lint`, `pnpm typecheck`, and `pnpm test` as needed. Run `pnpm verify` **once** when you
+  believe the change is complete (before archive/PR) — that is when guest E2E runs. Update
+  `e2e/*.e2e.ts` in the same change when guest UX, testids, or dialog requirements change.
 
 ## R-SEC — Security
 

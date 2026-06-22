@@ -1,4 +1,4 @@
-import { test, expect, seedGuest, readGuestTimeLogs } from "./fixtures/guest";
+import { test, expect, seedGuest, pickDefaultLabel, readGuestTimeLogs } from "./fixtures/guest";
 
 function todayISO(): string {
   const d = new Date();
@@ -32,11 +32,11 @@ test.describe("guest time logging", () => {
     const yesterday = addDaysISO(todayISO(), -1);
 
     await page.getByTestId("day-fab").click();
-    await page.getByTestId("day-log-time").click();
 
     await page.getByTestId("quicklog-title").fill("Sleep");
     await page.getByTestId("quicklog-start").fill("23:00");
     await page.getByTestId("quicklog-end").fill("07:00");
+    await pickDefaultLabel(page, "Sleep");
     await page.getByTestId("quicklog-submit").click();
 
     await expect
@@ -56,13 +56,11 @@ test.describe("guest time logging", () => {
 
     // Open the quick-log dialog via the Day FAB.
     await page.getByTestId("day-fab").click();
-    await page.getByTestId("day-log-time").click();
 
-    // Title is required; times default to 09:00–10:00 and the label defaults to
-    // the first seeded category, so a title + submit is enough.
     await page.getByTestId("quicklog-title").fill("Morning standup");
     await page.getByTestId("quicklog-start").fill("09:00");
     await page.getByTestId("quicklog-end").fill("09:30");
+    await pickDefaultLabel(page);
     await page.getByTestId("quicklog-submit").click();
 
     await expect

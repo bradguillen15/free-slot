@@ -39,7 +39,7 @@ export default function CalendarPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [logDefaults, setLogDefaults] = useState<{
     start: string; end: string; editId?: string; editDate?: string;
-    defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string; defaultNoteJson?: object | null;
+    defaultCategoryId?: string; defaultTitle?: string; defaultNotes?: string;
   }>({ start: "09:00", end: "10:00" });
 
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
@@ -150,7 +150,6 @@ export default function CalendarPage() {
       defaultCategoryId: log.category_id ?? undefined,
       defaultTitle: log.title ?? undefined,
       defaultNotes: log.notes ?? undefined,
-      defaultNoteJson: log.note_json ?? null,
     });
     setLogOpen(true);
   }, []);
@@ -256,7 +255,7 @@ export default function CalendarPage() {
                     <TabsTrigger value="daily" className="flex-1">Daily</TabsTrigger>
                     <TabsTrigger value="standing" className="flex-1">Standing</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="daily" className="mt-0">
+                  <TabsContent value="daily" forceMount className="mt-0 data-[state=inactive]:hidden">
                     {dailyNote !== undefined && (
                       <Suspense fallback={null}>
                         <DailyNoteEditor
@@ -268,7 +267,7 @@ export default function CalendarPage() {
                       </Suspense>
                     )}
                   </TabsContent>
-                  <TabsContent value="standing" className="mt-0">
+                  <TabsContent value="standing" forceMount className="mt-0 data-[state=inactive]:hidden">
                     <Suspense fallback={null}>
                       <RecurringNoteEditor
                         key={`recurring-${date}`}
@@ -310,7 +309,6 @@ export default function CalendarPage() {
           defaultCategoryId={logDefaults.defaultCategoryId}
           defaultTitle={logDefaults.defaultTitle}
           defaultNotes={logDefaults.defaultNotes}
-          defaultNoteJson={logDefaults.defaultNoteJson}
           onOptimisticInsert={(log) => {
             if (log.date === date || log.date === logsStart)
               setDayLogs((prev) => [...prev, log as typeof prev[0]].sort((a, b) => a.start_time.localeCompare(b.start_time)));

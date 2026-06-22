@@ -68,14 +68,12 @@ Deno.serve(async (req) => {
     const insights: string =
       aiJson.content?.[0]?.text?.trim() ?? "Nice work showing up this week.";
 
-    const planned_vs_actual = { planned, actual, productive_ratio: productiveRatio, total_tracked: totalTracked };
-
     // Atomic upsert against UNIQUE (user_id, week_start) — the previous
     // delete-then-insert raced with concurrent regenerations.
     const { data: saved, error: insErr } = await supabase
       .from("weekly_reviews")
       .upsert(
-        { user_id: user.id, week_start, insights, planned_vs_actual },
+        { user_id: user.id, week_start, insights },
         { onConflict: "user_id,week_start" }
       )
       .select()

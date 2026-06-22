@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { getGuestDailyNote } from "@/lib/localStore";
+import { useDailyNote, useUpsertDailyNote } from "@/lib/dataStore";
 import { fmtDayHeading } from "@/lib/time";
 import { DailyNoteCard } from "./DailyNoteCard";
 
@@ -34,8 +34,12 @@ export function NotesCarousel({ dates, selectedISO, onSelectDate }: Props) {
 
   const noteDates = dates.map(parseLocal);
   const selectedDate = parseLocal(selectedISO);
-  const hasNote = dates.includes(selectedISO);
-  const note = hasNote ? getGuestDailyNote(selectedISO) : null;
+  // Wait for the query to settle before mounting DailyNoteCard so useEditor
+  // initialises with the correct content (same pattern as CalendarPage). Guard
+  // on status rather than `data` so the editor still renders (allowing note
+  // creation) when the fetch fails and `data` stays undefined.
+  const dailyNoteQuery = useDailyNote(selectedISO);
+  const upsertDailyNote = useUpsertDailyNote();
 
   const handleDayClick = (day: Date) => {
     onSelectDate(toISO(day));
@@ -88,20 +92,13 @@ export function NotesCarousel({ dates, selectedISO, onSelectDate }: Props) {
         </button>
       </div>
 
-      {/* Note content or empty state */}
-      {hasNote ? (
+      {dailyNoteQuery.status !== "pending" && (
         <DailyNoteCard
           key={selectedISO}
           date={selectedISO}
-          initialContent={note?.content ?? null}
+          initialContent={dailyNoteQuery.data?.content ?? null}
+          onChange={(json) => upsertDailyNote.mutate({ date: selectedISO, content: json })}
         />
-      ) : (
-        <div
-          data-testid="notes-carousel-empty"
-          className="rounded-md border border-border bg-surface px-4 py-8 text-center text-sm text-muted-foreground"
-        >
-          {t("notes.noNoteForDay")}
-        </div>
       )}
     </div>
   );

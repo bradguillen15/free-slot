@@ -45,7 +45,7 @@ supabase db push --project-ref <YOUR_PROJECT_REF>
 ```
 
 Verify in the Supabase dashboard → **Table Editor** that these tables exist:
-`profiles`, `categories`, `activities`, `schedule_blocks`, `time_logs`, `weekly_priorities`, `weekly_plans`, `weekly_reviews`, `daily_nudges`
+`profiles`, `categories`, `activities`, `schedule_blocks`, `time_logs`, `weekly_priorities`, `weekly_plans`, `weekly_reviews`, `daily_notes`, `inbox_items`
 
 ---
 

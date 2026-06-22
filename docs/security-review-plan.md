@@ -69,10 +69,10 @@ The single most important unit: RLS is the only authorization layer for all CRUD
 Pre-seeded candidates to verify (from reading the code on 2026-06-12 — re-verify, don't assume):
 
 - **CORS is `Access-Control-Allow-Origin: *` in all three functions.** JWT-in-header means CSRF-style abuse is limited, but combined with `supabase.functions.invoke` from any origin, any site the user visits can call these functions if it obtains a token; document and decide an allowlist (`generate-weekly-plan/index.ts:11`, `delete-account/index.ts:5`, `weekly-review`).
-- **`generate-weekly-plan` trusts client-supplied `gaps`/`activities`/`priorities` wholesale** (`index.ts:34-36`): no size caps, no schema validation, strings flow into the AI prompt and `raw_prompt` is persisted. Server could re-derive activities/priorities from the DB instead. (The old SEC-1/SEC-3 findings from `CODE_AUDIT.md` — the Express rewrite that was meant to fix them never happened; check current status honestly.)
+- **`generate-weekly-plan` trusts client-supplied `gaps`/`activities`/`priorities` wholesale** (`index.ts:34-36`): no size caps, no schema validation, and strings flow into the AI prompt. Server could re-derive activities/priorities from the DB instead. (The old SEC-1/SEC-3 findings from `CODE_AUDIT.md` — the Express rewrite that was meant to fix them never happened; check current status honestly.)
 - **Error detail leakage:** `insErr.message` and `e.message` are returned to the client (`generate-weekly-plan/index.ts:128,134`) — verify nothing sensitive (connection strings, table internals) can surface.
 - **`delete-account` swallows per-table delete errors** (`index.ts:41` — `console.error` then continues) and then deletes the auth user. Failure ordering can orphan rows that no longer have an owner but still exist. Also verify it cannot be replayed/aimed at another uid (it derives uid from the JWT — confirm no body params are trusted).
-- **`raw_response` / `raw_prompt` stored verbatim** in `weekly_plans` — confirm RLS covers them and no other surface (dashboard queries, future exports) leaks them.
+- **AI prompt/response storage removed** from `weekly_plans`; re-check if debug persistence is reintroduced.
 - `verify_jwt` setting in `supabase/config.toml` for each function — functions also check manually, but confirm the platform gate is on.
 - Version skew: functions import `supabase-js@2.57.4` and `@2.45.0` from esm.sh — pin consistently; check advisories for both (feeds Unit 6).
 
@@ -95,7 +95,7 @@ Pre-seeded candidates to verify (from reading the code on 2026-06-12 — re-veri
 
 ### Unit 5 — AI / prompt injection & output handling (A03 adapted)
 
-- `buildPlanPrompts` in `_shared/planning.ts`: user-controlled activity names / gap labels are prompt-injectable by the user themselves. Single-user blast radius (their own plan) — but verify: caps on string length and array sizes (cost abuse via huge prompts is excluded as DoS, but unbounded input → unbounded stored `raw_prompt` is a data-integrity issue), and that the model cannot be steered into writing slots for other users (it can't — upsert is keyed to `user.id` server-side; confirm that stays true).
+- `buildPlanPrompts` in `_shared/planning.ts`: user-controlled activity names / gap labels are prompt-injectable by the user themselves. Single-user blast radius (their own plan) — but verify caps on string length and array sizes, and that the model cannot be steered into writing slots for other users (it can't — upsert is keyed to `user.id` server-side; confirm that stays true).
 - `validateSlots` (already added): confirm it bounds slot count, validates `HH:MM`/ISO-date formats, and rejects slots outside submitted gaps. Add tests if missing edge cases (overnight, duplicate slots).
 - `weekly-review`: same checks for `planned`/`actual` arrays and the insights text path; confirm upsert (not delete+insert) and that AI text is rendered as plain text in `WeeklyReviewModal`.
 
@@ -147,7 +147,7 @@ Key packages: `vitest@3.2.4` (critical, dev-only — Vitest UI exposed to networ
 
 ### Unit 1 — RLS & database (static)
 
-**Tables enumerated (9):** `profiles`, `categories`, `schedule_blocks`, `time_logs`, `activities`, `weekly_priorities`, `weekly_plans`, `daily_nudges`, `weekly_reviews`. Later migrations add columns only (`title`, `sort_order`, default categories) — no new tables.
+**Tables enumerated:** `profiles`, `categories`, `schedule_blocks`, `time_logs`, `activities`, `weekly_priorities`, `weekly_plans`, `weekly_reviews`, `daily_notes`, `inbox_items`.
 
 | ID | Severity | Location | Exploit scenario | Fix |
 |----|----------|----------|------------------|-----|
@@ -161,10 +161,10 @@ Key packages: `vitest@3.2.4` (critical, dev-only — Vitest UI exposed to networ
 | ID | Severity | Location | Exploit scenario | Fix |
 |----|----------|----------|------------------|-----|
 | U2-1 | Medium | `generate-weekly-plan/index.ts:11`, `delete-account/index.ts:5`, `weekly-review/index.ts:5` | `Access-Control-Allow-Origin: *`. Any origin can invoke functions if it holds the user's JWT (e.g. XSS on another site reading `localStorage`). CSRF via cookies is N/A (Bearer header). | Restrict `Origin` to production allowlist; or accept risk and document dependency on XSS prevention. |
-| U2-2 | Medium | `generate-weekly-plan/index.ts:32-36` | Client supplies `gaps`, `activities`, `priorities` wholesale — no count/length caps, no schema validation. Attacker (authenticated) can send huge arrays → large `raw_prompt` JSONB, inflated Anthropic cost, DB bloat. SEC-1/SEC-3 from old Express audit were never ported; status unchanged. | Re-fetch activities/priorities from DB server-side; cap array sizes and string lengths; validate `week_start` ISO format. |
+| U2-2 | Medium | `generate-weekly-plan/index.ts:32-36` | Client supplies `gaps`, `activities`, `priorities` wholesale — no count/length caps, no schema validation. Attacker (authenticated) can send huge arrays → inflated Anthropic cost. SEC-1/SEC-3 from old Express audit were never ported; status unchanged. | Re-fetch activities/priorities from DB server-side; cap array sizes and string lengths; validate `week_start` ISO format. |
 | U2-3 | Low | `generate-weekly-plan/index.ts:128,134`, `weekly-review/index.ts:86,92` | `insErr.message` / `e.message` returned to client. Postgres errors can include constraint/column names (info disclosure). | Return generic `{ error: "Internal error" }`; log details server-side only. |
 | U2-4 | Medium | `delete-account/index.ts:38-42` | Per-table delete errors are logged and **swallowed**; auth user is still deleted. Partial failure → orphaned rows without owner, or account deleted while data remains. | Abort on first delete error; use transaction or single `DELETE FROM auth.users` relying on `ON DELETE CASCADE` (add missing cascades if needed). |
-| U2-5 | N/A | `weekly_plans` RLS + frontend selects | `raw_prompt` / `raw_response` stored verbatim but frontend selects only `id, week_start, generated_at, slots` (`AIPlanPanel.tsx:64`, `DashboardPage.tsx:54`). RLS scopes to owner. | — |
+| U2-5 | N/A | `weekly_plans` | Prompt/response debug columns removed; current table stores generated slots only. | — |
 | U2-6 | N/A | all three functions | UID derived from JWT via `getUser()` — no trusted body `user_id`. `delete-account` cannot target another uid. Replay deletes same user again (idempotent 404/ok). | — |
 | U2-7 | Low | `delete-account/index.ts:2` vs others `@2.57.4` | Version skew on esm.sh imports (`2.45.0` vs `2.57.4`). | Pin one version everywhere; track advisories in CI. |
 | U2-8 | **Blocked** | `supabase/config.toml` | Repo has placeholder `project_id` only — no `verify_jwt` entries to verify. Functions do manual JWT checks. | Add function entries to `config.toml` with `verify_jwt = true`; confirm in Supabase dashboard. |
@@ -197,7 +197,7 @@ Key packages: `vitest@3.2.4` (critical, dev-only — Vitest UI exposed to networ
 | ID | Severity | Location | Exploit scenario | Fix |
 |----|----------|----------|------------------|-----|
 | U5-1 | Low | `planning.ts:42-68` | User-controlled activity names / gap labels are prompt-injectable by the account owner. Blast radius is own plan only; upsert keyed to `user.id` server-side (`generate-weekly-plan/index.ts:114`). | Optional: strip control chars; cap string lengths in `buildPlanPrompts`. |
-| U5-2 | Medium | `planning.ts:77-106`, `generate-weekly-plan/index.ts:118` | No cap on slot count or prompt size → unbounded `raw_prompt` JSONB storage. `validateSlots` filters format/gap fit but not count. | `if (out.length > MAX_SLOTS) out.length = MAX_SLOTS`; reject requests with `gaps.length > N`. |
+| U5-2 | Medium | `planning.ts:77-106`, `generate-weekly-plan/index.ts` | No cap on slot count or prompt size. `validateSlots` filters format/gap fit but not count. | `if (out.length > MAX_SLOTS) out.length = MAX_SLOTS`; reject requests with `gaps.length > N`. |
 | U5-3 | N/A | `planning.test.ts` | `validateSlots` tests malformed dates, inverted slots, outside-window — good coverage. Overnight wrap not applicable (gaps don't cross midnight per comment L92). | Add test for duplicate slots if product cares. |
 | U5-4 | N/A | `weekly-review/index.ts:75-80` | Uses upsert on `(user_id, week_start)` — no delete+insert race. | — |
 | U5-5 | Low | `weekly-review/index.ts:27-28` | `planned` / `actual` arrays unbounded — same storage/cost pattern as U2-2. | Cap array length and name string size before prompt build. |

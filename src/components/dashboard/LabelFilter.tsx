@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { useCategoryName } from "@/lib/categoryLabels";
 
 export type FilterCategory = { id: string; name: string; color: string };
 
@@ -11,6 +12,7 @@ type Props = {
 
 export function LabelFilter({ categories, selectedIds, onChange }: Props) {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
 
   const toggle = (id: string) => {
     onChange(
@@ -55,7 +57,7 @@ export function LabelFilter({ categories, selectedIds, onChange }: Props) {
               className="h-1.5 w-1.5 rounded-full shrink-0"
               style={{ backgroundColor: cat.color }}
             />
-            {cat.name}
+            {categoryName(cat.name)}
           </button>
         );
       })}

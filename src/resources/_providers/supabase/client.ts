@@ -273,6 +273,7 @@ export function createSupabaseProvider(): ResourcesProvider {
             type: input.type,
             title: input.title ?? null,
             notes: input.notes ?? null,
+            note_json: (input.note_json ?? null) as Json | null,
           })
           .select()
           .single();
@@ -290,6 +291,7 @@ export function createSupabaseProvider(): ResourcesProvider {
             type: patch.type,
             ...(patch.date !== undefined ? { date: patch.date } : {}),
             ...(patch.title !== undefined ? { title: patch.title } : {}),
+            ...(patch.note_json !== undefined ? { note_json: patch.note_json as Json | null } : {}),
             notes: patch.notes ?? null,
           })
           .eq("id", id)
@@ -310,7 +312,7 @@ export function createSupabaseProvider(): ResourcesProvider {
       },
 
       async insertMany(userId, items) {
-        const rows = items.map(({ note_json: _n, ...l }) => ({ ...l, user_id: userId }));
+        const rows = items.map((l) => ({ ...l, user_id: userId, note_json: (l.note_json ?? null) as Json | null }));
         const { data, error } = await supabase.from("time_logs").insert(rows).select();
         if (error) throw new Error(error.message);
         return (data ?? []).map((r) => mapTimeLog(r as Record<string, unknown>));
@@ -371,7 +373,7 @@ export function createSupabaseProvider(): ResourcesProvider {
       async getForWeek(userId, weekStart) {
         const { data, error } = await supabase
           .from("weekly_reviews")
-          .select("id,week_start,insights,planned_vs_actual,completed_at")
+          .select("id,week_start,insights,completed_at")
           .eq("user_id", userId)
           .eq("week_start", weekStart)
           .maybeSingle();
@@ -382,7 +384,6 @@ export function createSupabaseProvider(): ResourcesProvider {
           id: r.id as string,
           week_start: r.week_start as string,
           insights: (r.insights ?? null) as string | null,
-          planned_vs_actual: r.planned_vs_actual ?? null,
           completed_at: r.completed_at as string,
         };
       },
@@ -427,94 +428,101 @@ export function createSupabaseProvider(): ResourcesProvider {
     },
 
     dailyNotes: {
-      async get(_userId, date) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+      async get(userId, date) {
+        const { data, error } = await supabase
           .from("daily_notes")
           .select("user_id,date,content,updated_at")
+          .eq("user_id", userId)
           .eq("date", date)
           .maybeSingle();
         if (error) throw new Error(error.message);
         return data ? mapDailyNote(data as Record<string, unknown>) : null;
       },
 
-      async upsert(_userId, date, content) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+      async upsert(userId, date, content) {
+        const { error } = await supabase
           .from("daily_notes")
-          .upsert({ date, content: content as Json, updated_at: new Date().toISOString() }, { onConflict: "user_id,date" });
+          .upsert(
+            { user_id: userId, date, content: content as Json, updated_at: new Date().toISOString() },
+            { onConflict: "user_id,date" }
+          );
         if (error) throw new Error(error.message);
       },
 
-      async listForWeek(_userId, startISO, endISO) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+      async listForWeek(userId, startISO, endISO) {
+        const { data, error } = await supabase
           .from("daily_notes")
           .select("user_id,date,content,updated_at")
+          .eq("user_id", userId)
           .gte("date", startISO)
           .lte("date", endISO);
         if (error) throw new Error(error.message);
         return (data ?? []).map((r: Record<string, unknown>) => mapDailyNote(r));
       },
 
-      async listDates(_userId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+      async listDates(userId) {
+        const { data, error } = await supabase
           .from("daily_notes")
           .select("date")
+          .eq("user_id", userId)
           .order("date", { ascending: false });
         if (error) throw new Error(error.message);
         return (data ?? []).map((r: { date: string }) => r.date);
       },
 
-      async insertMany(_userId, rows) {
+      async insertMany(userId, rows) {
         if (!rows.length) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from("daily_notes")
-          .upsert(rows.map((r) => ({ date: r.date, content: r.content as Json, updated_at: r.updated_at })), { onConflict: "user_id,date" });
+          .upsert(
+            rows.map((r) => ({ user_id: userId, date: r.date, content: r.content as Json, updated_at: r.updated_at })),
+            { onConflict: "user_id,date" }
+          );
         if (error) throw new Error(error.message);
       },
     },
 
     inboxItems: {
-      async list(_userId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+      async list(userId) {
+        const { data, error } = await supabase
           .from("inbox_items")
           .select("id,user_id,content,created_at,archived_at")
+          .eq("user_id", userId)
           .is("archived_at", null)
           .order("created_at", { ascending: false });
         if (error) throw new Error(error.message);
         return (data ?? []).map((r: Record<string, unknown>) => mapInboxItem(r));
       },
 
-      async insert(_userId, content) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+      async insert(userId, content) {
+        const { data, error } = await supabase
           .from("inbox_items")
-          .insert({ content })
+          .insert({ user_id: userId, content })
           .select("id,user_id,content,created_at,archived_at")
           .single();
         if (error) throw new Error(error.message);
         return mapInboxItem(data as Record<string, unknown>);
       },
 
-      async archive(_userId, id) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+      async archive(userId, id) {
+        const { error } = await supabase
           .from("inbox_items")
           .update({ archived_at: new Date().toISOString() })
-          .eq("id", id);
+          .eq("id", id)
+          .eq("user_id", userId);
         if (error) throw new Error(error.message);
       },
 
-      async insertMany(_userId, rows) {
+      async insertMany(userId, rows) {
         if (!rows.length) return [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from("inbox_items")
-          .insert(rows.map((r) => ({ content: r.content, created_at: r.created_at, archived_at: r.archived_at })))
+          .insert(rows.map((r) => ({
+            user_id: userId,
+            content: r.content,
+            created_at: r.created_at,
+            archived_at: r.archived_at,
+          })))
           .select("id,user_id,content,created_at,archived_at");
         if (error) throw new Error(error.message);
         return (data ?? []).map((r: Record<string, unknown>) => mapInboxItem(r));

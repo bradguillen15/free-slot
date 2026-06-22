@@ -6,15 +6,16 @@ Canonical detail also lives in `docs/CLOUD.md`. Update this file when entities o
 
 | Entity | Storage | Key fields | Purpose |
 |---|---|---|---|
-| Profile | `profiles` | `id` (= auth.uid), `buffer_minutes`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | User preferences. Either `onboarding_completed` or `onboarding_skipped` being `true` passes the `OnboardingGate`. |
-| Category | `categories` | `id`, `user_id`, `name`, `type`, `color`, `is_default` | Tags for activities and logs |
+| Profile | `profiles` | `id` (= auth.uid), `email`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | User preferences. Either `onboarding_completed` or `onboarding_skipped` being `true` passes the `OnboardingGate`. |
+| Category | `categories` | `id`, `user_id`, `name`, `type`, `color`, `is_default`, `hidden`, `sort_order` | Tags for activities and logs |
 | Activity | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | Goals / time targets |
 | ScheduleBlock | `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time |
-| TimeLog | `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes` | Actual time spent |
+| TimeLog | `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes`, `note_json` | Actual time spent |
 | WeeklyPriority | `weekly_priorities` | `user_id`, `week_start`, `activity_id`, `rank` | Drag-ranked focus per week |
-| WeeklyPlan | `weekly_plans` | `user_id`, `week_start`, `slots`, `raw_prompt`, `raw_response` | AI-generated plan (`UNIQUE(user_id, week_start)`) |
-| WeeklyReview | `weekly_reviews` | `user_id`, `week_start`, `planned_vs_actual`, `insights` | Completed week summary |
-| DailyNudge | `daily_nudges` | `user_id`, `date`, `content` | One AI nudge per day |
+| WeeklyPlan | `weekly_plans` | `user_id`, `week_start`, `generated_at`, `slots` | AI-generated plan (`UNIQUE(user_id, week_start)`) |
+| WeeklyReview | `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | Completed week AI insights |
+| DailyNote | `daily_notes` | `user_id`, `date`, `content`, `updated_at` | Per-day rich notes |
+| InboxItem | `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | Week-view capture inbox |
 
 ## Guest Mode Mirror
 

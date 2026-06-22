@@ -12,20 +12,20 @@ It works **without an account** — guests get the full local experience backed 
 
 ```bash
 # install
-bun install            # or: npm install / pnpm install
+pnpm install           # or: npm install
 
 # dev server (Vite, http://localhost:8080 by default)
-bun run dev
+pnpm dev
 
 # typecheck + production build
-bun run build
+pnpm build
 
 # tests
-bun run test           # one-shot
-bun run test:watch     # watch mode
+pnpm test              # one-shot
+pnpm test:watch        # watch mode
 
 # lint
-bun run lint
+pnpm lint
 ```
 
 The app boots straight into guest mode — no setup needed to play with it. Cloud mode uses a self-managed Supabase project, configured via `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` (see `docs/MIGRATION_RUNBOOK.md`).
@@ -128,7 +128,7 @@ supabase/
 2. Use the **`dataStore` hooks** for any data access in pages — never hit Supabase directly from a page if a Day/Week/Month-equivalent guest view should also work.
 3. Use **semantic design tokens** from `index.css` and `tailwind.config.ts`. Never hardcode colors like `bg-white` or `text-black`.
 4. Database changes go through Supabase migrations. Never edit `src/integrations/supabase/{client,types}.ts` — both are generated.
-5. Run `bun run test` before opening a PR.
+5. Run `pnpm test` before opening a PR.
 
 ---
 
