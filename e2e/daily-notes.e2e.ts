@@ -1,10 +1,4 @@
-import {
-  test,
-  expect,
-  seedGuest,
-  readGuestDailyNote,
-  readGuestInboxItems,
-} from "./fixtures/guest";
+import { test, expect, seedGuest, readGuestDailyNote } from "./fixtures/guest";
 
 function todayISO(): string {
   const d = new Date();
@@ -108,88 +102,10 @@ test.describe("guest daily notes — week view", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Inbox — day view
-// ---------------------------------------------------------------------------
-
-test.describe("guest inbox — day view", () => {
-  test("shows empty state when no items exist", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    await expect(page.getByText(/Nothing pending/)).toBeVisible();
-  });
-
-  test("typing and pressing Enter adds an item to the list", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    const input = page.getByLabel("New inbox item");
-    await input.fill("Buy oat milk");
-    await input.press("Enter");
-
-    await expect(page.getByText("Buy oat milk")).toBeVisible();
-    // Input should be cleared after submission
-    await expect(input).toHaveValue("");
-  });
-
-  test("added item persists after reload", async ({ page }) => {
-    await seedGuest(page, skip);
-    await page.goto("/app");
-
-    await page.getByLabel("New inbox item").fill("Call dentist");
-    await page.getByLabel("New inbox item").press("Enter");
-    await expect(page.getByText("Call dentist")).toBeVisible();
-
-    await page.reload();
-    await expect(page.getByText("Call dentist")).toBeVisible();
-  });
-
-  test("archiving an item removes it from the list immediately", async ({ page }) => {
-    await seedGuest(page, {
-      ...skip,
-      inboxItems: [{ id: "i1", content: "Review PR #42" }],
-    });
-    await page.goto("/app");
-
-    await expect(page.getByText("Review PR #42")).toBeVisible();
-    await page.getByLabel("Archive: Review PR #42").click();
-    await expect(page.getByText("Review PR #42")).not.toBeVisible();
-  });
-
-  test("archived item stays gone after reload and is not in active storage", async ({ page }) => {
-    await seedGuest(page, {
-      ...skip,
-      inboxItems: [{ id: "i1", content: "Plan sprint" }],
-    });
-    await page.goto("/app");
-
-    await page.getByLabel("Archive: Plan sprint").click();
-    await expect(page.getByText("Plan sprint")).not.toBeVisible();
-
-    await page.reload();
-    await expect(page.getByText("Plan sprint")).not.toBeVisible();
-
-    const active = await readGuestInboxItems(page);
-    expect(active.find((i) => i.content === "Plan sprint")).toBeUndefined();
-  });
-
-  test("seeded items are listed on load", async ({ page }) => {
-    await seedGuest(page, {
-      ...skip,
-      inboxItems: [
-        { id: "i1", content: "Write blog post" },
-        { id: "i2", content: "Update README" },
-      ],
-    });
-    await page.goto("/app");
-
-    await expect(page.getByText("Write blog post")).toBeVisible();
-    await expect(page.getByText("Update README")).toBeVisible();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Inbox — week view
+//
+// The inbox was removed from the day view (it now lives only in the week view
+// toggle panel), so the day-view inbox specs were dropped.
 // ---------------------------------------------------------------------------
 
 test.describe("guest inbox — week view", () => {

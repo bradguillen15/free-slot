@@ -32,7 +32,6 @@ test.describe("guest time logging", () => {
     const yesterday = addDaysISO(todayISO(), -1);
 
     await page.getByTestId("day-fab").click();
-    await page.getByTestId("day-log-time").click();
 
     await page.getByTestId("quicklog-title").fill("Sleep");
     await page.getByTestId("quicklog-start").fill("23:00");
@@ -56,7 +55,6 @@ test.describe("guest time logging", () => {
 
     // Open the quick-log dialog via the Day FAB.
     await page.getByTestId("day-fab").click();
-    await page.getByTestId("day-log-time").click();
 
     // Title is required; times default to 09:00–10:00 and the label defaults to
     // the first seeded category, so a title + submit is enough.

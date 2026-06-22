@@ -71,50 +71,51 @@ test.describe("Notes page — daily notes calendar", () => {
     await expect(page.getByText(/no note for this day/i)).toBeVisible();
   });
 
-  test("shows a seeded daily note card for the default selected date", async ({ page }) => {
+  test("shows the daily note card for today (the default selected date)", async ({ page }) => {
+    // The carousel defaults to today, so a note seeded on today renders on load.
     await seedGuest(page, {
       ...skip,
-      dailyNotes: [{ date: yesterdayISO(), content: NOTE_CONTENT }],
+      dailyNotes: [{ date: todayISO(), content: NOTE_CONTENT }],
     });
     await page.goto("/app/notes");
     await expect(page.getByText("My daily thought")).toBeVisible();
   });
 
-  test("calendar renders and shows the month navigation", async ({ page }) => {
+  test("opening the calendar popover shows the month navigation", async ({ page }) => {
     await seedGuest(page, {
       ...skip,
       dailyNotes: [{ date: yesterdayISO(), content: NOTE_CONTENT }],
     });
     await page.goto("/app/notes");
-    // react-day-picker renders prev/next month nav buttons
+
+    // The calendar lives in a popover behind the date header button.
+    await page.getByRole("button", { name: /open calendar/i }).click();
+
+    // react-day-picker renders prev/next month nav buttons inside the popover.
     await expect(page.getByRole("button", { name: /previous month/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /next month/i })).toBeVisible();
   });
 
-  test("clicking a date with a note shows its card", async ({ page }) => {
+  test("navigating to a past date with a note shows its card", async ({ page }) => {
     const older = {
       type: "doc",
       content: [{ type: "paragraph", content: [{ type: "text", text: "Older note" }] }],
     };
-    const d = new Date();
-    d.setDate(d.getDate() - 2);
-    const twoDaysAgo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
     await seedGuest(page, {
       ...skip,
       dailyNotes: [
-        { date: yesterdayISO(), content: NOTE_CONTENT },
-        { date: twoDaysAgo, content: older },
+        { date: todayISO(), content: NOTE_CONTENT },
+        { date: yesterdayISO(), content: older },
       ],
     });
     await page.goto("/app/notes");
 
-    // Newest date card shown by default
+    // Today's note card shown by default.
     await expect(page.getByText("My daily thought")).toBeVisible();
 
-    // Click the day cell for two-days-ago
-    const dayNum = new Date(d).getDate();
-    await page.getByRole("gridcell", { name: String(dayNum) }).first().click();
+    // Step back one day via the carousel's prev-day arrow.
+    await page.getByRole("button", { name: /previous day/i }).click();
     await expect(page.getByText("Older note")).toBeVisible();
   });
 

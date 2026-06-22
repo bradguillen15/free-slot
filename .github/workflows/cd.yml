@@ -1,0 +1,38 @@
+name: CD
+
+# CD runs on every merge to main. It first re-runs the full CI suite (verify +
+# E2E) via the reusable ci.yml workflow, then deploys to Vercel — but only if
+# CI passes. This makes a green E2E run a hard prerequisite for every deploy,
+# independent of branch protection.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    # ORG/PROJECT ids tell the Vercel CLI which project to deploy; the token
+    # authenticates it. All three are stored as repo secrets.
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Pull the project's production env (incl. VITE_SUPABASE_* vars) from
+      # Vercel so the build matches a normal Vercel production build.
+      - name: Pull Vercel environment information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build project artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
