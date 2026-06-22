@@ -122,15 +122,17 @@ test.describe('cloud guest→cloud migration', () => {
     await expect(page.getByTestId('migrate-import')).toHaveCount(0);
 
     const svc = serviceClient();
-    const { data: blocks } = await svc
+    const { data: blocks, error: blocksError } = await svc
       .from('schedule_blocks')
       .select('id')
       .eq('user_id', userId);
+    expect(blocksError).toBeNull();
     expect(blocks ?? []).toHaveLength(0);
-    const { data: logs } = await svc
+    const { data: logs, error: logsError } = await svc
       .from('time_logs')
       .select('id')
       .eq('user_id', userId);
+    expect(logsError).toBeNull();
     expect(logs ?? []).toHaveLength(0);
   });
 
@@ -160,10 +162,11 @@ test.describe('cloud guest→cloud migration', () => {
     // Guest localStorage is wiped, nothing was imported into the account...
     expect(await readGuestScheduleBlocks(page)).toHaveLength(0);
     const svc = serviceClient();
-    const { data: blocks } = await svc
+    const { data: blocks, error: blocksError } = await svc
       .from('schedule_blocks')
       .select('id')
       .eq('user_id', userId);
+    expect(blocksError).toBeNull();
     expect(blocks ?? []).toHaveLength(0);
 
     // ...and revisiting /auth does not re-prompt the migrate dialog.

@@ -28,7 +28,7 @@ const makeQuickLogSchema = (t: TFunction) => z.object({
   categoryId: z.string().min(1, t("validation.pickLabel")),
   notes: z.string().optional(),
 }).refine((v) => toMin(v.end) !== toMin(v.start), {
-  message: t("validation.endAfterStart"),
+  message: t("validation.endDiffer"),
   path: ["end"],
 });
 
