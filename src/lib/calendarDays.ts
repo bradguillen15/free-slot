@@ -5,8 +5,6 @@ import type { LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } fr
 import { useScheduleBlocks, useTimeLogsInRange, useVisibleCategories, useProfile } from "@/lib/dataStore";
 import { segmentsForLogOnDay } from "@/lib/daySegments";
 
-// ---- Types (canonical home; re-exported from WeekGrid for back-compat) ----
-
 type Seg = { startMin: number; endMin: number };
 
 export type AISlotSeg = { seg: Seg; name: string; rationale?: string };
@@ -39,8 +37,6 @@ export type DayCellData = {
   totalFree: number;
 };
 
-// ---- Builder input ----
-
 export type BuildDayCellsInput = {
   /** ISO date strings to build cells for — week = 7, month = 28–42. */
   days: string[];
@@ -54,8 +50,6 @@ export type BuildDayCellsInput = {
 
 const SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const FULL  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-// ---- Hook (thin React wrapper over the builder) ----
 
 export function useCalendarDays(
   startISO: string,
@@ -84,8 +78,6 @@ export function useCalendarDays(
     return buildDayCells({ days, blocks, logs, categories, profile, today: todayISO(), aiPlan });
   }, [startISO, endISO, blocks, logs, categories, profile, aiPlan]);
 }
-
-// ---- Pure builder — lifted verbatim from WeekPage.dayCells memo ----
 
 export function buildDayCells({
   days,
