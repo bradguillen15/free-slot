@@ -26,12 +26,6 @@ describe("mapAuthError", () => {
     );
   });
 
-  it("maps an unconfirmed-email sign-in to emailNotConfirmed", () => {
-    expect(mapAuthError({ status: 400, code: "email_not_confirmed", message: "Email not confirmed" })).toBe(
-      "auth.errors.emailNotConfirmed",
-    );
-  });
-
   it("maps the signup-trigger failure to signupFailed", () => {
     expect(mapAuthError({ status: 500, message: "Database error saving new user" })).toBe(
       "auth.errors.signupFailed",

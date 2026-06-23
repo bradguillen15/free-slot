@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { Loader2, MailCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { clearGuestData, hasGuestData } from "@/lib/localStore";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
 import { mapAuthError } from "@/lib/authErrors";
-import { RESEND_COOLDOWN_SECONDS, resetPasswordRedirectTo, signUpRedirectTo } from "@/lib/authConfig";
+import { resetPasswordRedirectTo } from "@/lib/authConfig";
 import { prefetchCloudData } from "@/lib/dataStore";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -30,14 +30,13 @@ export default function Auth() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation();
+  // Google OAuth is wired but hidden until the flow is refined — opt in with VITE_ENABLE_GOOGLE_SIGN_IN=true.
+  const googleSignInEnabled = import.meta.env.VITE_ENABLE_GOOGLE_SIGN_IN === "true";
   const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [googleLoading, setGoogleLoading] = useState(false);
   const [migrateOpen, setMigrateOpen] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [migrating, setMigrating] = useState(false);
-  const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
-  const [resending, setResending] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
   const [forgotOpen, setForgotOpen] = useState(false);
 
   const schema = useMemo(
@@ -63,12 +62,6 @@ export default function Auth() {
     defaultValues: { email: "" },
   });
 
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const id = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(id);
-  }, [resendCooldown]);
-
   // Carry over any email already typed once the forgot panel mounts. Resetting
   // before mount would leave the freshly-mounted field unresponsive to input.
   useEffect(() => {
@@ -91,20 +84,8 @@ export default function Auth() {
   const submit = async ({ email, password }: AuthValues) => {
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: signUpRedirectTo() },
-        });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // With email confirmations enabled, signUp returns a user but no session.
-        // Don't migrate yet (RLS would reject inserts without auth.uid()); show the
-        // "check your inbox" panel instead. Migration runs after the confirmation
-        // link returns the user to /auth with a live session.
-        if (!data.session) {
-          setConfirmEmail(email);
-          return;
-        }
         if (data.user && hasGuestData()) {
           setPendingUserId(data.user.id);
           setMigrateOpen(true);
@@ -122,35 +103,8 @@ export default function Auth() {
         }
       }
     } catch (err: unknown) {
-      const key = mapAuthError(err);
-      // An unconfirmed sign-in attempt: surface the resend panel rather than a dead-end toast.
-      if (key === "auth.errors.emailNotConfirmed") setConfirmEmail(email);
-      toast.error(t(key));
-    }
-  };
-
-  const resendConfirmation = async () => {
-    if (!confirmEmail || resendCooldown > 0) return;
-    setResending(true);
-    try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: confirmEmail,
-        options: { emailRedirectTo: signUpRedirectTo() },
-      });
-      if (error) throw error;
-      toast.success(t("auth.confirm.resent"));
-      setResendCooldown(RESEND_COOLDOWN_SECONDS);
-    } catch (err: unknown) {
       toast.error(t(mapAuthError(err)));
-    } finally {
-      setResending(false);
     }
-  };
-
-  const backToForm = () => {
-    setConfirmEmail(null);
-    setResendCooldown(0);
   };
 
   const sendReset = async ({ email }: { email: string }) => {
@@ -241,50 +195,18 @@ export default function Auth() {
             <span className="font-display text-xl font-semibold tracking-tight">FreeSlot</span>
           </div>
           <h1 className="font-display text-3xl font-semibold tracking-tight">
-            {confirmEmail
-              ? t("auth.confirm.title")
-              : forgotOpen
-                ? t("auth.forgot.title")
-                : mode === "signup" ? t("auth.titleSignup") : t("auth.titleSignin")}
+            {forgotOpen
+              ? t("auth.forgot.title")
+              : mode === "signup" ? t("auth.titleSignup") : t("auth.titleSignin")}
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            {confirmEmail
-              ? t("auth.confirm.desc", { email: confirmEmail })
-              : forgotOpen
-                ? t("auth.forgot.desc")
-                : mode === "signup" ? t("auth.subtitleSignup") : t("auth.subtitleSignin")}
+            {forgotOpen
+              ? t("auth.forgot.desc")
+              : mode === "signup" ? t("auth.subtitleSignup") : t("auth.subtitleSignin")}
           </p>
         </div>
 
-        {confirmEmail ? (
-          <div key="confirm-panel" className="glass rounded-2xl border border-border p-6 shadow-elevated text-center">
-            <MailCheck className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
-            <p className="mt-4 text-xs text-muted-foreground">{t("auth.emailSenderNote")}</p>
-            <Button
-              type="button"
-              onClick={resendConfirmation}
-              disabled={resending || resendCooldown > 0}
-              data-testid="auth-resend"
-              className="w-full mt-6 gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
-            >
-              {resending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : resendCooldown > 0 ? (
-                t("auth.confirm.resendIn", { seconds: resendCooldown })
-              ) : (
-                t("auth.confirm.resend")
-              )}
-            </Button>
-            <button
-              type="button"
-              onClick={backToForm}
-              data-testid="auth-confirm-back"
-              className="mt-5 text-sm text-primary hover:text-primary-glow transition-colors font-medium"
-            >
-              {t("auth.confirm.back")}
-            </button>
-          </div>
-        ) : forgotOpen ? (
+        {forgotOpen ? (
           <div key="forgot-panel" className="glass rounded-2xl border border-border p-6 shadow-elevated">
             <Form {...forgotForm}>
               <form onSubmit={forgotForm.handleSubmit(sendReset)} className="space-y-4" noValidate>
@@ -306,7 +228,6 @@ export default function Auth() {
                 </Button>
               </form>
             </Form>
-            <p className="mt-4 text-xs text-muted-foreground text-center">{t("auth.emailSenderNote")}</p>
             <div className="mt-5 text-center">
               <button type="button" onClick={() => setForgotOpen(false)} data-testid="auth-forgot-back" className="text-sm text-primary hover:text-primary-glow transition-colors font-medium">
                 {t("auth.forgot.back")}
@@ -370,31 +291,35 @@ export default function Auth() {
             </form>
           </Form>
 
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">{t("auth.orDivider")}</span>
-            </div>
-          </div>
+          {googleSignInEnabled && (
+            <>
+              <div className="relative my-5">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">{t("auth.orDivider")}</span>
+                </div>
+              </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            disabled={form.formState.isSubmitting || googleLoading}
-            onClick={signInWithGoogle}
-            className="w-full bg-input border-border"
-          >
-            {googleLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <GoogleIcon className="h-4 w-4" />
-                {t("auth.continueWithGoogle")}
-              </>
-            )}
-          </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={form.formState.isSubmitting || googleLoading}
+                onClick={signInWithGoogle}
+                className="w-full bg-input border-border"
+              >
+                {googleLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <GoogleIcon className="h-4 w-4" />
+                    {t("auth.continueWithGoogle")}
+                  </>
+                )}
+              </Button>
+            </>
+          )}
 
           <div className="mt-5 text-center text-sm text-muted-foreground">
             {mode === "signup" ? t("auth.haveAccount") : t("auth.newHere")}{" "}

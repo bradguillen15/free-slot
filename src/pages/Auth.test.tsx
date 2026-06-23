@@ -63,6 +63,7 @@ function renderAuth() {
 beforeEach(() => {
   localStorage.clear();
   resetSupabaseMock();
+  vi.unstubAllEnvs();
   authState.user = null;
   navigateSpy.mockReset();
   prefetchCloudDataMock.mockReset().mockResolvedValue(undefined);
@@ -74,7 +75,13 @@ beforeEach(() => {
 });
 
 describe("Auth — Google sign-in", () => {
+  it("hides the Google button unless VITE_ENABLE_GOOGLE_SIGN_IN is set", () => {
+    renderAuth();
+    expect(screen.queryByRole("button", { name: /continue with google/i })).not.toBeInTheDocument();
+  });
+
   it("calls signInWithOAuth with google provider and /auth redirect", async () => {
+    vi.stubEnv("VITE_ENABLE_GOOGLE_SIGN_IN", "true");
     const user = userEvent.setup();
     renderAuth();
 
@@ -138,6 +145,7 @@ describe("Auth — Google sign-in", () => {
   });
 
   it("disables the Google button while OAuth is pending", async () => {
+    vi.stubEnv("VITE_ENABLE_GOOGLE_SIGN_IN", "true");
     let resolveOAuth!: (value: { data: { provider: string; url: string }; error: null }) => void;
     const pendingOAuth = new Promise<{ data: { provider: string; url: string }; error: null }>((resolve) => {
       resolveOAuth = resolve;
@@ -161,10 +169,10 @@ describe("Auth — Google sign-in", () => {
   });
 });
 
-describe("Auth — email confirmation", () => {
-  async function signUpAwaitingConfirmation() {
+describe("Auth — signup (auto-confirm)", () => {
+  it("signs up with no confirmation step and no email redirect", async () => {
     vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: { id: "u1" }, session: null },
+      data: { user: { id: "u1" }, session: { access_token: "t" } },
       error: null,
     } as never);
     const user = userEvent.setup();
@@ -172,49 +180,12 @@ describe("Auth — email confirmation", () => {
     await user.type(screen.getByLabelText("Email"), "a@b.com");
     await user.type(screen.getByLabelText("Password"), "secret1");
     await user.click(screen.getByRole("button", { name: "Create account" }));
-    return user;
-  }
-
-  it("shows the check-your-inbox panel when signup returns no session", async () => {
-    await signUpAwaitingConfirmation();
-
-    expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
-    expect(screen.getByText(/confirmation link to a@b\.com/i)).toBeInTheDocument();
-    expect(screen.getByTestId("auth-resend")).toBeInTheDocument();
-    expect(migrateGuestToCloud).not.toHaveBeenCalled();
-  });
-
-  it("resends the confirmation email with the /auth redirect", async () => {
-    const user = await signUpAwaitingConfirmation();
-
-    await user.click(await screen.findByTestId("auth-resend"));
 
     await waitFor(() =>
-      expect(supabase.auth.resend).toHaveBeenCalledWith({
-        type: "signup",
-        email: "a@b.com",
-        options: { emailRedirectTo: `${window.location.origin}/auth` },
-      }),
+      expect(supabase.auth.signUp).toHaveBeenCalledWith({ email: "a@b.com", password: "secret1" }),
     );
-  });
-
-  it("surfaces the confirmation panel when sign-in fails with email_not_confirmed", async () => {
-    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: { user: null, session: null },
-      error: { status: 400, code: "email_not_confirmed", message: "Email not confirmed" },
-    } as never);
-
-    const user = userEvent.setup();
-    renderAuth();
-    await user.click(screen.getByTestId("auth-mode-toggle"));
-    await user.type(screen.getByLabelText("Email"), "a@b.com");
-    await user.type(screen.getByLabelText("Password"), "secret1");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-
-    expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
-    expect(toast.error).toHaveBeenCalledWith(
-      "Please confirm your email first — check your inbox for the link.",
-    );
+    expect(screen.queryByText("Check your inbox")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("auth-resend")).not.toBeInTheDocument();
   });
 });
 

@@ -208,22 +208,12 @@ const es: Translations = {
     continueWithGoogle: "Continuar con Google",
     invalidEmail: "Introduce un correo válido",
     passwordMin: "Al menos 6 caracteres",
-    emailSenderNote: "Los correos los envía Supabase (nuestro proveedor de autenticación) — revisa tu carpeta de spam si no lo ves.",
     errors: {
       rateLimited: "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
       emailExists: "Ese correo ya tiene una cuenta. Inicia sesión en su lugar.",
       invalidCredentials: "Correo o contraseña incorrectos.",
-      emailNotConfirmed: "Confirma tu correo primero — revisa tu bandeja de entrada para el enlace.",
       signupFailed: "No pudimos crear tu cuenta. Inténtalo de nuevo.",
       generic: "Algo salió mal. Inténtalo de nuevo.",
-    },
-    confirm: {
-      title: "Revisa tu bandeja de entrada",
-      desc: "Enviamos un enlace de confirmación a {{email}}. Haz clic en él para activar tu cuenta y vuelve aquí para iniciar sesión.",
-      resend: "Reenviar correo",
-      resendIn: "Reenviar en {{seconds}}s",
-      resent: "Correo de confirmación enviado",
-      back: "Volver a iniciar sesión",
     },
     forgot: {
       link: "¿Olvidaste tu contraseña?",
