@@ -135,6 +135,35 @@ function invalidateWeeklyPriorities(mode: Mode, userId: string | null, weekStart
   getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyPriorities(mode === "guest" ? null : userId, weekStart) });
 }
 
+/**
+ * Warm the cloud query cache for the just-migrated user before navigating into the
+ * app. The dashboard's read queries are inactive while the migrate dialog is on
+ * `/auth`, so invalidation alone marks them stale without fetching — the first
+ * `/app` render would mount cold and flash empty. Prefetching the core lists here
+ * means that render reads migrated data straight from the cache.
+ */
+export async function prefetchCloudData(userId: string): Promise<void> {
+  const queryClient = getQueryClient();
+  await Promise.all([
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.categories("cloud", userId),
+      queryFn: () => resources.categories.list(userId),
+    }),
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.activities("cloud", userId),
+      queryFn: () => resources.activities.list(userId),
+    }),
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.scheduleBlocks("cloud", userId),
+      queryFn: () => resources.scheduleBlocks.list(userId),
+    }),
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.profile("cloud", userId),
+      queryFn: () => resources.profiles.get(userId),
+    }),
+  ]);
+}
+
 export function filterVisibleCategories(categories: LocalCategory[]): LocalCategory[] {
   return categories.filter((c) => !c.hidden);
 }

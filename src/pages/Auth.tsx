@@ -18,8 +18,7 @@ import { clearGuestData, hasGuestData } from "@/lib/localStore";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
 import { mapAuthError } from "@/lib/authErrors";
 import { RESEND_COOLDOWN_SECONDS, resetPasswordRedirectTo, signUpRedirectTo } from "@/lib/authConfig";
-import { getQueryClient } from "@/lib/queryClient";
-import { queryKeys } from "@/lib/queryKeys";
+import { prefetchCloudData } from "@/lib/dataStore";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -201,9 +200,10 @@ export default function Auth() {
       ].filter(Boolean).join(" · ");
       toast.success(t("auth.migrate.done"), { description: parts || undefined });
       setMigrateOpen(false);
-      // Tell React Query the now-cloud user's keys changed and let the refetch
-      // settle before navigating, so the first /app render shows migrated data.
-      await getQueryClient().invalidateQueries({ queryKey: queryKeys.root });
+      // Warm the cloud cache before navigating so the first /app render shows the
+      // migrated data. invalidateQueries wouldn't help — the dashboard queries are
+      // inactive here, so it marks them stale without fetching.
+      await prefetchCloudData(pendingUserId);
       navigate("/app", { replace: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t("auth.migrate.failed"));
@@ -259,6 +259,7 @@ export default function Auth() {
         {confirmEmail ? (
           <div key="confirm-panel" className="glass rounded-2xl border border-border p-6 shadow-elevated text-center">
             <MailCheck className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
+            <p className="mt-4 text-xs text-muted-foreground">{t("auth.emailSenderNote")}</p>
             <Button
               type="button"
               onClick={resendConfirmation}
@@ -305,6 +306,7 @@ export default function Auth() {
                 </Button>
               </form>
             </Form>
+            <p className="mt-4 text-xs text-muted-foreground text-center">{t("auth.emailSenderNote")}</p>
             <div className="mt-5 text-center">
               <button type="button" onClick={() => setForgotOpen(false)} data-testid="auth-forgot-back" className="text-sm text-primary hover:text-primary-glow transition-colors font-medium">
                 {t("auth.forgot.back")}

@@ -37,18 +37,15 @@ vi.mock("react-router-dom", async (orig) => {
 
 vi.mock("@/lib/migrateGuest", () => ({ migrateGuestToCloud: vi.fn() }));
 
-const testQueryClient = vi.hoisted(() => ({
-  invalidateQueries: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock("@/lib/queryClient", async (orig) => {
-  const actual = await orig<typeof import("@/lib/queryClient")>();
-  return { ...actual, getQueryClient: () => testQueryClient };
+const prefetchCloudDataMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock("@/lib/dataStore", async (orig) => {
+  const actual = await orig<typeof import("@/lib/dataStore")>();
+  return { ...actual, prefetchCloudData: prefetchCloudDataMock };
 });
 
 import { supabase } from "@/integrations/supabase/client";
 import { resetSupabaseMock } from "../test/supabaseMock";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
-import { queryKeys } from "@/lib/queryKeys";
 import { seedGuestData } from "../test/factories";
 import { toast } from "sonner";
 import Auth from "./Auth";
@@ -68,7 +65,7 @@ beforeEach(() => {
   resetSupabaseMock();
   authState.user = null;
   navigateSpy.mockReset();
-  testQueryClient.invalidateQueries.mockReset().mockResolvedValue(undefined);
+  prefetchCloudDataMock.mockReset().mockResolvedValue(undefined);
   vi.mocked(migrateGuestToCloud).mockReset();
   vi.mocked(supabase.auth.signInWithOAuth).mockResolvedValue({
     data: { provider: "google", url: "https://example.com/oauth" },
@@ -258,28 +255,28 @@ describe("Auth — migration cache refresh", () => {
     return { user, importBtn: await screen.findByTestId("migrate-import") };
   }
 
-  it("invalidates the query cache before navigating after a successful import", async () => {
+  it("prefetches the cloud cache for the user before navigating after a successful import", async () => {
     vi.mocked(migrateGuestToCloud).mockResolvedValue({ migrated: true, counts: emptyCounts });
     const { user, importBtn } = await openMigrateDialog();
 
     await user.click(importBtn);
 
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith("/app", { replace: true }));
-    expect(testQueryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.root });
-    // invalidation must happen before navigation
-    expect(testQueryClient.invalidateQueries.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(prefetchCloudDataMock).toHaveBeenCalledWith("u1");
+    // the cache must be warm before navigation so /app's first render shows data
+    expect(prefetchCloudDataMock.mock.invocationCallOrder[0]).toBeLessThan(
       navigateSpy.mock.invocationCallOrder[0],
     );
   });
 
-  it("does not invalidate or navigate when migration fails", async () => {
+  it("does not prefetch or navigate when migration fails", async () => {
     vi.mocked(migrateGuestToCloud).mockRejectedValue(new Error("boom"));
     const { user, importBtn } = await openMigrateDialog();
 
     await user.click(importBtn);
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
-    expect(testQueryClient.invalidateQueries).not.toHaveBeenCalled();
+    expect(prefetchCloudDataMock).not.toHaveBeenCalled();
   });
 
   it("keeps the Import action disabled until migration and cache refresh settle", async () => {

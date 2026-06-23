@@ -206,6 +206,7 @@ const en = {
     continueWithGoogle: "Continue with Google",
     invalidEmail: "Enter a valid email",
     passwordMin: "At least 6 characters",
+    emailSenderNote: "Emails are sent by Supabase (our auth provider) — check your spam folder if you don't see one.",
     errors: {
       rateLimited: "Too many attempts. Please wait a minute and try again.",
       emailExists: "That email already has an account. Try signing in instead.",

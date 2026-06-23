@@ -208,6 +208,7 @@ const es: Translations = {
     continueWithGoogle: "Continuar con Google",
     invalidEmail: "Introduce un correo válido",
     passwordMin: "Al menos 6 caracteres",
+    emailSenderNote: "Los correos los envía Supabase (nuestro proveedor de autenticación) — revisa tu carpeta de spam si no lo ves.",
     errors: {
       rateLimited: "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
       emailExists: "Ese correo ya tiene una cuenta. Inicia sesión en su lugar.",

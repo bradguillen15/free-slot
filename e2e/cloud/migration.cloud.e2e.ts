@@ -111,6 +111,50 @@ test.describe('cloud guest→cloud migration', () => {
     );
   });
 
+  test('an onboarding-completed guest migrates straight to /app with data on first render', async ({
+    page,
+  }) => {
+    // A guest who already finished onboarding skips the onboarding flow after
+    // migrating, landing directly on the calendar. This is the path where the
+    // dashboard mounts cold and could flash empty without the cache prewarm.
+    await seedGuest(page, {
+      profile: { onboarding_completed: true },
+      scheduleBlocks: [
+        {
+          id: 'g1',
+          name: 'Imported block',
+          start_time: '09:00',
+          end_time: '17:00',
+          // Every day so the block always covers "today" regardless of when the test runs.
+          days_of_week: [0, 1, 2, 3, 4, 5, 6],
+        },
+      ],
+    });
+
+    const { userId } = await signUp(page, { expectMigrateDialog: true });
+    await page.getByTestId('migrate-import').click();
+
+    // Onboarding is already complete, so the import lands on the app, not /onboarding.
+    await page.waitForURL(/\/app(\/|$)/, { timeout: 20_000 });
+    await expect(page).not.toHaveURL(/onboarding/);
+
+    // Migration reached Postgres.
+    const svc = serviceClient();
+    await expect
+      .poll(async () => {
+        const { data } = await svc
+          .from('schedule_blocks')
+          .select('name')
+          .eq('user_id', userId);
+        return (data ?? []).map(b => (b as { name: string }).name);
+      })
+      .toContain('Imported block');
+
+    // The migrated block renders on the calendar with NO page.reload() — the
+    // first authenticated render already has the data.
+    await expect(page.getByText('Imported block').first()).toBeVisible();
+  });
+
   test('a signup with no guest data lands clean — no migrate dialog, no phantom rows', async ({
     page,
   }) => {
