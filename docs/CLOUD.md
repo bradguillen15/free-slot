@@ -157,6 +157,7 @@ Currently required:
 
 - **Methods**: email + password, Google OAuth.
 - **Email confirmation**: set to auto-confirm (instant signin) — keeps the guest→account transition fluid. Configure in Supabase dashboard → Authentication → Providers → Email → "Confirm email" toggle.
+- **Redirect URLs (required for confirmation & recovery links)**: the app passes `emailRedirectTo` / `redirectTo` built from `window.location.origin` (see `src/lib/authConfig.ts`). GoTrue only honors that target if it is in the **allowed Redirect URLs**; otherwise it silently falls back to the **Site URL**. So in Supabase dashboard → Authentication → URL Configuration, set **Site URL** to the production domain and add it (plus any preview domains) to **Redirect URLs**. A confirmation/reset link that lands on `http://localhost…` in production means Site URL is still localhost and/or the prod domain is missing from the allowlist — it is a dashboard config issue, not a code bug.
 - **Google OAuth**: configure in Supabase dashboard → Authentication → Providers → Google. Add your OAuth client ID + secret. Add your site URL and redirect URL (`https://<YOUR_PROJECT_REF>.supabase.co/auth/v1/callback`) to the Google Cloud Console OAuth app.
 - **Session handling**: `AuthContext.tsx` subscribes to `onAuthStateChange` *before* calling `getSession()`, otherwise the initial session event can be missed.
 - **Account deletion**: `delete-account` edge function with the service role.
