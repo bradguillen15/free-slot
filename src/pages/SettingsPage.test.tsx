@@ -11,8 +11,12 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: authState.user, session: null, loading: false, signOut: vi.fn() }),
 }));
 
+const updateUserMock = vi.hoisted(() => vi.fn());
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { functions: { invoke: vi.fn().mockResolvedValue({ error: null }) } },
+  supabase: {
+    functions: { invoke: vi.fn().mockResolvedValue({ error: null }) },
+    auth: { updateUser: updateUserMock },
+  },
 }));
 
 const profileData = vi.hoisted(() => ({
@@ -47,6 +51,38 @@ describe("SettingsPage planner preferences", () => {
         weekly_review_day: 2,
       }),
     );
+  });
+});
+
+describe("SettingsPage change password", () => {
+  it("updates the password when the confirmation matches", async () => {
+    const user = userEvent.setup();
+    updateUserMock.mockResolvedValue({ error: null });
+    renderWithProviders(<SettingsPage />);
+
+    await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
+    await user.type(screen.getByTestId("settings-confirm-password"), "newsecret1");
+    await user.click(screen.getByTestId("settings-password-submit"));
+
+    await waitFor(() => expect(updateUserMock).toHaveBeenCalledWith({ password: "newsecret1" }));
+  });
+
+  it("blocks the update and shows an error when confirmation differs", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SettingsPage />);
+
+    await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
+    await user.type(screen.getByTestId("settings-confirm-password"), "different1");
+    await user.click(screen.getByTestId("settings-password-submit"));
+
+    expect(await screen.findByText("Passwords don't match")).toBeInTheDocument();
+    expect(updateUserMock).not.toHaveBeenCalled();
+  });
+
+  it("hides the password card for guest users", () => {
+    authState.user = null;
+    renderWithProviders(<SettingsPage />);
+    expect(screen.queryByTestId("settings-password-submit")).not.toBeInTheDocument();
   });
 });
 

@@ -21,6 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { plannerPrefsSchema, type PlannerPrefsValues } from "@/lib/formSchemas";
+import { ChangePasswordCard } from "@/components/settings/ChangePasswordCard";
 import { toast } from "sonner";
 
 const deleteAccountSchema = z.object({ confirmText: z.literal("DELETE") });
@@ -179,6 +180,8 @@ export default function SettingsPage() {
           </Form>
         </CardContent>
       </Card>
+
+      {user && <ChangePasswordCard />}
 
       {user && (
         <Card className="border-destructive/40">

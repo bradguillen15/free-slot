@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { clearGuestData, hasGuestData } from "@/lib/localStore";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
 import { mapAuthError } from "@/lib/authErrors";
+import { RESEND_COOLDOWN_SECONDS, resetPasswordRedirectTo, signUpRedirectTo } from "@/lib/authConfig";
 import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import {
@@ -35,6 +36,10 @@ export default function Auth() {
   const [migrateOpen, setMigrateOpen] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [migrating, setMigrating] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const schema = useMemo(
     () => z.object({
@@ -49,6 +54,27 @@ export default function Auth() {
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
   });
+
+  const forgotSchema = useMemo(
+    () => z.object({ email: z.string().email(t("auth.invalidEmail")) }),
+    [t],
+  );
+  const forgotForm = useForm<{ email: string }>({
+    resolver: zodResolver(forgotSchema),
+    defaultValues: { email: "" },
+  });
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [resendCooldown]);
+
+  // Carry over any email already typed once the forgot panel mounts. Resetting
+  // before mount would leave the freshly-mounted field unresponsive to input.
+  useEffect(() => {
+    if (forgotOpen) forgotForm.reset({ email: form.getValues("email") });
+  }, [forgotOpen, forgotForm, form]);
 
   useEffect(() => {
     if (!user) return;
@@ -69,13 +95,19 @@ export default function Auth() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/app` },
+          options: { emailRedirectTo: signUpRedirectTo() },
         });
         if (error) throw error;
-        // Auto-confirm is on, so the user is signed in immediately.
-        const newUser = data.user;
-        if (newUser && hasGuestData()) {
-          setPendingUserId(newUser.id);
+        // With email confirmations enabled, signUp returns a user but no session.
+        // Don't migrate yet (RLS would reject inserts without auth.uid()); show the
+        // "check your inbox" panel instead. Migration runs after the confirmation
+        // link returns the user to /auth with a live session.
+        if (!data.session) {
+          setConfirmEmail(email);
+          return;
+        }
+        if (data.user && hasGuestData()) {
+          setPendingUserId(data.user.id);
           setMigrateOpen(true);
         } else {
           toast.success(t("auth.welcome"));
@@ -91,9 +123,53 @@ export default function Auth() {
         }
       }
     } catch (err: unknown) {
+      const key = mapAuthError(err);
+      // An unconfirmed sign-in attempt: surface the resend panel rather than a dead-end toast.
+      if (key === "auth.errors.emailNotConfirmed") setConfirmEmail(email);
+      toast.error(t(key));
+    }
+  };
+
+  const resendConfirmation = async () => {
+    if (!confirmEmail || resendCooldown > 0) return;
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: confirmEmail,
+        options: { emailRedirectTo: signUpRedirectTo() },
+      });
+      if (error) throw error;
+      toast.success(t("auth.confirm.resent"));
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (err: unknown) {
+      toast.error(t(mapAuthError(err)));
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const backToForm = () => {
+    setConfirmEmail(null);
+    setResendCooldown(0);
+  };
+
+  const sendReset = async ({ email }: { email: string }) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: resetPasswordRedirectTo(),
+      });
+      if (error) throw error;
+      // Generic copy regardless of whether the email exists — don't leak account existence.
+      toast.success(t("auth.forgot.sent"));
+      setForgotOpen(false);
+      forgotForm.reset({ email: "" });
+    } catch (err: unknown) {
       toast.error(t(mapAuthError(err)));
     }
   };
+
+  const openForgot = () => setForgotOpen(true);
 
   const signInWithGoogle = async () => {
     setGoogleLoading(true);
@@ -165,14 +241,78 @@ export default function Auth() {
             <span className="font-display text-xl font-semibold tracking-tight">FreeSlot</span>
           </div>
           <h1 className="font-display text-3xl font-semibold tracking-tight">
-            {mode === "signup" ? t("auth.titleSignup") : t("auth.titleSignin")}
+            {confirmEmail
+              ? t("auth.confirm.title")
+              : forgotOpen
+                ? t("auth.forgot.title")
+                : mode === "signup" ? t("auth.titleSignup") : t("auth.titleSignin")}
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            {mode === "signup" ? t("auth.subtitleSignup") : t("auth.subtitleSignin")}
+            {confirmEmail
+              ? t("auth.confirm.desc", { email: confirmEmail })
+              : forgotOpen
+                ? t("auth.forgot.desc")
+                : mode === "signup" ? t("auth.subtitleSignup") : t("auth.subtitleSignin")}
           </p>
         </div>
 
-        <div className="glass rounded-2xl border border-border p-6 shadow-elevated">
+        {confirmEmail ? (
+          <div key="confirm-panel" className="glass rounded-2xl border border-border p-6 shadow-elevated text-center">
+            <MailCheck className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
+            <Button
+              type="button"
+              onClick={resendConfirmation}
+              disabled={resending || resendCooldown > 0}
+              data-testid="auth-resend"
+              className="w-full mt-6 gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow"
+            >
+              {resending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : resendCooldown > 0 ? (
+                t("auth.confirm.resendIn", { seconds: resendCooldown })
+              ) : (
+                t("auth.confirm.resend")
+              )}
+            </Button>
+            <button
+              type="button"
+              onClick={backToForm}
+              data-testid="auth-confirm-back"
+              className="mt-5 text-sm text-primary hover:text-primary-glow transition-colors font-medium"
+            >
+              {t("auth.confirm.back")}
+            </button>
+          </div>
+        ) : forgotOpen ? (
+          <div key="forgot-panel" className="glass rounded-2xl border border-border p-6 shadow-elevated">
+            <Form {...forgotForm}>
+              <form onSubmit={forgotForm.handleSubmit(sendReset)} className="space-y-4" noValidate>
+                <FormField
+                  control={forgotForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor="forgot-email">{t("auth.email")}</FormLabel>
+                      <FormControl>
+                        <Input id="forgot-email" type="email" autoComplete="email" data-testid="auth-forgot-email" className="bg-input border-border" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" data-testid="auth-forgot-submit" disabled={forgotForm.formState.isSubmitting} className="w-full gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
+                  {forgotForm.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("auth.forgot.submit")}
+                </Button>
+              </form>
+            </Form>
+            <div className="mt-5 text-center">
+              <button type="button" onClick={() => setForgotOpen(false)} data-testid="auth-forgot-back" className="text-sm text-primary hover:text-primary-glow transition-colors font-medium">
+                {t("auth.forgot.back")}
+              </button>
+            </div>
+          </div>
+        ) : (
+        <div key="auth-form" className="glass rounded-2xl border border-border p-6 shadow-elevated">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
               <FormField
@@ -215,6 +355,13 @@ export default function Auth() {
                   </FormItem>
                 )}
               />
+              {mode === "signin" && (
+                <div className="text-right -mt-1">
+                  <button type="button" onClick={openForgot} data-testid="auth-forgot-link" className="text-sm text-primary hover:text-primary-glow transition-colors font-medium">
+                    {t("auth.forgot.link")}
+                  </button>
+                </div>
+              )}
               <Button type="submit" data-testid="auth-submit" disabled={form.formState.isSubmitting || googleLoading} className="w-full gradient-primary text-primary-foreground font-semibold hover:opacity-90 shadow-glow">
                 {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signup" ? t("auth.submitSignup") : t("auth.submitSignin")}
               </Button>
@@ -258,6 +405,7 @@ export default function Auth() {
             </button>
           </div>
         </div>
+        )}
       </motion.div>
       </div>
 

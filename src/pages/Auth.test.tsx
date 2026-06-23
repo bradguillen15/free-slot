@@ -164,6 +164,90 @@ describe("Auth — Google sign-in", () => {
   });
 });
 
+describe("Auth — email confirmation", () => {
+  async function signUpAwaitingConfirmation() {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: { id: "u1" }, session: null },
+      error: null,
+    } as never);
+    const user = userEvent.setup();
+    renderAuth();
+    await user.type(screen.getByLabelText("Email"), "a@b.com");
+    await user.type(screen.getByLabelText("Password"), "secret1");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+    return user;
+  }
+
+  it("shows the check-your-inbox panel when signup returns no session", async () => {
+    await signUpAwaitingConfirmation();
+
+    expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
+    expect(screen.getByText(/confirmation link to a@b\.com/i)).toBeInTheDocument();
+    expect(screen.getByTestId("auth-resend")).toBeInTheDocument();
+    expect(migrateGuestToCloud).not.toHaveBeenCalled();
+  });
+
+  it("resends the confirmation email with the /auth redirect", async () => {
+    const user = await signUpAwaitingConfirmation();
+
+    await user.click(await screen.findByTestId("auth-resend"));
+
+    await waitFor(() =>
+      expect(supabase.auth.resend).toHaveBeenCalledWith({
+        type: "signup",
+        email: "a@b.com",
+        options: { emailRedirectTo: `${window.location.origin}/auth` },
+      }),
+    );
+  });
+
+  it("surfaces the confirmation panel when sign-in fails with email_not_confirmed", async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: null, session: null },
+      error: { status: 400, code: "email_not_confirmed", message: "Email not confirmed" },
+    } as never);
+
+    const user = userEvent.setup();
+    renderAuth();
+    await user.click(screen.getByTestId("auth-mode-toggle"));
+    await user.type(screen.getByLabelText("Email"), "a@b.com");
+    await user.type(screen.getByLabelText("Password"), "secret1");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(
+      "Please confirm your email first — check your inbox for the link.",
+    );
+  });
+});
+
+describe("Auth — forgot password", () => {
+  it("sends a reset email with the /reset-password redirect", async () => {
+    const user = userEvent.setup();
+    renderAuth();
+
+    await user.click(screen.getByTestId("auth-mode-toggle"));
+    await user.click(screen.getByTestId("auth-forgot-link"));
+
+    await user.type(await screen.findByTestId("auth-forgot-email"), "a@b.com");
+    await user.click(screen.getByTestId("auth-forgot-submit"));
+
+    await waitFor(() =>
+      expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("a@b.com", {
+        redirectTo: `${window.location.origin}/reset-password`,
+      }),
+    );
+    expect(toast.success).toHaveBeenCalledWith(
+      "If that email has an account, a reset link is on its way.",
+    );
+  });
+
+  it("does not expose the forgot link in signup mode", () => {
+    renderAuth();
+    expect(screen.queryByTestId("auth-forgot-link")).not.toBeInTheDocument();
+  });
+});
+
 describe("Auth — migration cache refresh", () => {
   async function openMigrateDialog() {
     seedGuestData();

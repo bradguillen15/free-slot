@@ -10,6 +10,7 @@ import { OnboardingGate } from "@/components/OnboardingGate";
 import { AppLayoutOutlet } from "@/components/AppLayout";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import CalendarPage from "./pages/CalendarPage";
 import SchedulePage from "./pages/SchedulePage";
@@ -34,6 +35,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             {/* Onboarding works for both guests and signed-in users */}
             <Route path="/onboarding" element={<OnboardingGate key="onboarding"><Onboarding /></OnboardingGate>} />
             {/* One AppLayout for all /app/* — child routes fade in/out on navigation */}

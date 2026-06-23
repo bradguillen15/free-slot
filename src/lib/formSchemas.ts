@@ -22,6 +22,19 @@ export const hexColor = (t: TFunction) => z
 
 export const labelType = z.enum(["productive", "unproductive", "essential"]);
 
+/** New-password + confirmation, shared by Settings change-password and the reset page. */
+export const makePasswordSchema = (t: TFunction) => z
+  .object({
+    password: z.string().min(6, t("validation.passwordMin")),
+    confirm: z.string(),
+  })
+  .refine((v) => v.password === v.confirm, {
+    message: t("validation.passwordsMatch"),
+    path: ["confirm"],
+  });
+
+export type PasswordValues = z.infer<ReturnType<typeof makePasswordSchema>>;
+
 /** Planner preferences — shared by SettingsPage and Onboarding step 3. */
 export const plannerPrefsSchema = z.object({
   includeWeekends: z.boolean(),

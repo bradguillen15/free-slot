@@ -210,8 +210,33 @@ const en = {
       rateLimited: "Too many attempts. Please wait a minute and try again.",
       emailExists: "That email already has an account. Try signing in instead.",
       invalidCredentials: "Incorrect email or password.",
+      emailNotConfirmed: "Please confirm your email first — check your inbox for the link.",
       signupFailed: "We couldn't create your account. Please try again.",
       generic: "Something went wrong. Please try again.",
+    },
+    confirm: {
+      title: "Check your inbox",
+      desc: "We sent a confirmation link to {{email}}. Click it to activate your account, then come back here to sign in.",
+      resend: "Resend email",
+      resendIn: "Resend in {{seconds}}s",
+      resent: "Confirmation email sent",
+      back: "Back to sign in",
+    },
+    forgot: {
+      link: "Forgot password?",
+      title: "Reset your password",
+      desc: "Enter your account email and we'll send you a link to set a new password.",
+      submit: "Send reset link",
+      sent: "If that email has an account, a reset link is on its way.",
+      back: "Back to sign in",
+    },
+    reset: {
+      title: "Set a new password",
+      desc: "Choose a new password for your account.",
+      submit: "Update password",
+      done: "Password updated — you're signed in.",
+      invalid: "This reset link is invalid or has expired. Request a new one.",
+      requestNew: "Request a new link",
     },
     migrate: {
       title: "Bring your guest data along?",
@@ -474,6 +499,15 @@ const en = {
     couldNotSavePrefs: "Could not save preferences",
     accountDeleted: "Account deleted",
     failedDeleteAccount: "Failed to delete account",
+    password: {
+      title: "Password",
+      desc: "Change the password used to sign in to your account.",
+      new: "New password",
+      confirm: "Confirm new password",
+      submit: "Update password",
+      updated: "Password updated",
+      failed: "Couldn't update your password. Please try again.",
+    },
   },
   review: {
     title: "Weekly review",
@@ -501,6 +535,8 @@ const en = {
     endDiffer: "End time must differ from start time",
     useHHMM: "Use HH:MM",
     useHexColor: "Use a 6-digit hex color",
+    passwordMin: "At least 6 characters",
+    passwordsMatch: "Passwords don't match",
   },
 };
 export default en;

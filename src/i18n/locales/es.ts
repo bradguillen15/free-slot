@@ -212,8 +212,33 @@ const es: Translations = {
       rateLimited: "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
       emailExists: "Ese correo ya tiene una cuenta. Inicia sesión en su lugar.",
       invalidCredentials: "Correo o contraseña incorrectos.",
+      emailNotConfirmed: "Confirma tu correo primero — revisa tu bandeja de entrada para el enlace.",
       signupFailed: "No pudimos crear tu cuenta. Inténtalo de nuevo.",
       generic: "Algo salió mal. Inténtalo de nuevo.",
+    },
+    confirm: {
+      title: "Revisa tu bandeja de entrada",
+      desc: "Enviamos un enlace de confirmación a {{email}}. Haz clic en él para activar tu cuenta y vuelve aquí para iniciar sesión.",
+      resend: "Reenviar correo",
+      resendIn: "Reenviar en {{seconds}}s",
+      resent: "Correo de confirmación enviado",
+      back: "Volver a iniciar sesión",
+    },
+    forgot: {
+      link: "¿Olvidaste tu contraseña?",
+      title: "Restablece tu contraseña",
+      desc: "Introduce el correo de tu cuenta y te enviaremos un enlace para establecer una nueva contraseña.",
+      submit: "Enviar enlace",
+      sent: "Si ese correo tiene una cuenta, el enlace de restablecimiento está en camino.",
+      back: "Volver a iniciar sesión",
+    },
+    reset: {
+      title: "Establece una nueva contraseña",
+      desc: "Elige una nueva contraseña para tu cuenta.",
+      submit: "Actualizar contraseña",
+      done: "Contraseña actualizada — has iniciado sesión.",
+      invalid: "Este enlace de restablecimiento no es válido o ha caducado. Solicita uno nuevo.",
+      requestNew: "Solicitar un enlace nuevo",
     },
     migrate: {
       title: "¿Traer tus datos de invitado?",
@@ -476,6 +501,15 @@ const es: Translations = {
     couldNotSavePrefs: "No se pudieron guardar las preferencias",
     accountDeleted: "Cuenta eliminada",
     failedDeleteAccount: "Error al eliminar la cuenta",
+    password: {
+      title: "Contraseña",
+      desc: "Cambia la contraseña que usas para iniciar sesión en tu cuenta.",
+      new: "Nueva contraseña",
+      confirm: "Confirmar nueva contraseña",
+      submit: "Actualizar contraseña",
+      updated: "Contraseña actualizada",
+      failed: "No se pudo actualizar tu contraseña. Inténtalo de nuevo.",
+    },
   },
   review: {
     title: "Revisión semanal",
@@ -503,6 +537,8 @@ const es: Translations = {
     endDiffer: "La hora de fin debe ser distinta de la de inicio",
     useHHMM: "Usa HH:MM",
     useHexColor: "Usa un color hex de 6 dígitos",
+    passwordMin: "Al menos 6 caracteres",
+    passwordsMatch: "Las contraseñas no coinciden",
   },
 };
 export default es;
