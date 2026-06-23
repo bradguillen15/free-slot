@@ -206,22 +206,12 @@ const en = {
     continueWithGoogle: "Continue with Google",
     invalidEmail: "Enter a valid email",
     passwordMin: "At least 6 characters",
-    emailSenderNote: "Emails are sent by Supabase (our auth provider) — check your spam folder if you don't see one.",
     errors: {
       rateLimited: "Too many attempts. Please wait a minute and try again.",
       emailExists: "That email already has an account. Try signing in instead.",
       invalidCredentials: "Incorrect email or password.",
-      emailNotConfirmed: "Please confirm your email first — check your inbox for the link.",
       signupFailed: "We couldn't create your account. Please try again.",
       generic: "Something went wrong. Please try again.",
-    },
-    confirm: {
-      title: "Check your inbox",
-      desc: "We sent a confirmation link to {{email}}. Click it to activate your account, then come back here to sign in.",
-      resend: "Resend email",
-      resendIn: "Resend in {{seconds}}s",
-      resent: "Confirmation email sent",
-      back: "Back to sign in",
     },
     forgot: {
       link: "Forgot password?",

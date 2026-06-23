@@ -6,7 +6,6 @@ export type AuthErrorKey =
   | "auth.errors.rateLimited"
   | "auth.errors.emailExists"
   | "auth.errors.invalidCredentials"
-  | "auth.errors.emailNotConfirmed"
   | "auth.errors.signupFailed"
   | "auth.errors.generic";
 
@@ -27,10 +26,6 @@ export function mapAuthError(error: unknown): AuthErrorKey {
   // Signing up with an email that already has an account (confirmations disabled).
   if (/already registered|already been registered|user_already_exists|email_exists/.test(haystack)) {
     return "auth.errors.emailExists";
-  }
-  // Signing in before clicking the confirmation link (email confirmations enabled).
-  if (/email not confirmed|email_not_confirmed/.test(haystack)) {
-    return "auth.errors.emailNotConfirmed";
   }
   // Wrong email/password on sign-in.
   if (/invalid login credentials|invalid_credentials/.test(haystack)) {
