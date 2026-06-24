@@ -173,7 +173,7 @@ export default function SettingsPage() {
                 )}
               />
 
-              <Button type="submit" disabled={form.formState.isSubmitting} className="gap-2">
+              <Button type="submit" disabled={form.formState.isSubmitting} className="gap-2 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
                 <Save className="h-4 w-4" /> {form.formState.isSubmitting ? t("actions.saving") : t("settings.savePreferences")}
               </Button>
             </form>

@@ -4,30 +4,34 @@ import { useTranslation } from "react-i18next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { updatePassword } from "@/lib/authActions";
+import { changePassword, IncorrectCurrentPasswordError } from "@/lib/authActions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
-import { makePasswordSchema, type PasswordValues } from "@/lib/formSchemas";
+import { makeChangePasswordSchema, type ChangePasswordValues } from "@/lib/formSchemas";
 
 export function ChangePasswordCard() {
   const { t } = useTranslation();
-  const schema = useMemo(() => makePasswordSchema(t), [t]);
+  const schema = useMemo(() => makeChangePasswordSchema(t), [t]);
 
-  const form = useForm<PasswordValues>({
+  const form = useForm<ChangePasswordValues>({
     resolver: zodResolver(schema),
-    defaultValues: { password: "", confirm: "" },
+    defaultValues: { currentPassword: "", password: "", confirm: "" },
   });
 
-  const submit = async ({ password }: PasswordValues) => {
+  const submit = async ({ currentPassword, password }: ChangePasswordValues) => {
     try {
-      await updatePassword(password);
+      await changePassword(currentPassword, password);
       toast.success(t("settings.password.updated"));
-      form.reset({ password: "", confirm: "" });
+      form.reset({ currentPassword: "", password: "", confirm: "" });
     } catch (err: unknown) {
+      if (err instanceof IncorrectCurrentPasswordError) {
+        form.setError("currentPassword", { message: t("settings.password.currentIncorrect") });
+        return;
+      }
       toast.error(err instanceof Error ? err.message : t("settings.password.failed"));
     }
   };
@@ -43,6 +47,19 @@ export function ChangePasswordCard() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} className="space-y-4 max-w-sm" noValidate>
+            <FormField
+              control={form.control}
+              name="currentPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="current-password">{t("settings.password.current")}</FormLabel>
+                  <FormControl>
+                    <Input id="current-password" type="password" autoComplete="current-password" data-testid="settings-current-password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="password"
@@ -69,7 +86,7 @@ export function ChangePasswordCard() {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={form.formState.isSubmitting} data-testid="settings-password-submit" className="gap-2">
+            <Button type="submit" disabled={form.formState.isSubmitting} data-testid="settings-password-submit" className="gap-2 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
               {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("settings.password.submit")}
             </Button>
           </form>

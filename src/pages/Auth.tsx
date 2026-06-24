@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,7 +32,12 @@ export default function Auth() {
   const { t } = useTranslation();
   // Google OAuth is wired but hidden until the flow is refined — opt in with VITE_ENABLE_GOOGLE_SIGN_IN=true.
   const googleSignInEnabled = import.meta.env.VITE_ENABLE_GOOGLE_SIGN_IN === "true";
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  // Default to sign-in — returning users are the common case; "Create account"
+  // entry points opt into signup via ?mode=signup.
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<"signin" | "signup">(
+    searchParams.get("mode") === "signup" ? "signup" : "signin",
+  );
   const [googleLoading, setGoogleLoading] = useState(false);
   const [migrateOpen, setMigrateOpen] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
@@ -154,6 +159,9 @@ export default function Auth() {
       ].filter(Boolean).join(" · ");
       toast.success(t("auth.migrate.done"), { description: parts || undefined });
       setMigrateOpen(false);
+      // Drop the guest copy now that it lives in the cloud — leaving it behind
+      // re-triggers the migrate prompt and lets stale guest data resurface after sign-out.
+      clearGuestData();
       // Warm the cloud cache before navigating so the first /app render shows the
       // migrated data. invalidateQueries wouldn't help — the dashboard queries are
       // inactive here, so it marks them stale without fetching.
@@ -348,7 +356,7 @@ export default function Auth() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={startFresh} disabled={migrating} data-testid="migrate-start-fresh">{t("auth.migrate.startFresh")}</AlertDialogCancel>
-            <AlertDialogAction onClick={importNow} disabled={migrating} data-testid="migrate-import">
+            <AlertDialogAction onClick={importNow} disabled={migrating} data-testid="migrate-import" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
               {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("auth.migrate.import")}
             </AlertDialogAction>
           </AlertDialogFooter>

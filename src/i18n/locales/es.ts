@@ -495,10 +495,12 @@ const es: Translations = {
     password: {
       title: "Contraseña",
       desc: "Cambia la contraseña que usas para iniciar sesión en tu cuenta.",
+      current: "Contraseña actual",
       new: "Nueva contraseña",
       confirm: "Confirmar nueva contraseña",
       submit: "Actualizar contraseña",
       updated: "Contraseña actualizada",
+      currentIncorrect: "Tu contraseña actual es incorrecta.",
       failed: "No se pudo actualizar tu contraseña. Inténtalo de nuevo.",
     },
   },
@@ -530,6 +532,7 @@ const es: Translations = {
     useHexColor: "Usa un color hex de 6 dígitos",
     passwordMin: "Al menos 6 caracteres",
     passwordsMatch: "Las contraseñas no coinciden",
+    currentPasswordRequired: "Ingresa tu contraseña actual",
   },
 };
 export default es;

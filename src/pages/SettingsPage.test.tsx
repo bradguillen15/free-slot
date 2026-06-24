@@ -12,10 +12,12 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 const updateUserMock = vi.hoisted(() => vi.fn());
+const signInWithPasswordMock = vi.hoisted(() => vi.fn());
+const getUserMock = vi.hoisted(() => vi.fn());
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: vi.fn().mockResolvedValue({ error: null }) },
-    auth: { updateUser: updateUserMock },
+    auth: { updateUser: updateUserMock, signInWithPassword: signInWithPasswordMock, getUser: getUserMock },
   },
 }));
 
@@ -35,6 +37,8 @@ import SettingsPage from "./SettingsPage";
 beforeEach(() => {
   vi.clearAllMocks();
   authState.user = { id: "u1" };
+  getUserMock.mockResolvedValue({ data: { user: { email: "user@example.com" } }, error: null });
+  signInWithPasswordMock.mockResolvedValue({ error: null });
 });
 
 describe("SettingsPage planner preferences", () => {
@@ -55,28 +59,48 @@ describe("SettingsPage planner preferences", () => {
 });
 
 describe("SettingsPage change password", () => {
-  it("updates the password when the confirmation matches", async () => {
+  it("verifies the current password before updating when the confirmation matches", async () => {
     const user = userEvent.setup();
     updateUserMock.mockResolvedValue({ error: null });
     renderWithProviders(<SettingsPage />);
 
+    await user.type(screen.getByTestId("settings-current-password"), "oldsecret1");
     await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
     await user.type(screen.getByTestId("settings-confirm-password"), "newsecret1");
     await user.click(screen.getByTestId("settings-password-submit"));
 
+    await waitFor(() =>
+      expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "oldsecret1" }),
+    );
     await waitFor(() => expect(updateUserMock).toHaveBeenCalledWith({ password: "newsecret1" }));
+  });
+
+  it("blocks the update and shows an error when the current password is wrong", async () => {
+    const user = userEvent.setup();
+    signInWithPasswordMock.mockResolvedValue({ error: { message: "Invalid login credentials" } });
+    renderWithProviders(<SettingsPage />);
+
+    await user.type(screen.getByTestId("settings-current-password"), "wrongpass1");
+    await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
+    await user.type(screen.getByTestId("settings-confirm-password"), "newsecret1");
+    await user.click(screen.getByTestId("settings-password-submit"));
+
+    expect(await screen.findByText("Your current password is incorrect.")).toBeInTheDocument();
+    expect(updateUserMock).not.toHaveBeenCalled();
   });
 
   it("blocks the update and shows an error when confirmation differs", async () => {
     const user = userEvent.setup();
     renderWithProviders(<SettingsPage />);
 
+    await user.type(screen.getByTestId("settings-current-password"), "oldsecret1");
     await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
     await user.type(screen.getByTestId("settings-confirm-password"), "different1");
     await user.click(screen.getByTestId("settings-password-submit"));
 
     expect(await screen.findByText("Passwords don't match")).toBeInTheDocument();
     expect(updateUserMock).not.toHaveBeenCalled();
+    expect(signInWithPasswordMock).not.toHaveBeenCalled();
   });
 
   it("hides the password card for guest users", () => {

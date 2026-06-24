@@ -15,6 +15,7 @@ test.describe("cloud password", () => {
     await expect(page).toHaveURL(/\/app/);
 
     await page.goto("/app/settings");
+    await page.getByTestId("settings-current-password").fill(password);
     await page.getByTestId("settings-new-password").fill(newPassword);
     await page.getByTestId("settings-confirm-password").fill(newPassword);
     await page.getByTestId("settings-password-submit").click();

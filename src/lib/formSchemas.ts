@@ -35,6 +35,20 @@ export const makePasswordSchema = (t: TFunction) => z
 
 export type PasswordValues = z.infer<ReturnType<typeof makePasswordSchema>>;
 
+/** Settings change-password — also requires the current password as a safeguard. */
+export const makeChangePasswordSchema = (t: TFunction) => z
+  .object({
+    currentPassword: z.string().min(1, t("validation.currentPasswordRequired")),
+    password: z.string().min(6, t("validation.passwordMin")),
+    confirm: z.string(),
+  })
+  .refine((v) => v.password === v.confirm, {
+    message: t("validation.passwordsMatch"),
+    path: ["confirm"],
+  });
+
+export type ChangePasswordValues = z.infer<ReturnType<typeof makeChangePasswordSchema>>;
+
 /** Planner preferences — shared by SettingsPage and Onboarding step 3. */
 export const plannerPrefsSchema = z.object({
   includeWeekends: z.boolean(),

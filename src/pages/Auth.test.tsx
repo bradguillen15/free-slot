@@ -47,18 +47,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { resetSupabaseMock } from "../test/supabaseMock";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
 import { seedGuestData } from "../test/factories";
+import { hasGuestData } from "@/lib/localStore";
 import { toast } from "sonner";
 import Auth from "./Auth";
 
 const emptyCounts = { categories: 0, activities: 0, schedule_blocks: 0, time_logs: 0, priorities: 0 };
 
-function renderAuth() {
+function renderAuth(path = "/auth") {
   return render(
-    <MemoryRouter initialEntries={["/auth"]}>
+    <MemoryRouter initialEntries={[path]}>
       <Auth />
     </MemoryRouter>,
   );
 }
+
+const renderSignup = () => renderAuth("/auth?mode=signup");
 
 beforeEach(() => {
   localStorage.clear();
@@ -95,7 +98,7 @@ describe("Auth — Google sign-in", () => {
 
   it("blocks submit and shows messages for invalid email / short password", async () => {
     const user = userEvent.setup();
-    renderAuth();
+    renderSignup();
 
     await user.type(screen.getByLabelText("Email"), "not-an-email");
     await user.type(screen.getByLabelText("Password"), "123");
@@ -113,7 +116,7 @@ describe("Auth — Google sign-in", () => {
       error: null,
     } as never);
 
-    renderAuth();
+    renderSignup();
     await user.type(screen.getByLabelText("Email"), "a@b.com");
     await user.type(screen.getByLabelText("Password"), "secret1");
     await user.click(screen.getByRole("button", { name: "Create account" }));
@@ -132,7 +135,7 @@ describe("Auth — Google sign-in", () => {
     } as never);
 
     const user = userEvent.setup();
-    renderAuth();
+    renderSignup();
     await user.type(screen.getByLabelText("Email"), "a@b.com");
     await user.type(screen.getByLabelText("Password"), "secret1");
     await user.click(screen.getByRole("button", { name: "Create account" }));
@@ -176,7 +179,7 @@ describe("Auth — signup (auto-confirm)", () => {
       error: null,
     } as never);
     const user = userEvent.setup();
-    renderAuth();
+    renderSignup();
     await user.type(screen.getByLabelText("Email"), "a@b.com");
     await user.type(screen.getByLabelText("Password"), "secret1");
     await user.click(screen.getByRole("button", { name: "Create account" }));
@@ -189,12 +192,25 @@ describe("Auth — signup (auto-confirm)", () => {
   });
 });
 
+describe("Auth — default mode", () => {
+  it("opens in sign-in mode by default", () => {
+    renderAuth();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByTestId("auth-forgot-link")).toBeInTheDocument();
+  });
+
+  it("opens in signup mode when ?mode=signup is present", () => {
+    renderSignup();
+    expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
+    expect(screen.queryByTestId("auth-forgot-link")).not.toBeInTheDocument();
+  });
+});
+
 describe("Auth — forgot password", () => {
   it("sends a reset email with the /reset-password redirect", async () => {
     const user = userEvent.setup();
     renderAuth();
 
-    await user.click(screen.getByTestId("auth-mode-toggle"));
     await user.click(screen.getByTestId("auth-forgot-link"));
 
     await user.type(await screen.findByTestId("auth-forgot-email"), "a@b.com");
@@ -211,7 +227,7 @@ describe("Auth — forgot password", () => {
   });
 
   it("does not expose the forgot link in signup mode", () => {
-    renderAuth();
+    renderSignup();
     expect(screen.queryByTestId("auth-forgot-link")).not.toBeInTheDocument();
   });
 });
@@ -238,6 +254,17 @@ describe("Auth — migration cache refresh", () => {
     expect(prefetchCloudDataMock.mock.invocationCallOrder[0]).toBeLessThan(
       navigateSpy.mock.invocationCallOrder[0],
     );
+  });
+
+  it("clears guest local data after a successful import so it can't resurface", async () => {
+    vi.mocked(migrateGuestToCloud).mockResolvedValue({ migrated: true, counts: emptyCounts });
+    const { user, importBtn } = await openMigrateDialog();
+    expect(hasGuestData()).toBe(true);
+
+    await user.click(importBtn);
+
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith("/app", { replace: true }));
+    expect(hasGuestData()).toBe(false);
   });
 
   it("does not prefetch or navigate when migration fails", async () => {
