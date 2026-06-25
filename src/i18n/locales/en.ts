@@ -341,6 +341,7 @@ const en = {
   month: {
     totalLogged: "Total logged",
     daysLogged: "Days logged",
+    segmentTooltip: "{{kind}}: {{name}}, {{start}} – {{end}}",
     monthNames: [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December",
@@ -493,10 +494,12 @@ const en = {
     password: {
       title: "Password",
       desc: "Change the password used to sign in to your account.",
+      current: "Current password",
       new: "New password",
       confirm: "Confirm new password",
       submit: "Update password",
       updated: "Password updated",
+      currentIncorrect: "Your current password is incorrect.",
       failed: "Couldn't update your password. Please try again.",
     },
   },
@@ -528,6 +531,7 @@ const en = {
     useHexColor: "Use a 6-digit hex color",
     passwordMin: "At least 6 characters",
     passwordsMatch: "Passwords don't match",
+    currentPasswordRequired: "Enter your current password",
   },
 };
 export default en;

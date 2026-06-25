@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
+import { computeLaneLayout } from "@/lib/daySegments";
 import { Surface } from "@/components/Surface";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { GapWindow } from "@/lib/gaps";
@@ -60,6 +61,21 @@ export function WeekGrid({
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
     []
   );
+  const logLaneMaps = useMemo(() => {
+    return new Map(
+      days.map((day) => [
+        day.iso,
+        computeLaneLayout(
+          day.logs.flatMap((log, index) => {
+            const segment = clamp(log.seg);
+            return segment
+              ? [{ id: `${log.id ?? "log"}-${index}`, startMin: segment.startMin, endMin: segment.endMin }]
+              : [];
+          })
+        ),
+      ])
+    );
+  }, [days]);
   const gridBodyRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -204,18 +220,23 @@ export function WeekGrid({
             })}
 
             {/* Time logs — full width, z-20 (on top of blocks) */}
-            {d.logs.map((l, i) => (
-              <WeekLogBar
-                key={`${l.id ?? "l"}-${i}`}
-                log={l}
-                dayISO={d.iso}
-                days={days}
-                gridBodyRef={gridBodyRef}
-                draggable={!!onLogReschedule && !!l.category_id && !l.spansMidnight}
-                onReschedule={onLogReschedule}
-                onClick={onLogClick ? () => onLogClick(d.iso, l) : undefined}
-              />
-            ))}
+            {d.logs.map((l, i) => {
+              const { lane = 0, groupWidth = 1 } = logLaneMaps.get(d.iso)?.get(`${l.id ?? "log"}-${i}`) ?? {};
+              return (
+                <WeekLogBar
+                  key={`${l.id ?? "l"}-${i}`}
+                  log={l}
+                  dayISO={d.iso}
+                  days={days}
+                  gridBodyRef={gridBodyRef}
+                  lane={lane}
+                  groupWidth={groupWidth}
+                  draggable={!!onLogReschedule && !!l.category_id && !l.spansMidnight}
+                  onReschedule={onLogReschedule}
+                  onClick={onLogClick ? () => onLogClick(d.iso, l) : undefined}
+                />
+              );
+            })}
 
             {/* AI suggested slots (z-25, dashed primary) */}
             {(d.aiSlots ?? []).map((s, i) => {
@@ -268,12 +289,14 @@ function snapMin(m: number): number {
 }
 
 function WeekLogBar({
-  log, dayISO, days, gridBodyRef, draggable, onReschedule, onClick,
+  log, dayISO, days, gridBodyRef, lane, groupWidth, draggable, onReschedule, onClick,
 }: {
   log: DayCellLog;
   dayISO: string;
   days: DayCellData[];
   gridBodyRef: React.RefObject<HTMLDivElement>;
+  lane: number;
+  groupWidth: number;
   draggable: boolean;
   onReschedule?: (logId: string, newDate: string, newStartMin: number, newEndMin: number) => void;
   onClick?: () => void;
@@ -291,6 +314,7 @@ function WeekLogBar({
 
   const top = topFor(c.startMin);
   const height = Math.max(heightFor(c), 10);
+  const laneWidth = 100 / groupWidth;
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!draggable || !onReschedule) return;
@@ -357,14 +381,20 @@ function WeekLogBar({
       animate={{ opacity: 1, scale: 1, x: dragOffset.dx, y: dragOffset.dy }}
       transition={{ opacity: {}, scale: {}, x: { duration: 0 }, y: { duration: 0 } }}
       className={cn(
-        "absolute left-0.5 right-0.5 rounded-sm px-1 overflow-hidden shadow-soft z-[20] select-none",
+        "absolute rounded-sm px-1 overflow-hidden shadow-soft z-[20] select-none",
         draggable
           ? "cursor-grab touch-none active:cursor-grabbing"
           : onClick
           ? "cursor-pointer hover:brightness-90 transition-[filter]"
           : "pointer-events-none"
       )}
-      style={{ top, height, backgroundColor: log.color }}
+      style={{
+        top,
+        height,
+        left: `calc(${lane * laneWidth}% + 2px)`,
+        width: `calc(${laneWidth}% - 4px)`,
+        backgroundColor: log.color,
+      }}
       aria-label={t("calendar.logAria", { name: log.name })}
       onPointerDown={draggable ? onPointerDown : undefined}
       onPointerMove={draggable ? onPointerMove : undefined}

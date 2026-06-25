@@ -75,7 +75,7 @@ export async function signUp(
   const email = opts.email ?? uniqueEmail();
   const password = opts.password ?? DEFAULT_PASSWORD;
 
-  await page.goto("/auth");
+  await page.goto("/auth?mode=signup");
   await page.getByTestId("auth-email").fill(email);
   await page.getByTestId("auth-password").fill(password);
   await page.getByTestId("auth-submit").click();
@@ -94,8 +94,6 @@ export async function signUp(
 /** Sign in an existing user through the real Auth form. */
 export async function signIn(page: Page, creds: Credentials): Promise<void> {
   await page.goto("/auth");
-  // Default mode is signup; flip to signin.
-  await page.getByTestId("auth-mode-toggle").click();
   await page.getByTestId("auth-email").fill(creds.email);
   await page.getByTestId("auth-password").fill(creds.password);
   await page.getByTestId("auth-submit").click();

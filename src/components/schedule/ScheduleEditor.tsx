@@ -39,7 +39,7 @@ import {
 } from "@/lib/dataStore";
 import type { PickerCategory } from "@/components/CategoryPicker";
 import { useAuth } from "@/contexts/AuthContext";
-import { BLOCK_PRESETS } from "@/lib/schedule";
+import { BLOCK_PRESETS, applyPresetSegmentsAtomic, presetSegments } from "@/lib/schedule";
 import { findScheduleCollisions, groupScheduleCollisions } from "@/lib/scheduleCollisions";
 import { toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -346,14 +346,19 @@ export function ScheduleEditor() {
 
   const addPreset = async (preset: typeof BLOCK_PRESETS[number]) => {
     try {
-      await upsertScheduleBlock(mode, user?.id ?? null, {
-        name: preset.name,
-        start_time: preset.start,
-        end_time: preset.end,
-        days_of_week: [...preset.days],
-        color: preset.color,
-        type: preset.type,
-      });
+      await applyPresetSegmentsAtomic(
+        presetSegments(preset),
+        (seg) =>
+          upsertScheduleBlock(mode, user?.id ?? null, {
+            name: seg.name,
+            start_time: seg.start,
+            end_time: seg.end,
+            days_of_week: [...preset.days],
+            color: seg.color ?? preset.color,
+            type: preset.type,
+          }) as Promise<{ id: string }>,
+        (id) => deleteScheduleBlock(mode, user?.id ?? null, id),
+      );
       refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));

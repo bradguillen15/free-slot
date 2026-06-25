@@ -200,7 +200,9 @@ export default function WeekPage() {
         end_time: fromMin(newEndMin),
         category_id: (log as { category_id: string }).category_id,
         type: (log as { type: "productive" | "unproductive" | "essential" }).type,
+        title: (log as { title?: string | null }).title ?? null,
         notes: (log as { notes: string | null }).notes,
+        note_json: (log as { note_json?: object | null }).note_json ?? null,
       });
       toast.success(t("week.rescheduled"));
       await refreshLogs();

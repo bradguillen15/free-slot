@@ -91,6 +91,33 @@ describe("SchedulePage — guest mode", () => {
     });
   });
 
+  it("adds Work preset as split blocks with lunch and no overlap warning", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "+ Work" }));
+    await waitFor(() => {
+      const blocks = listScheduleBlocks();
+      expect(blocks.filter((b) => b.name === "Work")).toHaveLength(2);
+      expect(blocks.find((b) => b.name === "Lunch")).toMatchObject({
+        start_time: "12:00",
+        end_time: "13:00",
+      });
+      expect(blocks.find((b) => b.name === "Break")).toMatchObject({
+        start_time: "13:00",
+        end_time: "13:25",
+      });
+      expect(blocks.find((b) => b.name === "Work" && b.start_time === "09:00")).toMatchObject({
+        end_time: "12:00",
+      });
+      expect(blocks.find((b) => b.name === "Work" && b.start_time === "13:25")).toMatchObject({
+        end_time: "17:00",
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/Overlapping blocks|Bloques superpuestos/)).not.toBeInTheDocument();
+    });
+  });
+
   it("shows drag hint when multiple blocks exist", async () => {
     upsertScheduleBlock({ name: "Work", start_time: "09:00", end_time: "17:00", days_of_week: [1, 2, 3, 4, 5] });
     upsertScheduleBlock({ name: "Gym", start_time: "18:00", end_time: "19:00", days_of_week: [1, 3, 5] });

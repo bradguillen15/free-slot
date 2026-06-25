@@ -15,6 +15,7 @@ test.describe("cloud password", () => {
     await expect(page).toHaveURL(/\/app/);
 
     await page.goto("/app/settings");
+    await page.getByTestId("settings-current-password").fill(password);
     await page.getByTestId("settings-new-password").fill(newPassword);
     await page.getByTestId("settings-confirm-password").fill(newPassword);
     await page.getByTestId("settings-password-submit").click();
@@ -34,7 +35,6 @@ test.describe("cloud password", () => {
     // Returning visitor with no session requests a reset from the sign-in screen.
     await page.evaluate(() => localStorage.clear());
     await page.goto("/auth");
-    await page.getByTestId("auth-mode-toggle").click();
     await page.getByTestId("auth-forgot-link").click();
     await page.getByTestId("auth-forgot-email").fill(email);
     await page.getByTestId("auth-forgot-submit").click();

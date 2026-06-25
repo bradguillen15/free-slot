@@ -45,4 +45,15 @@
 - [x] 5.3 Non-overlapping solo log renders full width (no regression)
 - [x] 5.4 Zero console errors
 - [ ] 5.5 Drag a lane-positioned log bar — verify reschedule fires correctly
-- [ ] 5.6 Schedule block + overlapping log — side-by-side rendering
+- [ ] 5.6 Schedule block + overlapping log — schedule remains full-width background, log renders above it
+
+---
+
+## Step 6: Refine overlap model for Google Calendar-style actual logs
+
+- [x] 6.1 Update day-view tests so only actual logs use lanes; schedule blocks stay full-width background guides
+- [x] 6.2 Update `DayTimeline` to compute lane layout from log segments only
+- [x] 6.3 Add week-view tests for overlapping actual logs in the same day column
+- [x] 6.4 Update `WeekGrid` to apply log lane layout per day column while preserving schedule block underlays
+- [x] 6.5 Preserve log title/activity metadata during drag reschedule in day and week views
+- [x] 6.6 Run focused tests and lints for changed files
