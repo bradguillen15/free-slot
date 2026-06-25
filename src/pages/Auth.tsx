@@ -34,10 +34,15 @@ export default function Auth() {
   const googleSignInEnabled = import.meta.env.VITE_ENABLE_GOOGLE_SIGN_IN === "true";
   // Default to sign-in — returning users are the common case; "Create account"
   // entry points opt into signup via ?mode=signup.
-  const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<"signin" | "signup">(
-    searchParams.get("mode") === "signup" ? "signup" : "signin",
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+
+  const toggleMode = () => {
+    const next = new URLSearchParams(searchParams);
+    if (mode === "signup") next.delete("mode");
+    else next.set("mode", "signup");
+    setSearchParams(next, { replace: true });
+  };
   const [googleLoading, setGoogleLoading] = useState(false);
   const [migrateOpen, setMigrateOpen] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
@@ -159,9 +164,6 @@ export default function Auth() {
       ].filter(Boolean).join(" · ");
       toast.success(t("auth.migrate.done"), { description: parts || undefined });
       setMigrateOpen(false);
-      // Drop the guest copy now that it lives in the cloud — leaving it behind
-      // re-triggers the migrate prompt and lets stale guest data resurface after sign-out.
-      clearGuestData();
       // Warm the cloud cache before navigating so the first /app render shows the
       // migrated data. invalidateQueries wouldn't help — the dashboard queries are
       // inactive here, so it marks them stale without fetching.
@@ -332,7 +334,7 @@ export default function Auth() {
           <div className="mt-5 text-center text-sm text-muted-foreground">
             {mode === "signup" ? t("auth.haveAccount") : t("auth.newHere")}{" "}
             <button
-              onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
+              onClick={toggleMode}
               data-testid="auth-mode-toggle"
               className="text-primary hover:text-primary-glow transition-colors font-medium"
             >

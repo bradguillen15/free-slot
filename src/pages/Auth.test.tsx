@@ -47,7 +47,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { resetSupabaseMock } from "../test/supabaseMock";
 import { migrateGuestToCloud } from "@/lib/migrateGuest";
 import { seedGuestData } from "../test/factories";
-import { hasGuestData } from "@/lib/localStore";
+import { hasGuestData, clearGuestData } from "@/lib/localStore";
 import { toast } from "sonner";
 import Auth from "./Auth";
 
@@ -204,6 +204,18 @@ describe("Auth — default mode", () => {
     expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
     expect(screen.queryByTestId("auth-forgot-link")).not.toBeInTheDocument();
   });
+
+  it("updates the URL when toggling between sign-in and signup", async () => {
+    const user = userEvent.setup();
+    renderAuth();
+
+    await user.click(screen.getByRole("button", { name: "Create one" }));
+    expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByTestId("auth-forgot-link")).toBeInTheDocument();
+  });
 });
 
 describe("Auth — forgot password", () => {
@@ -257,7 +269,10 @@ describe("Auth — migration cache refresh", () => {
   });
 
   it("clears guest local data after a successful import so it can't resurface", async () => {
-    vi.mocked(migrateGuestToCloud).mockResolvedValue({ migrated: true, counts: emptyCounts });
+    vi.mocked(migrateGuestToCloud).mockImplementation(async () => {
+      clearGuestData();
+      return { migrated: true, counts: emptyCounts };
+    });
     const { user, importBtn } = await openMigrateDialog();
     expect(hasGuestData()).toBe(true);
 

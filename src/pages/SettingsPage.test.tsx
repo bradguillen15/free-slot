@@ -77,7 +77,7 @@ describe("SettingsPage change password", () => {
 
   it("blocks the update and shows an error when the current password is wrong", async () => {
     const user = userEvent.setup();
-    signInWithPasswordMock.mockResolvedValue({ error: { message: "Invalid login credentials" } });
+    signInWithPasswordMock.mockResolvedValue({ error: { status: 400, message: "Invalid login credentials" } });
     renderWithProviders(<SettingsPage />);
 
     await user.type(screen.getByTestId("settings-current-password"), "wrongpass1");

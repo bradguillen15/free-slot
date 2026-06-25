@@ -25,7 +25,10 @@ export async function changePassword(currentPassword: string, newPassword: strin
   if (getUserError || !email) throw getUserError ?? new Error("No authenticated user");
 
   const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
-  if (reauthError) throw new IncorrectCurrentPasswordError();
+  if (reauthError) {
+    if (reauthError.status === 400) throw new IncorrectCurrentPasswordError();
+    throw reauthError;
+  }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;
