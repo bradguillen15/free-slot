@@ -38,7 +38,7 @@ test.describe("cloud auth", () => {
     // confirmations off (local), GoTrue returns "User already registered", which
     // mapAuthError() turns into the emailExists copy instead of a raw string.
     await page.evaluate(() => localStorage.clear());
-    await page.goto("/auth");
+    await page.goto("/auth?mode=signup");
     await page.getByTestId("auth-email").fill(creds.email);
     await page.getByTestId("auth-password").fill(creds.password);
     await page.getByTestId("auth-submit").click();
