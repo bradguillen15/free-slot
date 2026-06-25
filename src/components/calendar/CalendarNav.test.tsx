@@ -20,13 +20,11 @@ describe("CalendarNav", () => {
     expect(screen.getByTestId("calendar-next")).toHaveAccessibleName(/next/i);
   });
 
-  it("uses the primary gradient treatment for Today", () => {
+  it("distinguishes Today from the icon-only step controls", () => {
     render(<CalendarNav onToday={vi.fn()} onPrev={vi.fn()} onNext={vi.fn()} />);
-    expect(screen.getByTestId("calendar-today")).toHaveClass(
-      "gradient-primary",
-      "text-primary-foreground",
-      "shadow-glow"
-    );
+    expect(screen.getByTestId("calendar-today")).toHaveTextContent("Today");
+    expect(screen.getByTestId("calendar-prev").textContent?.trim()).toBe("");
+    expect(screen.getByTestId("calendar-next").textContent?.trim()).toBe("");
   });
 
   it("fires the matching handlers", async () => {

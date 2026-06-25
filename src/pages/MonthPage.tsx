@@ -22,66 +22,87 @@ function isoDate(year: number, month0: number, day: number) {
 }
 const MIN_PER_DAY = 24 * 60;
 
-function MonthDayStrip({ cell }: { cell: DayCellData }) {
+function MonthSegmentBar({
+  kind,
+  name,
+  color,
+  startMin,
+  endMin,
+}: {
+  kind: "planned" | "logged";
+  name: string;
+  color: string;
+  startMin: number;
+  endMin: number;
+}) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const kindLabel = kind === "planned" ? t("day.planned") : t("day.logged");
+
+  const blockNavigation = (e: { preventDefault: () => void; stopPropagation: () => void }) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   return (
-    <div className="absolute left-1 right-1 top-[22px] bottom-1 rounded-sm overflow-hidden bg-muted/20">
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger asChild>
+        <span
+          role="img"
+          aria-label={t("month.segmentTooltip", {
+            kind: kindLabel,
+            name,
+            start: fromMin(startMin),
+            end: fromMin(endMin),
+          })}
+          className="absolute left-0 w-full rounded-[1px] pointer-events-auto touch-manipulation"
+          style={{
+            top: `${(startMin / MIN_PER_DAY) * 100}%`,
+            height: `max(4px, ${((endMin - startMin) / MIN_PER_DAY) * 100}%)`,
+            backgroundColor: color,
+            opacity: kind === "planned" ? 0.5 : 0.9,
+          }}
+          onClick={(e) => {
+            blockNavigation(e);
+            if (e.nativeEvent.pointerType !== "mouse") {
+              setOpen((prev) => !prev);
+            }
+          }}
+        />
+      </TooltipTrigger>
+      <TooltipContent side="right" className="bg-surface border-border max-w-[200px]">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{kindLabel}</div>
+        <div className="text-xs font-medium">{name}</div>
+        <div className="text-[10px] text-muted-foreground font-mono-num">
+          {fromMin(startMin)} – {fromMin(endMin)}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function MonthDayStrip({ cell }: { cell: DayCellData }) {
+  return (
+    <div className="absolute left-1 right-1 top-[22px] bottom-1 rounded-sm overflow-hidden bg-muted/20 pointer-events-none">
       {cell.blocks.map((b, i) => (
-        <Tooltip key={`b-${i}`}>
-          <TooltipTrigger asChild>
-            <span
-              role="img"
-              aria-label={t("month.segmentTooltip", {
-                kind: t("day.planned"),
-                name: b.name,
-                start: fromMin(b.seg.startMin),
-                end: fromMin(b.seg.endMin),
-              })}
-              className="absolute left-0 w-full rounded-[1px] opacity-50 pointer-events-auto"
-              style={{
-                top: `${(b.seg.startMin / MIN_PER_DAY) * 100}%`,
-                height: `max(4px, ${((b.seg.endMin - b.seg.startMin) / MIN_PER_DAY) * 100}%)`,
-                backgroundColor: b.color,
-              }}
-            />
-          </TooltipTrigger>
-          <TooltipContent side="right" className="bg-surface border-border max-w-[200px]">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("day.planned")}</div>
-            <div className="text-xs font-medium">{b.name}</div>
-            <div className="text-[10px] text-muted-foreground font-mono-num">
-              {fromMin(b.seg.startMin)} – {fromMin(b.seg.endMin)}
-            </div>
-          </TooltipContent>
-        </Tooltip>
+        <MonthSegmentBar
+          key={`b-${i}`}
+          kind="planned"
+          name={b.name}
+          color={b.color}
+          startMin={b.seg.startMin}
+          endMin={b.seg.endMin}
+        />
       ))}
       {cell.logs.map((l, i) => (
-        <Tooltip key={`l-${i}`}>
-          <TooltipTrigger asChild>
-            <span
-              role="img"
-              aria-label={t("month.segmentTooltip", {
-                kind: t("day.logged"),
-                name: l.name,
-                start: fromMin(l.seg.startMin),
-                end: fromMin(l.seg.endMin),
-              })}
-              className="absolute left-0 w-full rounded-[1px] opacity-90 pointer-events-auto"
-              style={{
-                top: `${(l.seg.startMin / MIN_PER_DAY) * 100}%`,
-                height: `max(4px, ${((l.seg.endMin - l.seg.startMin) / MIN_PER_DAY) * 100}%)`,
-                backgroundColor: l.color,
-              }}
-            />
-          </TooltipTrigger>
-          <TooltipContent side="right" className="bg-surface border-border max-w-[200px]">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("day.logged")}</div>
-            <div className="text-xs font-medium">{l.name}</div>
-            <div className="text-[10px] text-muted-foreground font-mono-num">
-              {fromMin(l.seg.startMin)} – {fromMin(l.seg.endMin)}
-            </div>
-          </TooltipContent>
-        </Tooltip>
+        <MonthSegmentBar
+          key={`l-${i}`}
+          kind="logged"
+          name={l.name}
+          color={l.color}
+          startMin={l.seg.startMin}
+          endMin={l.seg.endMin}
+        />
       ))}
     </div>
   );
@@ -225,7 +246,7 @@ export default function MonthPage() {
                 </div>
                 {/* Strip is clipped to the cell via overflow-hidden on the inner container */}
                 {cell && (
-                  <div className="absolute inset-0 rounded-xl overflow-hidden">
+                  <div className="absolute inset-0 z-20 rounded-xl overflow-hidden pointer-events-none">
                     <MonthDayStrip cell={cell} />
                   </div>
                 )}

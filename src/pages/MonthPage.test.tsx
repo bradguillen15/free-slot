@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { DayCellData } from "@/lib/calendarDays";
 
 vi.mock("@/lib/calendarDays", () => ({
@@ -50,8 +50,11 @@ function coloredSegments(cell: HTMLElement): HTMLElement[] {
 
 function renderMonth() {
   return render(
-    <MemoryRouter>
-      <MonthPage />
+    <MemoryRouter initialEntries={["/app/month"]}>
+      <Routes>
+        <Route path="/app/month" element={<MonthPage />} />
+        <Route path="/app" element={<div data-testid="day-view">Day view</div>} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -186,7 +189,7 @@ describe("MonthPage", () => {
     expect(tooltip).toHaveTextContent("9:00");
   });
 
-  it("still opens the day view when clicking a segment", async () => {
+  it("opens the day view when clicking the day cell", async () => {
     const user = userEvent.setup();
     vi.mocked(useCalendarDays).mockReturnValue([
       buildCell("2026-06-10", {
@@ -201,9 +204,30 @@ describe("MonthPage", () => {
       }),
     ]);
     renderMonth();
-    const link = screen.getByLabelText("Open day view for 2026-06-10");
-    await user.click(coloredSegments(link)[0]);
-    expect(link).toHaveAttribute("href", "/app?date=2026-06-10");
+    await user.click(screen.getByLabelText("Open day view for 2026-06-10"));
+    expect(await screen.findByTestId("day-view")).toBeInTheDocument();
+  });
+
+  it("does not navigate when tapping a segment", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 540, endMin: 600 },
+          name: "Deep work",
+          color: "#3b82f6",
+          type: "productive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
+    renderMonth();
+    const segment = coloredSegments(screen.getByLabelText("Open day view for 2026-06-10"))[0];
+    await user.click(segment);
+    expect(screen.queryByTestId("day-view")).not.toBeInTheDocument();
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Deep work");
   });
 
   it("does not render quarter-log buttons (DAY_QUARTERS removed)", () => {

@@ -44,6 +44,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     bundle: [
       { name: "Work", start: "09:00", end: "12:00" },
       { name: "Lunch", start: "12:00", end: "13:00", color: LUNCH_COLOR },
+      { name: "Break", start: "13:00", end: "13:25", color: "#94a3b8" },
       { name: "Work", start: "13:25", end: "17:00" },
     ],
   },
@@ -52,6 +53,26 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   { name: "Lunch",   start: "12:00", end: "13:00", days: WEEKDAYS,        color: LUNCH_COLOR, type: "fixed" },
   { name: "Dinner",  start: "19:30", end: "20:30", days: [0,1,2,3,4,5,6], color: LUNCH_COLOR, type: "fixed" },
 ];
+
+/** Apply bundled preset segments atomically; rolls back prior inserts on failure. */
+export async function applyPresetSegmentsAtomic<T extends { id: string }>(
+  segments: BlockPresetSegment[],
+  createSegment: (seg: BlockPresetSegment) => Promise<T>,
+  deleteSegment: (id: string) => Promise<void>,
+): Promise<T[]> {
+  const created: T[] = [];
+  try {
+    for (const seg of segments) {
+      created.push(await createSegment(seg));
+    }
+    return created;
+  } catch (err) {
+    for (const item of [...created].reverse()) {
+      await deleteSegment(item.id).catch(() => undefined);
+    }
+    throw err;
+  }
+}
 
 /** Segments a preset expands into when applied (single segment when no bundle). */
 export function presetSegments(preset: BlockPreset): BlockPresetSegment[] {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { BLOCK_PRESETS, logDefaultsFromBlock, presetSegments } from "./schedule";
+import { BLOCK_PRESETS, applyPresetSegmentsAtomic, logDefaultsFromBlock, presetSegments } from "./schedule";
 import { findScheduleCollisions } from "./scheduleCollisions";
 
 describe("logDefaultsFromBlock", () => {
@@ -24,6 +24,7 @@ describe("BLOCK_PRESETS", () => {
     expect(segments).toEqual([
       { name: "Work", start: "09:00", end: "12:00", color: "#3b82f6" },
       { name: "Lunch", start: "12:00", end: "13:00", color: "#f59e0b" },
+      { name: "Break", start: "13:00", end: "13:25", color: "#94a3b8" },
       { name: "Work", start: "13:25", end: "17:00", color: "#3b82f6" },
     ]);
 
@@ -41,5 +42,27 @@ describe("BLOCK_PRESETS", () => {
     const lunch = BLOCK_PRESETS.find((p) => p.name === "Lunch");
     expect(lunch?.start).toBe("12:00");
     expect(lunch?.end).toBe("13:00");
+  });
+});
+
+describe("applyPresetSegmentsAtomic", () => {
+  it("rolls back created segments when a later insert fails", async () => {
+    const deleted: string[] = [];
+    await expect(
+      applyPresetSegmentsAtomic(
+        [
+          { name: "A", start: "09:00", end: "10:00" },
+          { name: "B", start: "10:00", end: "11:00" },
+        ],
+        async (seg) => {
+          if (seg.name === "B") throw new Error("insert failed");
+          return { id: seg.name };
+        },
+        async (id) => {
+          deleted.push(id);
+        },
+      ),
+    ).rejects.toThrow("insert failed");
+    expect(deleted).toEqual(["A"]);
   });
 });

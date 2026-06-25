@@ -102,6 +102,10 @@ describe("SchedulePage — guest mode", () => {
         start_time: "12:00",
         end_time: "13:00",
       });
+      expect(blocks.find((b) => b.name === "Break")).toMatchObject({
+        start_time: "13:00",
+        end_time: "13:25",
+      });
       expect(blocks.find((b) => b.name === "Work" && b.start_time === "09:00")).toMatchObject({
         end_time: "12:00",
       });
@@ -109,7 +113,9 @@ describe("SchedulePage — guest mode", () => {
         end_time: "17:00",
       });
     });
-    expect(screen.queryByText(/Overlapping blocks|Bloques superpuestos/)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText(/Overlapping blocks|Bloques superpuestos/)).not.toBeInTheDocument();
+    });
   });
 
   it("shows drag hint when multiple blocks exist", async () => {
