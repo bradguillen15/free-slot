@@ -224,7 +224,7 @@ describe("MonthPage", () => {
     ]);
     renderMonth();
     const segment = coloredSegments(screen.getByLabelText("Open day view for 2026-06-10"))[0];
-    await user.click(segment);
+    await user.pointer([{ keys: "[TouchA>]", target: segment }, { keys: "[/TouchA]" }]);
     expect(screen.queryByTestId("day-view")).not.toBeInTheDocument();
     const tooltip = await screen.findByRole("tooltip");
     expect(tooltip).toHaveTextContent("Deep work");

@@ -62,11 +62,11 @@ function MonthSegmentBar({
             backgroundColor: color,
             opacity: kind === "planned" ? 0.5 : 0.9,
           }}
-          onClick={(e) => {
+          onClick={blockNavigation}
+          onPointerUp={(e) => {
+            if (e.pointerType === "mouse") return;
             blockNavigation(e);
-            if (e.nativeEvent.pointerType !== "mouse") {
-              setOpen((prev) => !prev);
-            }
+            setOpen((prev) => !prev);
           }}
         />
       </TooltipTrigger>

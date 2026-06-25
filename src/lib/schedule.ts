@@ -67,8 +67,14 @@ export async function applyPresetSegmentsAtomic<T extends { id: string }>(
     }
     return created;
   } catch (err) {
+    let rollbackFailed = false;
     for (const item of [...created].reverse()) {
-      await deleteSegment(item.id).catch(() => undefined);
+      await deleteSegment(item.id).catch(() => {
+        rollbackFailed = true;
+      });
+    }
+    if (rollbackFailed) {
+      throw new Error("Preset apply failed and rollback was incomplete.");
     }
     throw err;
   }

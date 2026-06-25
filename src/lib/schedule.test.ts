@@ -65,4 +65,22 @@ describe("applyPresetSegmentsAtomic", () => {
     ).rejects.toThrow("insert failed");
     expect(deleted).toEqual(["A"]);
   });
+
+  it("throws when rollback fails after a later insert fails", async () => {
+    await expect(
+      applyPresetSegmentsAtomic(
+        [
+          { name: "A", start: "09:00", end: "10:00" },
+          { name: "B", start: "10:00", end: "11:00" },
+        ],
+        async (seg) => {
+          if (seg.name === "B") throw new Error("insert failed");
+          return { id: seg.name };
+        },
+        async () => {
+          throw new Error("delete failed");
+        },
+      ),
+    ).rejects.toThrow("Preset apply failed and rollback was incomplete.");
+  });
 });
