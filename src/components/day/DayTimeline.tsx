@@ -62,14 +62,9 @@ export function DayTimeline({
     [categories]
   );
 
-  // Compute collision lane layout across all rendered segments (blocks + logs).
+  // Actual logs use collision lanes; schedule blocks stay full-width background guides.
   const laneMap = useMemo(() => {
     const items: { startMin: number; endMin: number; id: string }[] = [];
-    blocks.forEach((b) => {
-      visibleBlockSegments(b, logs, date).forEach((seg, i) => {
-        items.push({ startMin: seg.startMin, endMin: seg.endMin, id: `b-${b.id}-${i}` });
-      });
-    });
     logs.forEach((l) => {
       const segs = date ? segmentsForLogOnDay(l, date) : segmentsForLogOnDay(l, l.date ?? "");
       segs.forEach((seg, i) => {
@@ -77,7 +72,7 @@ export function DayTimeline({
       });
     });
     return computeLaneLayout(items);
-  }, [blocks, logs, date]);
+  }, [logs, date]);
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
@@ -223,21 +218,19 @@ export function DayTimeline({
         ))}
 
         {/* Schedule blocks — z-10. Clipped against logged time so the
-            planned guide only shows where nothing has been logged yet.
-            Lane position is computed from the shared collision layout. */}
+            planned guide only shows where nothing has been logged yet. */}
         <div className="absolute inset-y-0 left-16 right-0 z-[10] pointer-events-none">
           {blocks.flatMap((b) =>
             visibleBlockSegments(b, logs, date).map((seg, i) => {
               const key = `${b.id}-${i}`;
-              const { lane = 0, groupWidth = 1 } = laneMap.get(`b-${key}`) ?? {};
               return (
                 <BlockBar
                   key={key}
                   seg={seg}
                   color={b.color}
                   name={b.name}
-                  lane={lane}
-                  groupWidth={groupWidth}
+                  lane={0}
+                  groupWidth={1}
                   onClick={onBlockClick ? () => onBlockClick(b) : undefined}
                 />
               );

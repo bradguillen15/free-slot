@@ -20,6 +20,15 @@ describe("CalendarNav", () => {
     expect(screen.getByTestId("calendar-next")).toHaveAccessibleName(/next/i);
   });
 
+  it("uses the primary gradient treatment for Today", () => {
+    render(<CalendarNav onToday={vi.fn()} onPrev={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.getByTestId("calendar-today")).toHaveClass(
+      "gradient-primary",
+      "text-primary-foreground",
+      "shadow-glow"
+    );
+  });
+
   it("fires the matching handlers", async () => {
     const onToday = vi.fn();
     const onPrev = vi.fn();

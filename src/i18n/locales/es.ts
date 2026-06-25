@@ -343,6 +343,7 @@ const es: Translations = {
   month: {
     totalLogged: "Total registrado",
     daysLogged: "Días registrados",
+    segmentTooltip: "{{kind}}: {{name}}, {{start}} – {{end}}",
     monthNames: [
       "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
       "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",

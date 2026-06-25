@@ -170,7 +170,9 @@ export default function CalendarPage() {
           end_time: fromMin(newEndMin),
           category_id: log.category_id,
           type: log.type,
+          title: log.title ?? null,
           notes: log.notes,
+          note_json: log.note_json ?? null,
         });
         toast.success(t("week.rescheduled"));
         await refreshLogs();

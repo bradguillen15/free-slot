@@ -83,6 +83,26 @@ describe("WeekGrid — log drag", () => {
 
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it("renders overlapping logs in separate lanes", () => {
+    const logs = [
+      { id: "l1", seg: { startMin: 540, endMin: 660 }, name: "Focus", color: "#f00", category_id: "c1", type: "productive" as const },
+      { id: "l2", seg: { startMin: 600, endMin: 720 }, name: "Meeting", color: "#0f0", category_id: "c1", type: "productive" as const },
+    ];
+    const day = makeDay("2026-06-15", false, "Monday");
+    day.logs = logs;
+
+    render(
+      <MemoryRouter>
+        <WeekGrid days={[day]} onGapClick={noop} onSlotClick={noop} />
+      </MemoryRouter>
+    );
+
+    const focus = screen.getByLabelText("Log: Focus");
+    const meeting = screen.getByLabelText("Log: Meeting");
+    expect(focus).toHaveStyle({ left: "calc(0% + 2px)", width: "calc(50% - 4px)" });
+    expect(meeting).toHaveStyle({ left: "calc(50% + 2px)", width: "calc(50% - 4px)" });
+  });
 });
 
 describe("WeekGrid — today highlight", () => {

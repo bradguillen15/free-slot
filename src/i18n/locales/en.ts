@@ -341,6 +341,7 @@ const en = {
   month: {
     totalLogged: "Total logged",
     daysLogged: "Days logged",
+    segmentTooltip: "{{kind}}: {{name}}, {{start}} – {{end}}",
     monthNames: [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December",

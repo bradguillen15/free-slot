@@ -27,7 +27,12 @@ export function CalendarNav({
 }: CalendarNavProps) {
   return (
     <div className="flex items-center gap-1.5">
-      <Button variant="outline" size="sm" onClick={onToday} className="gap-1.5" data-testid="calendar-today">
+      <Button
+        size="sm"
+        onClick={onToday}
+        className="gap-1.5 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+        data-testid="calendar-today"
+      >
         <CalendarDays className="h-3.5 w-3.5" />
         {todayLabel}
       </Button>
