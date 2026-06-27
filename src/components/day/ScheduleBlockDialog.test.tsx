@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UserEvent } from "@testing-library/user-event";
 
@@ -54,7 +54,8 @@ describe("ScheduleBlockDialog validation", () => {
     render(<ScheduleBlockDialog {...baseProps} defaultStartTime="09:00" />);
     await user.type(screen.getByPlaceholderText(/e\.g\. Work/), "Focus");
     await selectLabel(user);
-    fireEvent.change(screen.getByTestId("schedule-block-end"), { target: { value: "09:00" } });
+    await user.clear(screen.getByTestId("schedule-block-end"));
+    await user.type(screen.getByTestId("schedule-block-end"), "09:00");
 
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByText("End time must differ from start time")).toBeInTheDocument();
@@ -67,8 +68,10 @@ describe("ScheduleBlockDialog validation", () => {
     render(<ScheduleBlockDialog {...baseProps} />);
     await user.type(screen.getByPlaceholderText(/e\.g\. Work/), "Sleep");
     await selectLabel(user);
-    fireEvent.change(screen.getByTestId("schedule-block-start"), { target: { value: "22:00" } });
-    fireEvent.change(screen.getByTestId("schedule-block-end"), { target: { value: "06:00" } });
+    await user.clear(screen.getByTestId("schedule-block-start"));
+    await user.type(screen.getByTestId("schedule-block-start"), "22:00");
+    await user.clear(screen.getByTestId("schedule-block-end"));
+    await user.type(screen.getByTestId("schedule-block-end"), "06:00");
 
     await user.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() =>

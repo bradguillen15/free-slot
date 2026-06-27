@@ -45,6 +45,28 @@ export function from12HourParts(hour12: number, minute: number, period: "AM" | "
   return `${String(h24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+/**
+ * Parse free-typed time text into a 24-hour `HH:MM` string, or `null` if invalid.
+ * Accepts `H:MM`/`HH:MM` (24h) and `h:mm AM/PM` (any case, optional space); a
+ * meridiem always forces 12-hour interpretation regardless of display format.
+ */
+export function parseTimeInput(raw: string): string | null {
+  const match = raw.trim().toLowerCase().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
+  if (!match) return null;
+  let h = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3];
+  if (minute > 59) return null;
+  if (meridiem) {
+    if (h < 1 || h > 12) return null;
+    h = h % 12;
+    if (meridiem === "pm") h += 12;
+  } else if (h > 23) {
+    return null;
+  }
+  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 export function fmtDuration(mins: number): string {
   if (mins < 60) return `${Math.round(mins)}m`;
   const h = Math.floor(mins / 60);

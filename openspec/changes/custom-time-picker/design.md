@@ -32,12 +32,13 @@ Thin wrapper over `useProfile()` returning `{ format, setFormat }`. Components c
 Location: `src/components/ui/time-input.tsx`.
 
 - Controlled: `value: string` (`HH:MM`), `onChange: (hhmm: string) => void`
-- Trigger: Button styled like `Input`, shows formatted time via `fmtDisplayTime`
-- Popover: two scrollable columns (hours, minutes) using existing `ScrollArea` + `Button` variants; 5-minute steps for minutes (matches slot snapping granularity)
-- 12h mode: hour column 1–12 + AM/PM toggle inside popover; still emits `HH:MM`
-- `data-testid` prop forwarded to trigger for E2E compatibility
+- Trigger: an editable text field (styled like `Input`) with a clock icon. The user can type directly (`HH:MM` in 24h mode; `h:mm AM/PM` in 12h mode) and commit on blur/Enter; invalid input reverts to the last valid value. Clicking the field opens the panel. The field follows the selected time format and always includes minutes (`9:00 AM`, not `9 AM`). Typing is parsed by `parseTimeInput` in `time.ts` and does not emit partial changes before commit.
+- Panel: an **in-flow, absolutely-positioned panel** anchored under the field (NOT a portaled Radix `Popover`). A portaled popover renders outside the dialog, where the dialog's `react-remove-scroll` lock can block wheel/touch scrolling and its focus-trap can block typing; and the dialog's `transform` can mis-position a `position: fixed` popper. The component therefore renders the panel within its own DOM subtree and handles outside-click + `Escape` (with `stopPropagation` so `Escape` doesn't also close the dialog).
+- The panel uses two scroll-snap **wheels** for hours and minutes. The implementation stays small: React `onScroll` handlers debounce the centered row commit, selected rows are centered on open with `scrollIntoView`, and there are no native document scroll listeners, programmatic-scroll flags, or timestamp guards. Clicking a row also selects it. Minutes use 5-minute steps (matches slot snapping granularity); an off-step current minute is included so existing values remain selectable and visibly selected.
+- 12h mode: hour wheel shows 1–12 and a full-width **AM/PM segmented toggle sits below the wheels**. The active segment uses the primary (blue) fill. Still emits `HH:MM`.
+- `data-testid` prop forwarded to the editable field for E2E compatibility (`page.fill()` types straight into it).
 
-**Alternative considered:** dual `<Select>` dropdowns — acceptable fallback but less polished; scroll columns feel more picker-like.
+**Alternative considered (and rejected):** a portaled Radix `Popover` — breaks inside the log dialog (scroll-lock, focus-trap, transformed containing block), so an in-flow anchored panel is used instead. **Alternative considered (and rejected):** button grids — simpler, but they remove the wheel interaction the feature is meant to provide. **Alternative considered:** dual `<Select>` dropdowns — acceptable fallback but less polished.
 
 ### 4. Display migration
 

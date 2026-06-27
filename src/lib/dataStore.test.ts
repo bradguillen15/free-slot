@@ -5,6 +5,7 @@ import {
   listLogsForMonth,
   upsertActivity as localUpsertActivity,
   upsertCategory as localUpsertCategory,
+  type LocalProfile,
 } from "./localStore";
 process.env.TZ = "America/New_York";
 
@@ -256,7 +257,7 @@ describe("updateProfile", () => {
     });
 
     expect(getProfile().time_format).toBe("12h");
-    expect(qc.getQueryData(queryKeys.profile("guest", null))?.time_format).toBe("12h");
+    expect(qc.getQueryData<LocalProfile>(queryKeys.profile("guest", null))?.time_format).toBe("12h");
     await waitFor(() => expect(result.current.data?.time_format).toBe("12h"));
   });
 });

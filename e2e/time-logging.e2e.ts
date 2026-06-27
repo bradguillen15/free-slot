@@ -74,4 +74,59 @@ test.describe("guest time logging", () => {
     expect(entry?.start_time).toBe("09:00");
     expect(entry?.end_time).toBe("09:30");
   });
+
+  test("picks a start time with the wheel picker (24h)", async ({ page }) => {
+    await seedGuest(page, skip);
+    await page.goto("/app");
+
+    await page.getByTestId("day-fab").click();
+    await page.getByTestId("quicklog-title").fill("Wheel pick");
+    await pickDefaultLabel(page);
+
+    // Open the start picker panel and choose 08:30 by clicking wheel rows.
+    await page.getByTestId("quicklog-start").click();
+    await page.getByRole("button", { name: "Hour 08" }).click();
+    await page.getByRole("button", { name: "Minute 30" }).click();
+    // Click the title to dismiss the panel before finishing the form.
+    await page.getByTestId("quicklog-title").click();
+
+    await page.getByTestId("quicklog-end").fill("09:15");
+    await page.getByTestId("quicklog-submit").click();
+
+    await expect
+      .poll(async () => (await readGuestTimeLogs(page)).map((l) => l.title))
+      .toContain("Wheel pick");
+
+    const entry = (await readGuestTimeLogs(page)).find((l) => l.title === "Wheel pick");
+    expect(entry?.start_time).toBe("08:30");
+    expect(entry?.end_time).toBe("09:15");
+  });
+
+  test("picks a 12-hour time with the AM/PM toggle", async ({ page }) => {
+    await seedGuest(page, { profile: { onboarding_skipped: true, time_format: "12h" } });
+    await page.goto("/app");
+
+    await page.getByTestId("day-fab").click();
+    await page.getByTestId("quicklog-title").fill("Afternoon block");
+    await pickDefaultLabel(page);
+
+    // Choose 3:00 PM via the wheels + the AM/PM segmented toggle.
+    await page.getByTestId("quicklog-start").click();
+    await page.getByRole("button", { name: "Hour 3", exact: true }).click();
+    await page.getByRole("button", { name: "Minute 00" }).click();
+    await page.getByRole("button", { name: "PM", exact: true }).click();
+    await page.getByTestId("quicklog-title").click();
+
+    // The end field accepts typed 12-hour input.
+    await page.getByTestId("quicklog-end").fill("4:30 PM");
+    await page.getByTestId("quicklog-submit").click();
+
+    await expect
+      .poll(async () => (await readGuestTimeLogs(page)).map((l) => l.title))
+      .toContain("Afternoon block");
+
+    const entry = (await readGuestTimeLogs(page)).find((l) => l.title === "Afternoon block");
+    expect(entry?.start_time).toBe("15:00");
+    expect(entry?.end_time).toBe("16:30");
+  });
 });
