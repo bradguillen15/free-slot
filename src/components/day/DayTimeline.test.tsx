@@ -1,7 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { segmentsForLogOnDay, visibleBlockSegments } from "@/lib/daySegments";
 import { DayTimeline, type ScheduleBlock } from "./DayTimeline";
+
+const timeFormat = vi.hoisted(() => ({ value: "24h" as "24h" | "12h" }));
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => timeFormat.value }));
 
 // Each log only needs start_time/end_time for clipping.
 const log = (start_time: string, end_time: string) => ({ start_time, end_time });
@@ -64,6 +67,23 @@ describe("segmentsForLogOnDay", () => {
 });
 
 describe("DayTimeline collision rendering", () => {
+  it("renders 12-hour labels on the hour rail", () => {
+    timeFormat.value = "12h";
+    const { container } = render(
+      <DayTimeline
+        blocks={[]}
+        logs={[]}
+        categories={[]}
+        onSlotClick={() => {}}
+        currentMinute={null}
+        date="2026-06-15"
+      />
+    );
+
+    expect(container).toHaveTextContent("9 AM");
+    timeFormat.value = "24h";
+  });
+
   it("keeps overlapping schedule blocks full width as background guides", () => {
     const { container } = render(
       <DayTimeline
@@ -81,7 +101,7 @@ describe("DayTimeline collision rendering", () => {
 
     const bars = Array.from(container.querySelectorAll<HTMLElement>("[data-timeline-block]"));
     expect(bars).toHaveLength(2);
-    expect(bars.map((bar) => bar.style.left)).toEqual(["0%", "0%"]);
-    expect(bars.map((bar) => bar.style.width)).toEqual(["100%", "100%"]);
+    expect(bars.map((bar) => bar.style.left)).toEqual(["calc(0% + 3px)", "calc(0% + 3px)"]);
+    expect(bars.map((bar) => bar.style.width)).toEqual(["calc(100% - 6px)", "calc(100% - 6px)"]);
   });
 });

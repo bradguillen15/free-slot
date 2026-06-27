@@ -55,10 +55,13 @@ export type LocalTimeLog = {
   created_at: string;
 };
 
+import type { TimeFormat } from "@/lib/time";
+
 export type LocalProfile = {
   peak_hours: { start: string; end: string };
   include_weekends: boolean;
   weekly_review_day: number;
+  time_format: TimeFormat;
   onboarding_completed: boolean;
   onboarding_skipped: boolean;
 };
@@ -85,6 +88,7 @@ const DEFAULT_PROFILE: LocalProfile = {
   peak_hours: { start: "09:00", end: "12:00" },
   include_weekends: true,
   weekly_review_day: 0,
+  time_format: "24h",
   onboarding_completed: false,
   onboarding_skipped: false,
 };
@@ -177,7 +181,10 @@ export function getProfile(): LocalProfile {
     obj.peak_hours && typeof obj.peak_hours === "object" && !Array.isArray(obj.peak_hours)
       ? { ...DEFAULT_PROFILE.peak_hours, ...obj.peak_hours }
       : DEFAULT_PROFILE.peak_hours;
-  return { ...DEFAULT_PROFILE, ...obj, peak_hours: peak };
+  const time_format = obj.time_format === "12h" || obj.time_format === "24h"
+    ? obj.time_format
+    : DEFAULT_PROFILE.time_format;
+  return { ...DEFAULT_PROFILE, ...obj, peak_hours: peak, time_format };
 }
 
 export function updateProfile(patch: Partial<LocalProfile>) {

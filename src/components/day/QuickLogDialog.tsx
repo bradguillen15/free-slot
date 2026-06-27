@@ -7,6 +7,8 @@ import type { TFunction } from "i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,6 +80,7 @@ export function QuickLogDialog({
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const timeFormat = useTimeFormat();
   const [deleting, setDeleting] = useState(false);
 
   const quickLogSchema = useMemo(() => makeQuickLogSchema(t), [t]);
@@ -234,7 +237,13 @@ export function QuickLogDialog({
                       {t("fields.start")}<RequiredMark />
                     </Label>
                     <FormControl>
-                      <Input type="time" className="font-mono-num" data-testid="quicklog-start" {...field} />
+                      <TimeInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        format={timeFormat}
+                        aria-label={t("fields.start")}
+                        data-testid="quicklog-start"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -249,7 +258,13 @@ export function QuickLogDialog({
                       {t("fields.end")}<RequiredMark />
                     </Label>
                     <FormControl>
-                      <Input type="time" className="font-mono-num" data-testid="quicklog-end" {...field} />
+                      <TimeInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        format={timeFormat}
+                        aria-label={t("fields.end")}
+                        data-testid="quicklog-end"
+                      />
                     </FormControl>
                     {isOvernight && (
                       <p className="text-[10px] text-muted-foreground">{t("quickLog.nextDayHint")}</p>

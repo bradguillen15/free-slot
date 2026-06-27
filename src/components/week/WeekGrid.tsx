@@ -3,13 +3,24 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
+import { MIN_PER_DAY, fmtDisplayTime, fmtDisplayTimeFromMin, fmtDuration } from "@/lib/time";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { computeLaneLayout } from "@/lib/daySegments";
 import { Surface } from "@/components/Surface";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  barHeightFromDuration,
+  timelineLogFillLayerClassName,
+  timelinePlannedFillLayerClassName,
+  timelineLabelRowClassName,
+  timelineLogBarClassName,
+  timelineLogLabelClassName,
+  timelinePlannedBarClassName,
+  timelinePlannedLabelClassName,
+} from "@/lib/timelineBarStyles";
 import type { GapWindow } from "@/lib/gaps";
 
-const PX_PER_HOUR = 32;
+const PX_PER_HOUR = 40;
 const HOURS_START = 0;
 const HOURS_END = 24;
 const TOTAL_HOURS = HOURS_END - HOURS_START;
@@ -57,6 +68,7 @@ export function WeekGrid({
   notedDates?: Set<string>;
 }) {
   const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const hours = useMemo(
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
     []
@@ -122,7 +134,7 @@ export function WeekGrid({
               className="absolute left-0 right-0 pl-2 text-[9px] uppercase tracking-wider text-muted-foreground font-mono-num -mt-1.5"
               style={{ top: (h - HOURS_START) * PX_PER_HOUR }}
             >
-              {fmtTimeLabel(`${String(h).padStart(2, "0")}:00`)}
+              {fmtDisplayTime(`${String(h).padStart(2, "0")}:00`, timeFormat)}
             </div>
           ))}
         </div>
@@ -172,7 +184,7 @@ export function WeekGrid({
                     compact && "flex items-center"
                   )}
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
-                  title={`${fromMin(g.start)}–${fromMin(g.end)} · ${fmtDuration(g.durationMin)}`}
+                  title={`${fmtDisplayTimeFromMin(g.start, timeFormat)}–${fmtDisplayTimeFromMin(g.end, timeFormat)} · ${fmtDuration(g.durationMin)}`}
                 >
                   {compact ? (
                     <div className="truncate text-[9px] font-mono-num text-muted-foreground leading-none">
@@ -196,6 +208,7 @@ export function WeekGrid({
             {d.blocks.map((b, i) => {
               const c = clamp(b.seg);
               if (!c) return null;
+              const barHeight = barHeightFromDuration(heightFor(c));
               return (
                 <motion.div
                   key={`${b.id ?? "b"}-${i}`}
@@ -203,18 +216,23 @@ export function WeekGrid({
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.01 }}
                   className={cn(
-                    "absolute left-0.5 right-0.5 rounded-sm px-1 overflow-hidden border-l-2 z-[10]",
-                    onBlockClick ? "cursor-pointer hover:brightness-95 transition-[filter]" : "pointer-events-none"
+                    "absolute left-1 right-1 z-[10]",
+                    timelinePlannedBarClassName,
+                    onBlockClick ? "cursor-pointer pointer-events-auto" : "pointer-events-none"
                   )}
                   style={{
                     top: topFor(c.startMin),
-                    height: Math.max(heightFor(c), 10),
-                    backgroundColor: `${b.color}33`,
+                    height: barHeight,
                     borderLeftColor: b.color,
+                    zIndex: 10 + i,
                   }}
                   onClick={onBlockClick ? (e) => { e.stopPropagation(); onBlockClick(d.iso, b); } : undefined}
+                  title={`${b.name} · ${fmtDisplayTimeFromMin(c.startMin, timeFormat)}–${fmtDisplayTimeFromMin(c.endMin, timeFormat)}`}
                 >
-                  <div className="text-[10px] font-medium truncate text-foreground/85">{b.name}</div>
+                  <div className={timelinePlannedFillLayerClassName} style={{ backgroundColor: b.color }} />
+                  <div className={timelineLabelRowClassName}>
+                    <span className={timelinePlannedLabelClassName}>{b.name}</span>
+                  </div>
                 </motion.div>
               );
             })}
@@ -313,7 +331,8 @@ function WeekLogBar({
   if (!c) return null;
 
   const top = topFor(c.startMin);
-  const height = Math.max(heightFor(c), 10);
+  const durationPx = heightFor(c);
+  const barHeight = barHeightFromDuration(durationPx);
   const laneWidth = 100 / groupWidth;
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -377,32 +396,37 @@ function WeekLogBar({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1, x: dragOffset.dx, y: dragOffset.dy }}
       transition={{ opacity: {}, scale: {}, x: { duration: 0 }, y: { duration: 0 } }}
       className={cn(
-        "absolute rounded-sm px-1 overflow-hidden shadow-soft z-[20] select-none",
+        timelineLogBarClassName,
+        "z-[20] select-none",
         draggable
           ? "cursor-grab touch-none active:cursor-grabbing"
           : onClick
-          ? "cursor-pointer hover:brightness-90 transition-[filter]"
+          ? "cursor-pointer"
           : "pointer-events-none"
       )}
       style={{
         top,
-        height,
-        left: `calc(${lane * laneWidth}% + 2px)`,
-        width: `calc(${laneWidth}% - 4px)`,
-        backgroundColor: log.color,
+        height: barHeight,
+        left: `calc(${lane * laneWidth}% + 3px)`,
+        width: `calc(${laneWidth}% - 6px)`,
+        zIndex: 20 + lane,
       }}
       aria-label={t("calendar.logAria", { name: log.name })}
+      title={log.name}
       onPointerDown={draggable ? onPointerDown : undefined}
       onPointerMove={draggable ? onPointerMove : undefined}
       onPointerUp={draggable ? endDrag : undefined}
       onPointerCancel={draggable ? endDrag : undefined}
       onClick={!draggable && onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
     >
-      <div className="text-[9px] font-semibold truncate text-white">{log.name}</div>
+      <div className={timelineLogFillLayerClassName} style={{ backgroundColor: log.color }} />
+      <div className={timelineLabelRowClassName}>
+        <span className={timelineLogLabelClassName}>{log.name}</span>
+      </div>
     </motion.div>
   );
 }

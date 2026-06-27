@@ -7,6 +7,8 @@ import type { TFunction } from "i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { RequiredMark } from "@/components/ui/required-mark";
 import {
@@ -71,6 +73,7 @@ export function ScheduleBlockDialog({
   const { t } = useTranslation();
   const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
   const { user } = useAuth();
+  const timeFormat = useTimeFormat();
   const mode = user ? "cloud" : "guest";
 
   const scheduleBlockSchema = useMemo(() => makeScheduleBlockSchema(t), [t]);
@@ -176,7 +179,13 @@ export function ScheduleBlockDialog({
                       {t("fields.start")}<RequiredMark />
                     </Label>
                     <FormControl>
-                      <Input type="time" className="font-mono-num" {...field} />
+                      <TimeInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        format={timeFormat}
+                        aria-label={t("fields.start")}
+                        data-testid="schedule-block-start"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -191,7 +200,13 @@ export function ScheduleBlockDialog({
                       {t("fields.end")}<RequiredMark />
                     </Label>
                     <FormControl>
-                      <Input type="time" className="font-mono-num" {...field} />
+                      <TimeInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        format={timeFormat}
+                        aria-label={t("fields.end")}
+                        data-testid="schedule-block-end"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

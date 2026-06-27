@@ -15,6 +15,7 @@ vi.mock("@/lib/dataStore", () => ({
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null }),
 }));
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
 import { useCalendarDays } from "@/lib/calendarDays";
 import MonthPage from "./MonthPage";
 
@@ -162,10 +163,11 @@ describe("MonthPage", () => {
     renderMonth();
     const cell = screen.getByLabelText("Open day view for 2026-06-10");
     await user.hover(coloredSegments(cell)[0]);
-    const tooltip = await screen.findByRole("tooltip");
+    const tooltip = await screen.findByTestId("month-segment-tooltip");
     expect(tooltip).toHaveTextContent("Logged");
     expect(tooltip).toHaveTextContent("Team meeting");
     expect(tooltip).toHaveTextContent("10:00");
+    expect(tooltip.className).toMatch(/surface-elevated/);
   });
 
   it("shows a planned schedule tooltip on hover", async () => {

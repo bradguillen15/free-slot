@@ -27,6 +27,7 @@ export type GuestProfile = {
   weekly_review_day?: number;
   onboarding_completed?: boolean;
   onboarding_skipped?: boolean;
+  time_format?: "12h" | "24h";
 };
 
 export type GuestScheduleBlock = {

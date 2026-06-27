@@ -52,7 +52,7 @@ test.describe("Notes page — standing note", () => {
     await seedGuest(page, skip);
     await page.goto("/app/notes");
 
-    const editor = page.locator(".ProseMirror[contenteditable='true']").first();
+    const editor = page.locator(".tiptap.ProseMirror[contenteditable='true']").first();
     await editor.click();
     await editor.pressSequentially("Running goals");
     await expect(editor).toContainText("Running goals");
@@ -67,6 +67,27 @@ test.describe("Notes page — standing note", () => {
       },
       { timeout: 3000 }
     ).not.toBeNull();
+  });
+
+  test("bullet list renders visible list markers in the standing note", async ({ page }) => {
+    await seedGuest(page, skip);
+    await page.goto("/app/notes");
+
+    const standing = page.getByRole("heading", { name: /standing note/i }).locator("..");
+    const editor = standing.locator(".ProseMirror[contenteditable='true']");
+    await editor.click();
+    await standing.getByRole("button", { name: "Bullet list" }).click();
+    await editor.pressSequentially("First item");
+    await editor.press("Enter");
+    await editor.pressSequentially("Second item");
+
+    const list = editor.locator("ul");
+    await expect(list).toBeVisible();
+    await expect(list.locator("li")).toHaveCount(2);
+
+    await expect
+      .poll(async () => list.evaluate((el) => getComputedStyle(el).listStyleType))
+      .toMatch(/disc/i);
   });
 });
 

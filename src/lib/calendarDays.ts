@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { addDaysISO, expandRange, isoToWeekday, toMin, todayISO } from "@/lib/time";
+import { addDaysISO, isoToWeekday, toMin, todayISO } from "@/lib/time";
 import { findFreeWindows, totalFreeMinutes } from "@/lib/gaps";
 import type { LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import { useScheduleBlocks, useTimeLogsInRange, useVisibleCategories, useProfile } from "@/lib/dataStore";
-import { segmentsForLogOnDay } from "@/lib/daySegments";
+import { segmentsForLogOnDay, visibleBlockSegments } from "@/lib/daySegments";
 
 type Seg = { startMin: number; endMin: number };
 
@@ -107,9 +107,9 @@ export function buildDayCells({
     });
 
     const blockSegs: DayCellBlock[] = dayBlocks.flatMap((b) =>
-      expandRange(toMin(b.start_time), toMin(b.end_time)).map(([a, c]) => ({
+      visibleBlockSegments(b, dayLogs, iso).map((seg) => ({
         id: b.id,
-        seg: { startMin: a, endMin: c },
+        seg,
         name: b.name,
         color: b.color,
       }))
