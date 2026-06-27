@@ -3,7 +3,7 @@ process.env.TZ = "America/New_York";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { seedGuestData } from "../test/factories";
 import { migrateGuestToCloud } from "./migrateGuest";
-import { hasGuestData, DEFAULT_CATEGORY_SEED, type LocalCategory } from "./localStore";
+import { hasGuestData, DEFAULT_CATEGORY_SEED, updateProfile, type LocalCategory } from "./localStore";
 
 const {
   mockCategories,
@@ -122,6 +122,19 @@ describe("migrateGuestToCloud — happy path", () => {
       expect.objectContaining({ onboarding_completed: true, time_format: "24h" }),
     );
     expect(mockWeeklyPriorities.upsertMany).toHaveBeenCalled();
+  });
+
+  it("preserves a 12h time_format preference during profile migration", async () => {
+    seedGuestData();
+    updateProfile({ time_format: "12h" });
+    setupHappyPath();
+
+    await migrateGuestToCloud("u1");
+
+    expect(mockProfiles.update).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({ time_format: "12h" }),
+    );
   });
 
   it("remaps log category ids from local to cloud", async () => {
