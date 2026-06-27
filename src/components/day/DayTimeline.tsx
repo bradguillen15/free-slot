@@ -5,6 +5,18 @@ import { StickyNote } from "lucide-react";
 import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { computeLaneLayout, segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
+import {
+  barHeightFromDuration,
+  isCompactBar,
+  timelineLogFillLayerClassName,
+  timelinePlannedFillLayerClassName,
+  timelineLabelRowClassName,
+  timelineLabelStackClassName,
+  timelineLogBarClassName,
+  timelineLogLabelClassName,
+  timelinePlannedBarClassName,
+  timelinePlannedLabelClassName,
+} from "@/lib/timelineBarStyles";
 import type { Category } from "./QuickLogDialog";
 
 export type ScheduleBlock = {
@@ -305,9 +317,6 @@ export function DayTimeline({
   );
 }
 
-/** Below this bar height two text rows don't fit — collapse to one line. */
-const COMPACT_BAR_PX = 36;
-
 function BlockBar({
   seg, color, name, lane, groupWidth, onClick,
 }: {
@@ -320,8 +329,9 @@ function BlockBar({
 }) {
   const { t } = useTranslation();
   const top = (seg.startMin / 60) * PX_PER_HOUR;
-  const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
-  const compact = height < COMPACT_BAR_PX;
+  const durationPx = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
+  const barHeight = barHeightFromDuration(durationPx);
+  const compact = isCompactBar(barHeight);
   const pct = 100 / groupWidth;
   return (
     <motion.div
@@ -329,30 +339,30 @@ function BlockBar({
       animate={{ opacity: 1, x: 0 }}
       data-timeline-block=""
       className={cn(
-        "absolute rounded-md px-2 text-[11px] font-medium overflow-hidden border-l-[3px]",
-        compact ? "py-0 flex items-center" : "py-1",
-        onClick ? "cursor-pointer pointer-events-auto hover:brightness-95 transition-[filter]" : "pointer-events-none"
+        timelinePlannedBarClassName,
+        onClick ? "cursor-pointer pointer-events-auto" : "pointer-events-none"
       )}
       style={{
         top,
-        height: Math.max(height, 14),
-        left: `${lane * pct}%`,
-        width: `${pct}%`,
-        paddingRight: lane < groupWidth - 1 ? 3 : undefined,
+        height: barHeight,
+        left: `calc(${lane * pct}% + 3px)`,
+        width: `calc(${pct}% - 6px)`,
         borderLeftColor: color,
-        backgroundColor: `${color}22`,
-        color: "hsl(var(--foreground) / 0.85)",
+        zIndex: 10,
       }}
       onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
       title={`${name} · ${t("day.planned")}`}
     >
+      <div className={timelinePlannedFillLayerClassName} style={{ backgroundColor: color }} />
       {compact ? (
-        <div className="truncate text-[10px] leading-none">{name}</div>
+        <div className={timelineLabelRowClassName}>
+          <span className={timelinePlannedLabelClassName}>{name}</span>
+        </div>
       ) : (
-        <>
-          <div className="truncate">{name}</div>
-          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("day.planned")}</div>
-        </>
+        <div className={timelineLabelStackClassName}>
+          <span className="truncate text-[11px] font-medium text-foreground/95">{name}</span>
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("day.planned")}</span>
+        </div>
       )}
     </motion.div>
   );
@@ -374,8 +384,10 @@ function LogBar({
 }) {
   const { t } = useTranslation();
   const top = (seg.startMin / 60) * PX_PER_HOUR;
-  const height = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
-  const compact = height < COMPACT_BAR_PX;
+  const durationPx = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
+  const barHeight = barHeightFromDuration(durationPx);
+  const durationMin = seg.endMin - seg.startMin;
+  const compact = isCompactBar(barHeight);
   const pct = 100 / groupWidth;
   const [dragDy, setDragDy] = useState(0);
   const dragRef = useRef<{ startY: number; origStart: number; origEnd: number; moved: boolean } | null>(null);
@@ -444,41 +456,40 @@ function LogBar({
         y: { duration: 0 },
       }}
       className={cn(
-        "absolute rounded-md px-2 text-[11px] font-semibold overflow-hidden shadow-soft select-none pointer-events-auto",
-        compact ? "py-0 flex items-center" : "py-1",
+        timelineLogBarClassName,
+        "select-none pointer-events-auto",
         draggable ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-pointer"
       )}
       style={{
         top,
-        height: Math.max(height, 14),
-        left: `${lane * pct}%`,
-        width: `${pct}%`,
-        paddingRight: lane < groupWidth - 1 ? 3 : undefined,
-        backgroundColor: color,
-        color: "white",
+        height: barHeight,
+        left: `calc(${lane * pct}% + 3px)`,
+        width: `calc(${pct}% - 6px)`,
+        zIndex: 20 + lane,
       }}
       onPointerDown={draggable ? onPointerDown : undefined}
       onPointerMove={draggable ? onPointerMove : undefined}
       onPointerUp={draggable ? endDrag : undefined}
       onPointerCancel={draggable ? endDrag : undefined}
       onClick={!draggable ? handleClick : undefined}
-      title={draggable ? t("day.dragToReschedule") : undefined}
+      title={name}
     >
+      <div className={timelineLogFillLayerClassName} style={{ backgroundColor: color }} />
       {compact ? (
-        <div className="truncate text-[10px] leading-none flex items-center gap-1">
-          {name} · {fmtDuration(seg.endMin - seg.startMin)}
+        <div className={cn(timelineLabelRowClassName, "gap-1")}>
+          <span className={timelineLogLabelClassName}>{name}</span>
           {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
         </div>
       ) : (
-        <>
-          <div className="truncate flex items-center gap-1">
-            {name}
+        <div className={timelineLabelStackClassName}>
+          <div className={cn(timelineLogLabelClassName, "text-[11px] flex items-center gap-1")}>
+            <span className="truncate">{name}</span>
             {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
           </div>
-          <div className="text-[9px] uppercase tracking-wider opacity-80 font-mono-num">
-            {fmtDuration(seg.endMin - seg.startMin)}
-          </div>
-        </>
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-mono-num">
+            {fmtDuration(durationMin)}
+          </span>
+        </div>
       )}
     </motion.div>
   );

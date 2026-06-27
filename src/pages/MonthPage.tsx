@@ -70,7 +70,12 @@ function MonthSegmentBar({
           }}
         />
       </TooltipTrigger>
-      <TooltipContent side="right" className="bg-surface border-border max-w-[200px]">
+      <TooltipContent
+        side="right"
+        sideOffset={6}
+        data-testid="month-segment-tooltip"
+        className="max-w-[200px] bg-[hsl(var(--surface-elevated))] text-foreground shadow-elevated"
+      >
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{kindLabel}</div>
         <div className="text-xs font-medium">{name}</div>
         <div className="text-[10px] text-muted-foreground font-mono-num">

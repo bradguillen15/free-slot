@@ -56,10 +56,10 @@ describe("WeekGrid — log drag", () => {
     );
 
     const logEl = screen.getByLabelText("Log: Focus");
-    // 64px down at 32px/hr → 120 min delta → snapped 120 → newStart=660 newEnd=720
+    // 80px down at 40px/hr → 120 min delta → snapped 120 → newStart=660 newEnd=720
     fireEvent.pointerDown(logEl, { clientX: 200, clientY: 200, pointerId: 1 });
-    fireEvent.pointerMove(logEl, { clientX: 200, clientY: 264, pointerId: 1 });
-    fireEvent.pointerUp(logEl, { clientX: 200, clientY: 264, pointerId: 1 });
+    fireEvent.pointerMove(logEl, { clientX: 200, clientY: 280, pointerId: 1 });
+    fireEvent.pointerUp(logEl, { clientX: 200, clientY: 280, pointerId: 1 });
 
     expect(spy).toHaveBeenCalledWith("l1", "2026-06-15", 660, 720);
   });
@@ -100,8 +100,8 @@ describe("WeekGrid — log drag", () => {
 
     const focus = screen.getByLabelText("Log: Focus");
     const meeting = screen.getByLabelText("Log: Meeting");
-    expect(focus).toHaveStyle({ left: "calc(0% + 2px)", width: "calc(50% - 4px)" });
-    expect(meeting).toHaveStyle({ left: "calc(50% + 2px)", width: "calc(50% - 4px)" });
+    expect(focus).toHaveStyle({ left: "calc(0% + 3px)", width: "calc(50% - 6px)" });
+    expect(meeting).toHaveStyle({ left: "calc(50% + 3px)", width: "calc(50% - 6px)" });
   });
 });
 

@@ -81,7 +81,7 @@ describe("DayTimeline collision rendering", () => {
 
     const bars = Array.from(container.querySelectorAll<HTMLElement>("[data-timeline-block]"));
     expect(bars).toHaveLength(2);
-    expect(bars.map((bar) => bar.style.left)).toEqual(["0%", "0%"]);
-    expect(bars.map((bar) => bar.style.width)).toEqual(["100%", "100%"]);
+    expect(bars.map((bar) => bar.style.left)).toEqual(["calc(0% + 3px)", "calc(0% + 3px)"]);
+    expect(bars.map((bar) => bar.style.width)).toEqual(["calc(100% - 6px)", "calc(100% - 6px)"]);
   });
 });

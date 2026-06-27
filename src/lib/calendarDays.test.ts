@@ -88,6 +88,22 @@ describe("buildDayCells — blocks", () => {
     expect(cells[0].blocks[0].color).toBe("#abc");
   });
 
+  it("clips schedule blocks where time has been logged", () => {
+    const block = makeBlock({ start_time: "09:00", end_time: "12:00", days_of_week: [1] });
+    const log = makeLog({ start_time: "09:00", end_time: "10:30" });
+    const cells = buildDayCells({ ...BASE_INPUT, blocks: [block], logs: [log] });
+    expect(cells[0].blocks).toEqual([
+      expect.objectContaining({ seg: { startMin: 630, endMin: 720 } }),
+    ]);
+  });
+
+  it("removes schedule blocks fully covered by a log", () => {
+    const block = makeBlock({ start_time: "13:00", end_time: "14:00", days_of_week: [1] });
+    const log = makeLog({ start_time: "12:30", end_time: "14:30" });
+    const cells = buildDayCells({ ...BASE_INPUT, blocks: [block], logs: [log] });
+    expect(cells[0].blocks).toHaveLength(0);
+  });
+
   it("expands an overnight block: segment before midnight on Mon, after midnight on Tue", () => {
     const block = makeBlock({ start_time: "23:00", end_time: "01:00", days_of_week: [1] });
     const cells = buildDayCells({ ...BASE_INPUT, blocks: [block] });
