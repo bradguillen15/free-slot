@@ -68,6 +68,11 @@ describe("mapProfile", () => {
     const r = { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, time_format: "12h" };
     expect(mapProfile(r as Record<string, unknown>).time_format).toBe("12h");
   });
+
+  it("falls back to 24h for unexpected time_format values", () => {
+    const r = { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, time_format: "unexpected" };
+    expect(mapProfile(r as Record<string, unknown>).time_format).toBe("24h");
+  });
 });
 
 describe("mapWeeklyPlan", () => {

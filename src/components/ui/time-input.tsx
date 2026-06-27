@@ -35,6 +35,7 @@ type Props = {
   disabled?: boolean;
   className?: string;
   "data-testid"?: string;
+  "aria-label"?: string;
 };
 
 export function TimeInput({
@@ -44,6 +45,7 @@ export function TimeInput({
   disabled,
   className,
   "data-testid": dataTestId,
+  "aria-label": ariaLabel = "Time",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => fmtFieldTime(value, format));
@@ -166,7 +168,7 @@ export function TimeInput({
           data-testid={dataTestId}
           value={draft}
           disabled={disabled}
-          aria-label="Time"
+          aria-label={ariaLabel}
           className="w-full flex-1 bg-transparent font-mono-num outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
           onChange={(e) => onFieldChange(e.target.value)}
           onClick={() => !disabled && setOpen(true)}

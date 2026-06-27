@@ -90,4 +90,27 @@ describe("RichTextEditor", () => {
     act(() => vi.advanceTimersByTime(300));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: "doc" }));
   });
+
+  it("flushes a pending edit before the content key changes", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <RichTextEditor
+        contentKey="2026-06-19"
+        initialContent={null}
+        onChange={onChange}
+      />
+    );
+    fireEvent.click(screen.getByTestId("editor-content"));
+    expect(onChange).not.toHaveBeenCalled();
+
+    rerender(
+      <RichTextEditor
+        contentKey="2026-06-20"
+        initialContent={null}
+        onChange={onChange}
+      />
+    );
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: "doc" }));
+  });
 });

@@ -58,9 +58,9 @@ export default function SettingsPage() {
     const previous = profileRaw?.time_format === "12h" ? "12h" : "24h";
     try {
       await updateProfile(mode, user?.id ?? null, { time_format: timeFormat });
-      form.setValue("timeFormat", timeFormat, { shouldDirty: false });
+      form.resetField("timeFormat", { defaultValue: timeFormat });
     } catch (err: unknown) {
-      form.setValue("timeFormat", previous, { shouldDirty: false });
+      form.resetField("timeFormat", { defaultValue: previous });
       toast.error(err instanceof Error ? err.message : t("settings.couldNotSavePrefs"));
     }
   };

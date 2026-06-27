@@ -134,8 +134,11 @@ export async function migrateGuestToCloud(userId: string) {
     peak_hours?: typeof snap.profile.peak_hours;
     include_weekends?: boolean;
     weekly_review_day?: number;
+    time_format?: typeof snap.profile.time_format;
     onboarding_skipped?: boolean;
-  } = {};
+  } = {
+    time_format: snap.profile.time_format,
+  };
   if (snap.profile.onboarding_completed) {
     profileUpdate.onboarding_completed = true;
     profileUpdate.peak_hours = snap.profile.peak_hours;

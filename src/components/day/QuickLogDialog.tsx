@@ -241,6 +241,7 @@ export function QuickLogDialog({
                         value={field.value}
                         onChange={field.onChange}
                         format={timeFormat}
+                        aria-label={t("fields.start")}
                         data-testid="quicklog-start"
                       />
                     </FormControl>
@@ -261,6 +262,7 @@ export function QuickLogDialog({
                         value={field.value}
                         onChange={field.onChange}
                         format={timeFormat}
+                        aria-label={t("fields.end")}
                         data-testid="quicklog-end"
                       />
                     </FormControl>

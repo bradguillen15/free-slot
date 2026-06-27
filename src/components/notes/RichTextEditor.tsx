@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,18 @@ export function RichTextEditor({
   className,
 }: Props) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingJsonRef = useRef<object | null>(null);
+
+  const flushPending = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (pendingJsonRef.current) {
+      onChange(pendingJsonRef.current);
+      pendingJsonRef.current = null;
+    }
+  }, [onChange]);
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -40,24 +52,25 @@ export function RichTextEditor({
       },
     },
     onUpdate({ editor }) {
+      const nextJson = editor.getJSON();
+      pendingJsonRef.current = nextJson;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        onChange(editor.getJSON());
+        onChange(nextJson);
+        pendingJsonRef.current = null;
+        debounceRef.current = null;
       }, 300);
     },
   });
 
   useEffect(() => {
     if (!editor) return;
+    flushPending();
     editor.commands.setContent(initialContent ?? EMPTY_TIPTAP_DOC, { emitUpdate: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentKey]);
 
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
+  useEffect(() => () => flushPending(), [flushPending]);
 
   return (
     <div

@@ -183,6 +183,7 @@ export function ScheduleBlockDialog({
                         value={field.value}
                         onChange={field.onChange}
                         format={timeFormat}
+                        aria-label={t("fields.start")}
                         data-testid="schedule-block-start"
                       />
                     </FormControl>
@@ -203,6 +204,7 @@ export function ScheduleBlockDialog({
                         value={field.value}
                         onChange={field.onChange}
                         format={timeFormat}
+                        aria-label={t("fields.end")}
                         data-testid="schedule-block-end"
                       />
                     </FormControl>

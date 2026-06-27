@@ -117,7 +117,10 @@ describe("migrateGuestToCloud — happy path", () => {
     expect(mockScheduleBlocks.insertMany).toHaveBeenCalled();
     expect(mockTimeLogs.listInRange).toHaveBeenCalledWith("u1", expect.any(String), expect.any(String));
     expect(mockTimeLogs.insertMany).toHaveBeenCalled();
-    expect(mockProfiles.update).toHaveBeenCalledWith("u1", expect.objectContaining({ onboarding_completed: true }));
+    expect(mockProfiles.update).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({ onboarding_completed: true, time_format: "24h" }),
+    );
     expect(mockWeeklyPriorities.upsertMany).toHaveBeenCalled();
   });
 

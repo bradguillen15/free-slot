@@ -99,6 +99,14 @@ describe("createSupabaseProvider", () => {
       expect(selectArgs).toContain("onboarding_skipped");
       expect(selectArgs).toContain("time_format");
     });
+
+    it("writes time_format in profiles.update payload", async () => {
+      queueTableResult("profiles", { data: null });
+      await provider.profiles.update(USER_ID, { time_format: "12h" });
+      const call = fromCalls.find((c) => c.table === "profiles");
+      const updateArgs = call?.methods.find(([m]) => m === "update")?.[1][0] as Record<string, unknown>;
+      expect(updateArgs).toMatchObject({ time_format: "12h" });
+    });
   });
 
   describe("weeklyPlans.getForWeek", () => {

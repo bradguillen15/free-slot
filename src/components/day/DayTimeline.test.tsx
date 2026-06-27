@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { segmentsForLogOnDay, visibleBlockSegments } from "@/lib/daySegments";
 import { DayTimeline, type ScheduleBlock } from "./DayTimeline";
 
-vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
+const timeFormat = vi.hoisted(() => ({ value: "24h" as "24h" | "12h" }));
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => timeFormat.value }));
 
 // Each log only needs start_time/end_time for clipping.
 const log = (start_time: string, end_time: string) => ({ start_time, end_time });
@@ -66,6 +67,23 @@ describe("segmentsForLogOnDay", () => {
 });
 
 describe("DayTimeline collision rendering", () => {
+  it("renders 12-hour labels on the hour rail", () => {
+    timeFormat.value = "12h";
+    const { container } = render(
+      <DayTimeline
+        blocks={[]}
+        logs={[]}
+        categories={[]}
+        onSlotClick={() => {}}
+        currentMinute={null}
+        date="2026-06-15"
+      />
+    );
+
+    expect(container).toHaveTextContent("9 AM");
+    timeFormat.value = "24h";
+  });
+
   it("keeps overlapping schedule blocks full width as background guides", () => {
     const { container } = render(
       <DayTimeline
