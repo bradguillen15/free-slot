@@ -558,12 +558,18 @@ export async function updateProfile(
   userId: string | null,
   patch: Partial<LocalProfile>,
 ) {
+  const queryKey = queryKeys.profile(mode, userId);
+  const qc = getQueryClient();
+
   if (mode === "guest") {
-    localUpdateProfile(patch);
-  } else {
-    await resources.profiles.update(userId!, patch);
+    const next = localUpdateProfile(patch);
+    qc.setQueryData(queryKey, next);
+    return;
   }
-  invalidateProfile(mode, userId);
+  await resources.profiles.update(userId!, patch);
+  qc.setQueryData(queryKey, (prev: LocalProfile | null | undefined) =>
+    prev ? { ...prev, ...patch } : prev,
+  );
 }
 
 export function useInsertTimeLogMutation() {

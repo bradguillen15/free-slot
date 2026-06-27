@@ -22,7 +22,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 const profileData = vi.hoisted(() => ({
-  data: { peak_hours: { start: "08:00", end: "11:00" }, include_weekends: false, weekly_review_day: 2 } as Record<string, unknown> | null,
+  data: { peak_hours: { start: "08:00", end: "11:00" }, include_weekends: false, weekly_review_day: 2, time_format: "24h" } as Record<string, unknown> | null,
 }));
 const refreshProfile = vi.hoisted(() => vi.fn());
 const updateProfileMock = vi.hoisted(() => vi.fn());
@@ -37,11 +37,41 @@ import SettingsPage from "./SettingsPage";
 beforeEach(() => {
   vi.clearAllMocks();
   authState.user = { id: "u1" };
+  profileData.data = {
+    peak_hours: { start: "08:00", end: "11:00" },
+    include_weekends: false,
+    weekly_review_day: 2,
+    time_format: "24h",
+  };
   getUserMock.mockResolvedValue({ data: { user: { email: "user@example.com" } }, error: null });
   signInWithPasswordMock.mockResolvedValue({ error: null });
 });
 
 describe("SettingsPage planner preferences", () => {
+  it("updates the label when 12-hour mode is active", async () => {
+    profileData.data = {
+      ...profileData.data!,
+      time_format: "12h",
+    };
+    renderWithProviders(<SettingsPage />);
+
+    expect(screen.getByText("12-hour time (AM/PM)")).toBeInTheDocument();
+    expect(screen.getByText(/Showing 9 AM, 2:30 PM/)).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Switch to 24-hour format" })).toBeInTheDocument();
+  });
+
+  it("persists time format immediately when the toggle changes", async () => {
+    const user = userEvent.setup();
+    updateProfileMock.mockResolvedValue(undefined);
+    renderWithProviders(<SettingsPage />);
+
+    await user.click(screen.getByRole("switch", { name: "Switch to 12-hour AM/PM" }));
+
+    await waitFor(() =>
+      expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", { time_format: "12h" }),
+    );
+  });
+
   it("saves preferences parsed from the form back into the profile shape", async () => {
     const user = userEvent.setup();
     updateProfileMock.mockResolvedValue(undefined);
@@ -53,6 +83,7 @@ describe("SettingsPage planner preferences", () => {
       expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", {
         include_weekends: false,
         weekly_review_day: 2,
+        time_format: "24h",
       }),
     );
   });

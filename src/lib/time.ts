@@ -1,5 +1,7 @@
 // Time utilities for day timeline (minutes since 00:00).
 
+export type TimeFormat = "12h" | "24h";
+
 export const MIN_PER_DAY = 24 * 60;
 
 export function toMin(hhmm: string): number {
@@ -19,6 +21,28 @@ export function fmtTimeLabel(hhmm: string): string {
   const ampm = h >= 12 ? "PM" : "AM";
   const h12 = ((h + 11) % 12) + 1;
   return m === 0 ? `${h12} ${ampm}` : `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+export function fmtDisplayTime(hhmm: string, format: TimeFormat): string {
+  if (format === "24h") return hhmm;
+  return fmtTimeLabel(hhmm);
+}
+
+export function fmtDisplayTimeFromMin(min: number, format: TimeFormat): string {
+  return fmtDisplayTime(fromMin(min), format);
+}
+
+export function to12HourParts(hhmm: string): { hour12: number; minute: number; period: "AM" | "PM" } {
+  const [h24, m] = hhmm.split(":").map(Number);
+  const period: "AM" | "PM" = h24 >= 12 ? "PM" : "AM";
+  const hour12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return { hour12, minute: m || 0, period };
+}
+
+export function from12HourParts(hour12: number, minute: number, period: "AM" | "PM"): string {
+  let h24 = hour12 % 12;
+  if (period === "PM") h24 += 12;
+  return `${String(h24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 export function fmtDuration(mins: number): string {

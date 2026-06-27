@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, fromMin } from "@/lib/time";
+import { MIN_PER_DAY, fmtDisplayTime, fmtDisplayTimeFromMin, fmtDuration } from "@/lib/time";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { computeLaneLayout } from "@/lib/daySegments";
 import { Surface } from "@/components/Surface";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -67,6 +68,7 @@ export function WeekGrid({
   notedDates?: Set<string>;
 }) {
   const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const hours = useMemo(
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
     []
@@ -132,7 +134,7 @@ export function WeekGrid({
               className="absolute left-0 right-0 pl-2 text-[9px] uppercase tracking-wider text-muted-foreground font-mono-num -mt-1.5"
               style={{ top: (h - HOURS_START) * PX_PER_HOUR }}
             >
-              {fmtTimeLabel(`${String(h).padStart(2, "0")}:00`)}
+              {fmtDisplayTime(`${String(h).padStart(2, "0")}:00`, timeFormat)}
             </div>
           ))}
         </div>
@@ -182,7 +184,7 @@ export function WeekGrid({
                     compact && "flex items-center"
                   )}
                   style={{ top: topFor(c.startMin), height: heightFor(c) }}
-                  title={`${fromMin(g.start)}–${fromMin(g.end)} · ${fmtDuration(g.durationMin)}`}
+                  title={`${fmtDisplayTimeFromMin(g.start, timeFormat)}–${fmtDisplayTimeFromMin(g.end, timeFormat)} · ${fmtDuration(g.durationMin)}`}
                 >
                   {compact ? (
                     <div className="truncate text-[9px] font-mono-num text-muted-foreground leading-none">
@@ -225,7 +227,7 @@ export function WeekGrid({
                     zIndex: 10 + i,
                   }}
                   onClick={onBlockClick ? (e) => { e.stopPropagation(); onBlockClick(d.iso, b); } : undefined}
-                  title={`${b.name} · ${fromMin(c.startMin)}–${fromMin(c.endMin)}`}
+                  title={`${b.name} · ${fmtDisplayTimeFromMin(c.startMin, timeFormat)}–${fmtDisplayTimeFromMin(c.endMin, timeFormat)}`}
                 >
                   <div className={timelinePlannedFillLayerClassName} style={{ backgroundColor: b.color }} />
                   <div className={timelineLabelRowClassName}>

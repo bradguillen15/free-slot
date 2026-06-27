@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StickyNote } from "lucide-react";
-import { MIN_PER_DAY, fmtDuration, fmtTimeLabel, toMin } from "@/lib/time";
+import { MIN_PER_DAY, fmtDuration, fmtDisplayTime, toMin } from "@/lib/time";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { cn } from "@/lib/utils";
 import { computeLaneLayout, segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
 import {
@@ -69,6 +70,7 @@ export function DayTimeline({
   onBlockClick?: (block: ScheduleBlock) => void;
   onLogClick?: (log: TimeLog) => void;
 }) {
+  const timeFormat = useTimeFormat();
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
     [categories]
@@ -225,7 +227,7 @@ export function DayTimeline({
             className="absolute left-0 w-16 pl-3 -mt-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-mono-num pointer-events-none select-none z-[35]"
             style={{ top: h * PX_PER_HOUR }}
           >
-            {fmtTimeLabel(`${String(h).padStart(2, "0")}:00`)}
+            {fmtDisplayTime(`${String(h).padStart(2, "0")}:00`, timeFormat)}
           </div>
         ))}
 

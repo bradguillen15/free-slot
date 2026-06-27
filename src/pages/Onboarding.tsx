@@ -49,7 +49,7 @@ export default function Onboarding() {
   // Step 3 — preferences, pre-populated from saved profile on first load only
   const form = useForm<PlannerPrefsValues>({
     resolver: zodResolver(plannerPrefsSchema),
-    defaultValues: { includeWeekends: true, weeklyReviewDay: 0 },
+    defaultValues: { includeWeekends: true, weeklyReviewDay: 0, timeFormat: "24h" },
   });
   const prefsLoaded = useRef(false);
 
@@ -62,6 +62,7 @@ export default function Onboarding() {
     form.reset({
       includeWeekends: profile.include_weekends ?? true,
       weeklyReviewDay: profile.weekly_review_day ?? 0,
+      timeFormat: profile.time_format === "12h" ? "12h" : "24h",
     });
     prefsLoaded.current = true;
   }, [profile, form]);
@@ -86,6 +87,7 @@ export default function Onboarding() {
       await updateProfile(mode, user?.id ?? null, {
         include_weekends: values.includeWeekends,
         weekly_review_day: values.weeklyReviewDay,
+        time_format: values.timeFormat,
         onboarding_completed: true,
       });
       toast.success(t("onboarding.allSet"));

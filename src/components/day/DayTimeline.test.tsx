@@ -1,7 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { segmentsForLogOnDay, visibleBlockSegments } from "@/lib/daySegments";
 import { DayTimeline, type ScheduleBlock } from "./DayTimeline";
+
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
 
 // Each log only needs start_time/end_time for clipping.
 const log = (start_time: string, end_time: string) => ({ start_time, end_time });

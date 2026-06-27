@@ -15,6 +15,7 @@ vi.mock("@/lib/dataStore", () => ({
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null }),
 }));
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
 import { useCalendarDays } from "@/lib/calendarDays";
 import MonthPage from "./MonthPage";
 

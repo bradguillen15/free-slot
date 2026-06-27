@@ -4,7 +4,11 @@ import userEvent from "@testing-library/user-event";
 import type { UserEvent } from "@testing-library/user-event";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/lib/dataStore", () => ({ upsertScheduleBlock: vi.fn(), deleteScheduleBlock: vi.fn() }));
+vi.mock("@/lib/dataStore", () => ({
+  upsertScheduleBlock: vi.fn(),
+  deleteScheduleBlock: vi.fn(),
+  useProfile: () => ({ data: { time_format: "24h" } }),
+}));
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));
@@ -50,8 +54,7 @@ describe("ScheduleBlockDialog validation", () => {
     render(<ScheduleBlockDialog {...baseProps} defaultStartTime="09:00" />);
     await user.type(screen.getByPlaceholderText(/e\.g\. Work/), "Focus");
     await selectLabel(user);
-    const timeInputs = document.querySelectorAll('input[type="time"]');
-    fireEvent.change(timeInputs[1], { target: { value: "09:00" } });
+    fireEvent.change(screen.getByTestId("schedule-block-end"), { target: { value: "09:00" } });
 
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByText("End time must differ from start time")).toBeInTheDocument();
@@ -64,9 +67,8 @@ describe("ScheduleBlockDialog validation", () => {
     render(<ScheduleBlockDialog {...baseProps} />);
     await user.type(screen.getByPlaceholderText(/e\.g\. Work/), "Sleep");
     await selectLabel(user);
-    const timeInputs = document.querySelectorAll('input[type="time"]');
-    fireEvent.change(timeInputs[0], { target: { value: "22:00" } });
-    fireEvent.change(timeInputs[1], { target: { value: "06:00" } });
+    fireEvent.change(screen.getByTestId("schedule-block-start"), { target: { value: "22:00" } });
+    fireEvent.change(screen.getByTestId("schedule-block-end"), { target: { value: "06:00" } });
 
     await user.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() =>

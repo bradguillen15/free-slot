@@ -162,6 +162,7 @@ export type Database = {
           onboarding_completed: boolean
           onboarding_skipped: boolean
           peak_hours: Json | null
+          time_format: string
           weekly_review_day: number
         }
         Insert: {
@@ -172,6 +173,7 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_skipped?: boolean
           peak_hours?: Json | null
+          time_format?: string
           weekly_review_day?: number
         }
         Update: {
@@ -182,6 +184,7 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_skipped?: boolean
           peak_hours?: Json | null
+          time_format?: string
           weekly_review_day?: number
         }
         Relationships: []

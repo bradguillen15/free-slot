@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { CalendarViewHeader } from "@/components/calendar/CalendarViewHeader";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { useCalendarDays, type DayCellData } from "@/lib/calendarDays";
-import { fmtDuration, fromMin, todayISO } from "@/lib/time";
+import { fmtDisplayTimeFromMin, fmtDuration, todayISO } from "@/lib/time";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/StatCard";
 import {
@@ -36,8 +37,11 @@ function MonthSegmentBar({
   endMin: number;
 }) {
   const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const [open, setOpen] = useState(false);
   const kindLabel = kind === "planned" ? t("day.planned") : t("day.logged");
+  const startLabel = fmtDisplayTimeFromMin(startMin, timeFormat);
+  const endLabel = fmtDisplayTimeFromMin(endMin, timeFormat);
 
   const blockNavigation = (e: { preventDefault: () => void; stopPropagation: () => void }) => {
     e.preventDefault();
@@ -52,8 +56,8 @@ function MonthSegmentBar({
           aria-label={t("month.segmentTooltip", {
             kind: kindLabel,
             name,
-            start: fromMin(startMin),
-            end: fromMin(endMin),
+            start: startLabel,
+            end: endLabel,
           })}
           className="absolute left-0 w-full rounded-[1px] pointer-events-auto touch-manipulation"
           style={{
@@ -79,7 +83,7 @@ function MonthSegmentBar({
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{kindLabel}</div>
         <div className="text-xs font-medium">{name}</div>
         <div className="text-[10px] text-muted-foreground font-mono-num">
-          {fromMin(startMin)} – {fromMin(endMin)}
+          {startLabel} – {endLabel}
         </div>
       </TooltipContent>
     </Tooltip>

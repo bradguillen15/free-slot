@@ -11,6 +11,8 @@ vi.mock("framer-motion", () => ({
   },
 }));
 
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
+
 function makeDay(iso: string, isToday: boolean, label: string): DayCellData {
   return {
     iso,

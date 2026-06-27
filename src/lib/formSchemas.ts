@@ -53,6 +53,7 @@ export type ChangePasswordValues = z.infer<ReturnType<typeof makeChangePasswordS
 export const plannerPrefsSchema = z.object({
   includeWeekends: z.boolean(),
   weeklyReviewDay: z.number().int().min(0).max(6),
+  timeFormat: z.enum(["12h", "24h"]),
 });
 
 export type PlannerPrefsValues = z.infer<typeof plannerPrefsSchema>;

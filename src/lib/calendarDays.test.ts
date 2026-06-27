@@ -179,7 +179,7 @@ describe("buildDayCells — gaps", () => {
     const cells = buildDayCells({
       ...BASE_INPUT,
       blocks: [block],
-      profile: { peak_hours: { start: "08:00", end: "12:00" }, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, onboarding_skipped: false },
+      profile: { peak_hours: { start: "08:00", end: "12:00" }, include_weekends: false, weekly_review_day: 0, time_format: "24h", onboarding_completed: true, onboarding_skipped: false },
     });
     const hasPeak = cells[0].gaps.some((g) => g.isPeak);
     expect(hasPeak).toBe(true);

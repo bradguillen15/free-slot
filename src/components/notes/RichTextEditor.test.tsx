@@ -70,8 +70,10 @@ describe("RichTextEditor", () => {
     );
 
     const call = vi.mocked(useEditor).mock.calls.at(-1)?.[0];
-    expect(call?.editorProps?.attributes?.class).toContain("tiptap");
-    expect(call?.editorProps?.attributes?.class).toContain("text-sm");
+    const attrs = call?.editorProps?.attributes;
+    const className = attrs && typeof attrs === "object" && "class" in attrs ? attrs.class : "";
+    expect(className).toContain("tiptap");
+    expect(className).toContain("text-sm");
   });
 
   it("calls onChange with Tiptap JSON after 300ms debounce", () => {

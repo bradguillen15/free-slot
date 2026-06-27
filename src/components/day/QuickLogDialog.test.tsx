@@ -3,7 +3,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/lib/dataStore", () => ({ insertTimeLog: vi.fn(), updateTimeLog: vi.fn(), deleteTimeLog: vi.fn() }));
+vi.mock("@/lib/dataStore", () => ({
+  insertTimeLog: vi.fn(),
+  updateTimeLog: vi.fn(),
+  deleteTimeLog: vi.fn(),
+  useProfile: () => ({ data: { time_format: "24h" } }),
+}));
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));

@@ -28,7 +28,8 @@ export function mapTimeLog(r: Record<string, unknown>): LocalTimeLog {
 }
 
 export function mapProfile(r: Record<string, unknown>): LocalProfile {
-  return r as LocalProfile;
+  const time_format = r.time_format === "12h" ? "12h" : "24h";
+  return { ...(r as LocalProfile), time_format };
 }
 
 export function mapWeeklyPlan(r: Record<string, unknown>): WeeklyPlan {
