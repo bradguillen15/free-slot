@@ -1,54 +1,108 @@
 # FreeSlot
 
+**A personal time-awareness app that finds the empty windows in your week — and helps you fill them with what matters.**
+
 > Find the free time you didn't know you had — and spend it on what actually matters.
 
-FreeSlot is a personal time-awareness app. You sketch your fixed weekly schedule (work, sleep, commute, gym), log what you actually do during the day, and FreeSlot automatically surfaces the empty windows in your week. An AI planner can then propose how to fill those windows with activities you care about (Reading, Deep work, Workout, side projects…).
+## Description
+
+FreeSlot lets you sketch your fixed weekly schedule (work, sleep, commute, gym), log what you actually do during the day, and automatically surfaces the empty windows in your week. An AI planner can then propose how to fill those windows with activities you care about — reading, deep work, workouts, side projects, and more.
 
 It works **without an account** — guests get the full local experience backed by `localStorage`. Creating an account unlocks AI planning, cross-device sync, and long-term stats.
 
----
+## Motivation
 
-## Quick start
-
-```bash
-# install
-pnpm install           # or: npm install
-
-# dev server (Vite, http://localhost:8080 by default)
-pnpm dev
-
-# typecheck + production build
-pnpm build
-
-# tests
-pnpm test              # one-shot
-pnpm test:watch        # watch mode
-
-# lint
-pnpm lint
-```
-
-The app boots straight into guest mode — no setup needed to play with it. Cloud mode uses a self-managed Supabase project, configured via `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` (see `docs/MIGRATION_RUNBOOK.md`).
+I kept catching myself wasting time — or, worse, *thinking* I was busy when I wasn't actually spending my hours on things that mattered to me. There was plenty of noise and not much signal: I couldn't tell what I was really doing most days, let alone whether it aligned with what I wanted. Calendars show meetings; they don't show life. So I built FreeSlot — a way to log what I actually do day by day, see which activities dominate my week on a dashboard, and finally answer the honest question: **am I spending my time wisely?**
 
 ---
 
-## What's in the box
+## Quick Start
 
-- **Day view** (`/app`) — hour-by-hour timeline, click any hour to log what you did, optimistic UI, "now" line.
-- **Week view** (`/app/week`) — 7-day grid showing fixed blocks, logged time, and free windows (peak vs off-peak). AI planner overlays suggested slots for signed-in users.
-- **Month view** (`/app/month`) — heatmap-style grid summarising productive vs unproductive minutes per day.
-- **Activities** (`/app/activities`) — what you want to spend more time on, with weekly hour targets and drag-to-rank priorities.
-- **Dashboard** (`/app/dashboard`, account only) — weekly review, planned-vs-actual, AI-generated insights.
-- **Settings** (`/app/settings`, account only) — peak hours, buffer minutes, weekend handling, account deletion.
+No account or backend setup — guest mode runs entirely in your browser.
 
-### Mode switching
+1. **Install dependencies**
 
-| Mode | Storage | AI features | Sync | Trigger |
+   ```bash
+   pnpm install
+   ```
+
+2. **Start the dev server**
+
+   ```bash
+   pnpm dev
+   ```
+
+3. **Open the app**
+
+   Navigate to [http://localhost:8080](http://localhost:8080). Log your day, explore the week view, and see your free windows. Data stays in your browser via `localStorage`.
+
+Want to develop cloud features (sign-in, sync, AI planner)? See [Contributing](#contributing).
+
+---
+
+## Usage
+
+FreeSlot is organized around a simple loop: **define your week → log what you actually do → see where your time goes → adjust**. Everything below is available in guest mode unless noted.
+
+### Calendar views
+
+Three lenses on the same data — switch from the sidebar or the view header.
+
+| View | Route | What you do there |
+|---|---|---|
+| **Day** | `/app` | Hour-by-hour timeline with a live "now" line. Click any hour to **quick-log** what you did; right-click to add a one-off or recurring block. Side panel shows a daily summary and inline **daily / standing notes**. |
+| **Week** | `/app/week` | Seven-day grid with fixed schedule blocks, logged time, and **free windows** (peak vs off-peak). Click cells to log or edit. Signed-in users get an **AI planner** that suggests how to fill gaps. |
+| **Month** | `/app/month` | Heatmap-style month grid — each day shows schedule blocks and logged minutes at a glance. Tap a day to jump into Day view. |
+
+### Schedule (`/app/schedule`)
+
+Map your **recurring week** — work, sleep, commute, gym, meals. Add blocks from presets or build custom ones, drag to reorder, and preview the full week. Edits apply everywhere that block repeats (like a recurring calendar event). Schedule blocks are separate from logs: the plan stays intact while you record what actually happened.
+
+### Activities (`/app/activities`)
+
+Choose **what you want more time for** — reading, deep work, workouts, side projects, etc. Set a weekly hour target per activity, toggle active/inactive, and **drag to rank priorities**. The AI planner (cloud) uses this list to fit activities into your free windows.
+
+### Labels (`/app/labels`)
+
+**Color-coded categories** for every log and activity — grouped into *productive*, *essential*, and *unproductive* buckets. Create custom labels, drag between columns to change type, hide defaults you don't use (history stays intact), and reorder for your dashboard breakdowns.
+
+### Time logging
+
+Log from **Day view** (click an hour) or **Week view** (click a cell). Each entry gets a **label**, start/end time, and optional note. Logs are optimistic — the UI updates instantly while data persists to `localStorage` (guest) or Supabase (cloud).
+
+### Notes (`/app/notes`)
+
+Two kinds of notes, also accessible from the Day view side panel:
+
+- **Daily notes** — one rich-text note per day. Browse past days in a carousel or jump to today.
+- **Standing notes** — a recurring intention or reminder that carries forward until you change it (e.g. "No phone before 9am").
+
+### Dashboard (`/app/dashboard`)
+
+Your weekly command center — available to **guests and signed-in users**:
+
+- **KPIs** — total tracked time, days logged, and (cloud) AI plan slots.
+- **Charts** — logged time per day, time-by-label pie chart, plan-vs-actual comparison.
+- **Label filter** — drill into specific categories.
+- **Customizable cards** — show/hide chart sections to match what you care about.
+- **Weekly review** (cloud) — AI-generated reflection on how the week went.
+
+### Settings (`/app/settings`, account only)
+
+Tune planner preferences (weekend scheduling, weekly review day), change your password, and delete your account. Links to Schedule and Labels management cards for quick access.
+
+### Language
+
+Switch between **English** and **Spanish** from the language picker in the sidebar footer — the whole UI, default label names, and date formatting follow your choice.
+
+### Guest vs cloud
+
+| Mode | Storage | AI planner & review | Sync | How to start |
 |---|---|---|---|---|
-| **Guest** | `localStorage` (monthly buckets for logs) | ❌ | ❌ | Default — no signup |
-| **Cloud** | Supabase (self-managed) with RLS | ✅ | ✅ | Sign in or create account |
+| **Guest** | `localStorage` | ❌ | ❌ | `pnpm dev` — no signup |
+| **Cloud** | Supabase with RLS | ✅ | ✅ | Sign in or create an account |
 
-When a guest signs up, `src/lib/migrateGuest.ts` snapshots their localStorage data and migrates it into the new account.
+When a guest signs up, `src/lib/migrateGuest.ts` snapshots their local data and migrates it into the new account.
 
 ---
 
@@ -124,11 +178,95 @@ supabase/
 
 ## Contributing
 
-1. Read [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and [`docs/DESIGN.md`](./docs/DESIGN.md) before adding features.
-2. Use the **`dataStore` hooks** for any data access in pages — never hit Supabase directly from a page if a Day/Week/Month-equivalent guest view should also work.
-3. Use **semantic design tokens** from `index.css` and `tailwind.config.ts`. Never hardcode colors like `bg-white` or `text-black`.
-4. Database changes go through Supabase migrations. Never edit `src/integrations/supabase/{client,types}.ts` — both are generated.
-5. Run `pnpm test` before opening a PR.
+Want to pull the project down and explore the code? Here's the full local development path.
+
+### Prerequisites
+
+- **Node.js 18+**
+- **pnpm** (`npm install -g pnpm`)
+- Optional for cloud features: [Docker](https://docs.docker.com/get-docker/) + [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started)
+
+### Clone the repo
+
+```bash
+git clone https://github.com/bradguillen15/free-slot.git
+cd free-slot
+```
+
+### Install dependencies
+
+```bash
+pnpm install
+```
+
+### Run locally
+
+Pick the mode that matches what you're working on:
+
+#### Guest mode (default)
+
+No Supabase needed — same as [Quick Start](#quick-start). Use this for UI work, guest flows, and most unit/E2E tests.
+
+```bash
+pnpm dev
+```
+
+#### Local Supabase
+
+Develop or test **sign-in, sync, AI planner, and dashboard** against a backend on your machine. Requires [Docker](https://docs.docker.com/get-docker/) and the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) (`brew install supabase/tap/supabase`).
+
+```bash
+pnpm dev:local
+```
+
+Starts a local Supabase stack, resets the schema, and runs Vite with the committed `.env.dev-local` config — no manual env setup.
+
+#### Hosted Supabase
+
+Connect to your **real cloud project** (staging or production):
+
+1. Follow [`docs/MIGRATION_RUNBOOK.md`](./docs/MIGRATION_RUNBOOK.md) to create and configure a Supabase project.
+2. Copy [`.env.example`](./.env.example) to `.env` and fill in your project values from the Supabase dashboard (Settings → API).
+3. Run `pnpm dev` and sign in at [http://localhost:8080](http://localhost:8080).
+
+### Build for production
+
+```bash
+pnpm build
+```
+
+### Run the test suite
+
+```bash
+# Fast gate: lint + typecheck + unit tests
+pnpm verify:fast
+
+# Full gate (adds guest E2E) — run before opening a PR
+pnpm verify
+```
+
+Individual commands if you need them:
+
+```bash
+pnpm lint          # ESLint
+pnpm typecheck     # TypeScript
+pnpm test          # Vitest (unit)
+pnpm test:e2e      # Playwright (guest flows; first run: pnpm exec playwright install chromium)
+```
+
+### Code conventions
+
+Before adding features, skim [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and [`docs/DESIGN.md`](./docs/DESIGN.md):
+
+- Use **`dataStore` hooks** for data access in pages — guest and cloud share the same shape.
+- Use **semantic design tokens** from `index.css` / `tailwind.config.ts` — no hardcoded colors.
+- Database changes go through **Supabase migrations** — never hand-edit generated files under `src/integrations/supabase/`.
+
+More detail: [`docs/development_guide.md`](./docs/development_guide.md).
+
+### Submit a pull request
+
+This is a private portfolio project, but if you have access and would like to contribute, fork the repository, create a feature branch, and open a pull request against `main`. Run `pnpm verify` before requesting review.
 
 ---
 
