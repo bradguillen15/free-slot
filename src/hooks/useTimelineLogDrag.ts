@@ -47,23 +47,33 @@ export function useTimelineLogDrag({
     setOffset({ dx, dy });
   };
 
+  const resetDrag = (pointerId?: number) => {
+    setIsDragging(false);
+    setOffset({ dx: 0, dy: 0 });
+    if (pointerId !== undefined) {
+      try { captureRef.current?.releasePointerCapture(pointerId); } catch { /* ignore */ }
+    }
+    captureRef.current = null;
+    dragRef.current = null;
+  };
+
   const endDrag = (e: React.PointerEvent) => {
     if (!dragRef.current) {
       setOffset({ dx: 0, dy: 0 });
       return;
     }
     const { moved, startX, startY, fromBar } = dragRef.current;
-    dragRef.current = null;
-    setIsDragging(false);
-    setOffset({ dx: 0, dy: 0 });
-    try { captureRef.current?.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-    captureRef.current = null;
+    resetDrag(e.pointerId);
 
     if (!moved) {
       if (fromBar && allowBarDrag) onTap?.();
       return;
     }
     onComplete(e, { x: startX, y: startY });
+  };
+
+  const cancelDrag = (e: React.PointerEvent) => {
+    resetDrag(e.pointerId);
   };
 
   return {
@@ -73,6 +83,6 @@ export function useTimelineLogDrag({
     barPointerDown: allowBarDrag ? startDrag(true) : undefined,
     onPointerMove: enabled ? onPointerMove : undefined,
     onPointerUp: enabled ? endDrag : undefined,
-    onPointerCancel: enabled ? endDrag : undefined,
+    onPointerCancel: enabled ? cancelDrag : undefined,
   };
 }

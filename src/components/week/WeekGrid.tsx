@@ -379,7 +379,9 @@ function WeekLogBar({
         }
       }
 
-      onReschedule(log.id, newDate, newStart, newEnd);
+      if (newDate !== dayISO || newStart !== origStart || newEnd !== origEnd) {
+        onReschedule(log.id, newDate, newStart, newEnd);
+      }
     },
   });
 

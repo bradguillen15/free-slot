@@ -94,14 +94,20 @@ function useInfiniteWheel(
     if (!open) wasOpen.current = false;
   }, [open, selectedVirtualIndex]);
 
+  const clearPendingScrollCommit = () => {
+    if (scrollTimer.current) {
+      clearTimeout(scrollTimer.current);
+      scrollTimer.current = null;
+    }
+  };
+
   useEffect(() => {
-    return () => {
-      if (scrollTimer.current) clearTimeout(scrollTimer.current);
-    };
-  }, []);
+    if (!open) clearPendingScrollCommit();
+    return clearPendingScrollCommit;
+  }, [open]);
 
   const commitScroll = (scrollTop: number) => {
-    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    clearPendingScrollCommit();
     scrollTimer.current = setTimeout(() => {
       const rawIndex = Math.min(
         Math.max(Math.round(scrollTop / ROW_HEIGHT), 0),
@@ -112,6 +118,7 @@ function useInfiniteWheel(
       onSelect(items[itemIndex].value);
       scrollWheelTo(scrollerRef.current, nextIndex * ROW_HEIGHT);
       setCenterIndex(nextIndex);
+      scrollTimer.current = null;
     }, 120);
   };
 
@@ -125,6 +132,7 @@ function useInfiniteWheel(
   };
 
   const selectVirtualIndex = (index: number) => {
+    clearPendingScrollCommit();
     const itemIndex = positiveModulo(index, items.length);
     const nextIndex = WHEEL_MIDDLE_CYCLE * items.length + itemIndex;
     onSelect(items[itemIndex].value);

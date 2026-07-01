@@ -131,11 +131,17 @@ A right-click or long-press on an empty hour slot in `DayTimeline` SHALL offer a
 
 All new interactions (block edit, log edit, block create from timeline) SHALL work in both guest mode (localStorage via `dataStore`) and cloud mode (Supabase). No direct `supabase.from()` calls in page or timeline components — use `upsertScheduleBlock`, `deleteScheduleBlock`, `updateTimeLog`, `insertTimeLog` from `dataStore`.
 
-#### Scenario: Guest user edits a schedule block
+#### Scenario: Guest user logs time from a schedule block
 
-- **WHEN** a guest user (not signed in) clicks a schedule block bar
-- **THEN** `ScheduleBlockDialog` opens and saves via localStorage
-- **AND** the timeline reflects the change without requiring sign-in
+- **WHEN** a guest user (not signed in) clicks a schedule block bar in the day timeline
+- **THEN** `QuickLogDialog` opens prefilled with that block's name and time span via `logDefaultsFromBlock`
+- **AND** saving the log persists via localStorage without requiring sign-in
+
+#### Scenario: Signed-in user logs time from a schedule block
+
+- **WHEN** a signed-in user clicks a schedule block bar in the day timeline
+- **THEN** `QuickLogDialog` opens with the same prefilled fields as guest mode
+- **AND** saving the log persists via Supabase through `insertTimeLog` / `updateTimeLog` from `dataStore`
 
 ---
 

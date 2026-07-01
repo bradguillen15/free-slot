@@ -128,4 +128,46 @@ describe("useTimelineLogDrag", () => {
 
     expect(onTap).not.toHaveBeenCalled();
   });
+
+  it("does not call onComplete or onTap when the pointer is cancelled", () => {
+    const onComplete = vi.fn();
+    const onTap = vi.fn();
+    const captureTargetRef = createMutableRef<HTMLDivElement>();
+    const { result } = renderHook(() =>
+      useTimelineLogDrag({
+        enabled: true,
+        allowBarDrag: true,
+        captureTargetRef,
+        onComplete,
+        onTap,
+      }),
+    );
+
+    const el = document.createElement("div");
+    captureTargetRef.current = el;
+    el.setPointerCapture = vi.fn();
+    el.releasePointerCapture = vi.fn();
+
+    const down = {
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn(),
+      clientX: 100,
+      clientY: 100,
+      pointerId: 4,
+      currentTarget: el,
+    } as unknown as React.PointerEvent;
+
+    act(() => {
+      result.current.barPointerDown?.(down);
+      result.current.onPointerMove?.({
+        ...down,
+        clientX: 100 + TIMELINE_DRAG_CANCEL_PX + 1,
+        clientY: 100,
+      } as React.PointerEvent);
+      result.current.onPointerCancel?.({ ...down, pointerId: 4 } as React.PointerEvent);
+    });
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onTap).not.toHaveBeenCalled();
+  });
 });

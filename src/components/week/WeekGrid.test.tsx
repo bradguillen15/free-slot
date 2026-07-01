@@ -2,12 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import "@/i18n";
-import {
-  WeekGrid,
-  type DayCellData,
-  MOBILE_WEEK_GRID_MIN_WIDTH_PX,
-  MOBILE_DAY_COL_PX,
-} from "./WeekGrid";
+import { WeekGrid, type DayCellData } from "./WeekGrid";
+
+const EXPECTED_MOBILE_WEEK_GRID_MIN_WIDTH_PX = 860;
+const EXPECTED_MOBILE_DAY_COL_PX = 116;
 
 vi.mock("framer-motion", () => ({
   motion: {
@@ -166,9 +164,9 @@ describe("WeekGrid — log drag", () => {
       </MemoryRouter>,
     );
 
-    expect(getByTestId("week-grid")).toHaveStyle({ minWidth: `${MOBILE_WEEK_GRID_MIN_WIDTH_PX}px` });
+    expect(getByTestId("week-grid")).toHaveStyle({ minWidth: `${EXPECTED_MOBILE_WEEK_GRID_MIN_WIDTH_PX}px` });
     const headerGrid = container.querySelector(".grid") as HTMLElement;
-    expect(headerGrid.style.gridTemplateColumns).toBe(`48px repeat(7, ${MOBILE_DAY_COL_PX}px)`);
+    expect(headerGrid.style.gridTemplateColumns).toBe(`48px repeat(7, ${EXPECTED_MOBILE_DAY_COL_PX}px)`);
     mockIsMobile.value = false;
   });
 

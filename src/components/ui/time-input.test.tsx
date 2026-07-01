@@ -61,6 +61,22 @@ describe("TimeInput", () => {
     }
   });
 
+  it("preserves off-step minutes in the minute wheel", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TimeInput value="09:07" onChange={onChange} format="24h" data-testid="time" />);
+
+    expect(field()).toHaveValue("09:07");
+
+    await user.click(field());
+
+    expect(screen.getByRole("button", { name: "Minute 07" })).toHaveAttribute(
+      "data-selected",
+      "true",
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("wraps the hour wheel after the last hour", () => {
     vi.useFakeTimers();
     try {
