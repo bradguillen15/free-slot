@@ -2,9 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import {
   buildReviewGeminiBody,
   callGeminiGenerateContent,
-  formatGeminiApiError,
-  geminiFailureHttpStatus,
   parseGeminiText,
+  resolveGeminiApiFailure,
 } from "../_shared/gemini.ts";
 import { buildReviewPrompts } from "../_shared/planning.ts";
 
@@ -55,11 +54,9 @@ Deno.serve(async (req) => {
     );
 
     if (!aiRes.ok) {
-      console.error("Gemini API error", aiRes.status, aiRes.text);
-      return json(
-        { error: formatGeminiApiError(aiRes.status, aiRes.text) },
-        geminiFailureHttpStatus(aiRes.status)
-      );
+      const { message, httpStatus } = resolveGeminiApiFailure(aiRes.status, aiRes.text);
+      console.error("Gemini API error", aiRes.status, message);
+      return json({ error: message }, httpStatus);
     }
 
     const insights: string =

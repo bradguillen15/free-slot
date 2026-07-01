@@ -158,7 +158,7 @@ describe("createSupabaseProvider", () => {
       vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
         data: { error: "Gemini API key is invalid or missing. Set GEMINI_API_KEY in Supabase secrets and redeploy edge functions." },
         error: new Error("Edge Function returned a non-2xx status code"),
-      });
+      } as Awaited<ReturnType<typeof supabase.functions.invoke>>);
       await expect(
         provider.functions.generateWeeklyReview({ week_start: "2024-06-03", planned: [], actual: [], productive_ratio: 0, total_tracked: 0 })
       ).rejects.toThrow("Gemini API key is invalid or missing");

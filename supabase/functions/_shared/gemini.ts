@@ -3,6 +3,9 @@ export const GEMINI_MODEL = "gemini-2.5-flash";
 export const GEMINI_API_BASE =
   "https://generativelanguage.googleapis.com/v1beta";
 
+/** Outbound Gemini request timeout — fail before Supabase edge runtime limit. */
+export const GEMINI_FETCH_TIMEOUT_MS = 30_000;
+
 export function geminiGenerateContentUrl(model = GEMINI_MODEL): string {
   return `${GEMINI_API_BASE}/models/${model}:generateContent`;
 }
@@ -83,26 +86,41 @@ export async function callGeminiGenerateContent(
   | { ok: true; status: number; json: GeminiResponse }
   | { ok: false; status: number; text: string }
 > {
-  const res = await fetch(geminiGenerateContentUrl(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GEMINI_FETCH_TIMEOUT_MS);
 
-  if (!res.ok) {
-    return { ok: false, status: res.status, text: await res.text() };
+  try {
+    const res = await fetch(geminiGenerateContentUrl(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      return { ok: false, status: res.status, text: await res.text() };
+    }
+
+    return { ok: true, status: res.status, json: (await res.json()) as GeminiResponse };
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      return { ok: false, status: 504, text: "Gemini request timed out" };
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return { ok: true, status: res.status, json: (await res.json()) as GeminiResponse };
 }
 
 export function parseGeminiText(response: GeminiResponse): string | null {
   const parts = response.candidates?.[0]?.content?.parts ?? [];
-  const text = parts.find((p) => typeof p.text === "string")?.text;
-  return text?.trim() ?? null;
+  const raw = parts.find((p) => typeof p.text === "string")?.text;
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function parseGeminiFunctionCall(
@@ -182,4 +200,12 @@ export function geminiFailureHttpStatus(httpStatus: number): number {
   if (httpStatus === 400) return 400;
   if (httpStatus === 401 || httpStatus === 403) return 502;
   return 502;
+}
+
+export function resolveGeminiApiFailure(
+  httpStatus: number,
+  responseBody: string
+): { message: string; httpStatus: number } {
+  const message = formatGeminiApiError(httpStatus, responseBody);
+  return { message, httpStatus: geminiFailureHttpStatus(httpStatus) };
 }

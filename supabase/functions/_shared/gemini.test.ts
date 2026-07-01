@@ -62,6 +62,13 @@ describe("parseGeminiText", () => {
   it("returns null when no text part exists", () => {
     expect(parseGeminiText({ candidates: [{ content: { parts: [] } }] })).toBeNull();
   });
+
+  it("returns null for whitespace-only text", () => {
+    const response: GeminiResponse = {
+      candidates: [{ content: { parts: [{ text: "   \n\t  " }] } }],
+    };
+    expect(parseGeminiText(response)).toBeNull();
+  });
 });
 
 describe("parseGeminiFunctionCall", () => {

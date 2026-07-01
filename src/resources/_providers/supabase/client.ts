@@ -556,8 +556,8 @@ export function createSupabaseProvider(): ResourcesProvider {
       },
 
       async deleteAccount(_userId) {
-        const { error } = await supabase.functions.invoke("delete-account");
-        if (error) throw error;
+        const { data, error } = await supabase.functions.invoke("delete-account");
+        throwOnFunctionError(error, data);
       },
     },
   };

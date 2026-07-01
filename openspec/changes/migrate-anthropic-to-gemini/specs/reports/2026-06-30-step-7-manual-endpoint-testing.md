@@ -10,7 +10,7 @@
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}" -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" \
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" \
   -H "Content-Type: application/json" \
   -d '{"contents":[{"parts":[{"text":"hi"}]}]}'
 ```
