@@ -89,6 +89,17 @@ We test pure logic in `src/lib/` (especially `gaps.ts`, `time.ts`, `week.ts`) wi
 
 ---
 
+## Observability
+
+| Tech | Why |
+|---|---|
+| **@sentry/react** | Frontend error tracking, performance tracing, and replay-on-error. Initialized in `src/integrations/sentry/init.ts` (called from `src/main.tsx`); the app tree is wrapped in `Sentry.ErrorBoundary` in `src/App.tsx`. |
+| **@sentry/vite-plugin** | Uploads **hidden** source maps at build time so production stack traces map to the original TypeScript. Runs only when `SENTRY_AUTH_TOKEN` is present. |
+
+Sentry initializes **only in production builds with `VITE_SENTRY_DSN` set**, so local dev and tests never send events or consume free-tier quota. Sampling stays within Sentry's free Developer tier: `tracesSampleRate` defaults to `0.1` (override with `VITE_SENTRY_TRACES_SAMPLE_RATE`), session replay is error-only (`replaysSessionSampleRate: 0`, `replaysOnErrorSampleRate: 1.0`). Build secrets (`SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`) live in Vercel and are never committed. See `docs/development_guide.md` for env setup and verification.
+
+---
+
 ## Tooling
 
 | Tech | Why |

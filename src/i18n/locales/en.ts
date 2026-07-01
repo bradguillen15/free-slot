@@ -524,6 +524,16 @@ const en = {
     message: "Oops! Page not found",
     returnHome: "Return to Home",
   },
+  errorBoundary: {
+    title: "Something went wrong",
+    message: "An unexpected error occurred. Try reloading the page.",
+    reload: "Reload page",
+  },
+  forbidden: {
+    title: "Sign in required",
+    message: "This page needs an account. Sign in to continue.",
+    signIn: "Sign in",
+  },
   validation: {
     titleRequired: "Title is required",
     nameRequired: "Name is required",

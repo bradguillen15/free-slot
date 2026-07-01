@@ -98,24 +98,27 @@ test.describe("guest schedule blocks", () => {
     await expect(page.getByTestId("schedule-row-b2")).toBeVisible();
 
     const source = page.getByTestId("schedule-drag-b1");
-    const targetRow = page.getByTestId("schedule-row-b2");
+    const target = page.getByTestId("schedule-drag-b2");
     const from = await source.boundingBox();
-    const to = await targetRow.boundingBox();
+    const to = await target.boundingBox();
     if (!from || !to) throw new Error("drag handles not measurable");
 
     // Manual pointer steps — @dnd-kit's PointerSensor needs movement past its
-    // 4px activation distance before it treats the gesture as a drag. Drop over
-    // the lower portion of the target row and add a settle move so the reorder
-    // resolves reliably even under parallel CPU load.
+    // 4px activation distance before it treats the gesture as a drag. Aim at
+    // the target grip (not the row center) so pointer-up cannot land on edit /
+    // delete controls; add a settle move so reorder resolves under CPU load.
+    const sourceX = from.x + from.width / 2;
+    const sourceY = from.y + from.height / 2;
     const targetX = to.x + to.width / 2;
-    const targetY = to.y + to.height * 0.75;
-    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    const targetY = to.y + to.height / 2;
+    await page.mouse.move(sourceX, sourceY);
     await page.mouse.down();
-    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 8, { steps: 5 });
+    await page.mouse.move(sourceX, sourceY + 8, { steps: 5 });
     await page.mouse.move(targetX, targetY, { steps: 12 });
     await page.mouse.move(targetX, targetY, { steps: 3 });
     await page.mouse.up();
 
+    await expect.poll(async () => (await readBlocks(page)).length).toBe(2);
     await expect
       .poll(async () => (await readBlocks(page)).map((b) => b.id))
       .toEqual(["b2", "b1"]);
