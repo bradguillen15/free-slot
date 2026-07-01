@@ -500,6 +500,17 @@ const es: Translations = {
     couldNotSavePrefs: "No se pudieron guardar las preferencias",
     accountDeleted: "Cuenta eliminada",
     failedDeleteAccount: "Error al eliminar la cuenta",
+    installApp: {
+      title: "Instalar app",
+      desc: "Añade FreeSlot a tu pantalla de inicio o escritorio y ábrela en su propia ventana.",
+      install: "Instalar FreeSlot",
+      installing: "Instalando…",
+      installed: "FreeSlot está instalada en este dispositivo.",
+      iosStep1: "Toca el botón Compartir en la barra de Safari.",
+      iosStep2: "Desplázate y toca Añadir a pantalla de inicio.",
+      iosStep3: "Toca Añadir — FreeSlot se abrirá sin la interfaz del navegador.",
+      unsupported: "Tu navegador no admite instalación con un toque aquí. Prueba Chrome o Edge en escritorio o Android, o Safari en iPhone.",
+    },
     password: {
       title: "Contraseña",
       desc: "Cambia la contraseña que usas para iniciar sesión en tu cuenta.",

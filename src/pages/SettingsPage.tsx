@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { plannerPrefsSchema, type PlannerPrefsValues } from "@/lib/formSchemas";
 import { ChangePasswordCard } from "@/components/settings/ChangePasswordCard";
+import { InstallAppCard } from "@/components/settings/InstallAppCard";
 import { toast } from "sonner";
 
 const deleteAccountSchema = z.object({ confirmText: z.literal("DELETE") });
@@ -148,6 +149,8 @@ export default function SettingsPage() {
           </Button>
         </CardHeader>
       </Card>
+
+      <InstallAppCard />
 
       <Card>
         <CardHeader>

@@ -1,12 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { createRef } from "react";
 import { TIMELINE_DRAG_CANCEL_PX, useTimelineLogDrag } from "./useTimelineLogDrag";
+
+function createMutableRef<T>(initial: T | null = null) {
+  return { current: initial };
+}
 
 describe("useTimelineLogDrag", () => {
   it("calls onComplete after the pointer moves past the cancel threshold", () => {
     const onComplete = vi.fn();
-    const captureTargetRef = createRef<HTMLDivElement>();
+    const captureTargetRef = createMutableRef<HTMLDivElement>();
     const { result } = renderHook(() =>
       useTimelineLogDrag({
         enabled: true,
@@ -58,7 +61,7 @@ describe("useTimelineLogDrag", () => {
 
   it("calls onTap when the bar receives a tap without movement", () => {
     const onTap = vi.fn();
-    const captureTargetRef = createRef<HTMLDivElement>();
+    const captureTargetRef = createMutableRef<HTMLDivElement>();
     const { result } = renderHook(() =>
       useTimelineLogDrag({
         enabled: true,
@@ -93,7 +96,7 @@ describe("useTimelineLogDrag", () => {
 
   it("does not call onTap when drag starts from the mobile handle", () => {
     const onTap = vi.fn();
-    const captureTargetRef = createRef<HTMLDivElement>();
+    const captureTargetRef = createMutableRef<HTMLDivElement>();
     const { result } = renderHook(() =>
       useTimelineLogDrag({
         enabled: true,

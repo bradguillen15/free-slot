@@ -498,6 +498,17 @@ const en = {
     couldNotSavePrefs: "Could not save preferences",
     accountDeleted: "Account deleted",
     failedDeleteAccount: "Failed to delete account",
+    installApp: {
+      title: "Install app",
+      desc: "Add FreeSlot to your home screen or desktop and open it in its own window.",
+      install: "Install FreeSlot",
+      installing: "Installing…",
+      installed: "FreeSlot is installed on this device.",
+      iosStep1: "Tap the Share button in Safari's toolbar.",
+      iosStep2: "Scroll down and tap Add to Home Screen.",
+      iosStep3: "Tap Add — FreeSlot will open without the browser chrome.",
+      unsupported: "Your browser does not support one-tap install here. Try Chrome or Edge on desktop or Android, or use Safari on iPhone.",
+    },
     password: {
       title: "Password",
       desc: "Change the password used to sign in to your account.",
