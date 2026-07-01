@@ -20,6 +20,13 @@ describe("CalendarNav", () => {
     expect(screen.getByTestId("calendar-next")).toHaveAccessibleName(/next/i);
   });
 
+  it("distinguishes Today from the icon-only step controls", () => {
+    render(<CalendarNav onToday={vi.fn()} onPrev={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.getByTestId("calendar-today")).toHaveTextContent("Today");
+    expect(screen.getByTestId("calendar-prev").textContent?.trim()).toBe("");
+    expect(screen.getByTestId("calendar-next").textContent?.trim()).toBe("");
+  });
+
   it("fires the matching handlers", async () => {
     const onToday = vi.fn();
     const onPrev = vi.fn();

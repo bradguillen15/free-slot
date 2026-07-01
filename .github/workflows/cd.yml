@@ -16,8 +16,28 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
+  # Detect whether this push actually touched anything under supabase/. Without
+  # this gate, `supabase functions deploy` re-bundles every edge function on
+  # every merge to main — so an unrelated change (e.g. frontend-only) can fail
+  # on a transient edge-runtime bundling crash that has nothing to do with it.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      supabase: ${{ steps.filter.outputs.supabase }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            supabase:
+              - 'supabase/**'
+
   supabase:
-    needs: ci
+    needs: [ci, changes]
+    if: ${{ needs.changes.outputs.supabase == 'true' }}
     runs-on: ubuntu-latest
     # SUPABASE_ACCESS_TOKEN — personal access token from supabase.com/dashboard/account/tokens
     # SUPABASE_DB_PASSWORD — database password set when the project was created
@@ -48,6 +68,10 @@ jobs:
 
   deploy:
     needs: [ci, supabase]
+    # The supabase job is skipped on pushes that don't touch supabase/. A skipped
+    # dependency would normally skip this job too, so run whenever CI passed and
+    # supabase didn't fail (success or skipped both qualify).
+    if: ${{ always() && needs.ci.result == 'success' && (needs.supabase.result == 'success' || needs.supabase.result == 'skipped') }}
     runs-on: ubuntu-latest
     # ORG/PROJECT ids tell the Vercel CLI which project to deploy; the token
     # authenticates it. All three are stored as repo secrets.

@@ -5,6 +5,7 @@ import {
   listLogsForMonth,
   upsertActivity as localUpsertActivity,
   upsertCategory as localUpsertCategory,
+  type LocalProfile,
 } from "./localStore";
 process.env.TZ = "America/New_York";
 
@@ -24,6 +25,7 @@ vi.mock("@/integrations/supabase/client", async () => {
 
 import { queueTableResult, resetSupabaseMock, setTableResult, fromCalls } from "../test/supabaseMock";
 import { createTestQueryClient, setQueryClientForTests, setupGuestQueryInvalidation } from "./queryClient";
+import { queryKeys } from "./queryKeys";
 import { createHookWrapper } from "../test/renderWithProviders";
 import {
   deleteActivity,
@@ -237,6 +239,26 @@ describe("remaining hooks — same error contract", () => {
     authState.user = null;
     const { result: guest } = renderDataHook(() => useProfile());
     await waitFor(() => expect(guest.current.data?.peak_hours).toEqual({ start: "09:00", end: "12:00" }));
+  });
+});
+
+describe("updateProfile", () => {
+  it("persists time_format in guest localStorage and query cache", async () => {
+    authState.user = null;
+    ensureBootstrap();
+    const qc = createTestQueryClient();
+    setQueryClientForTests(qc);
+    const { result } = renderHook(() => useProfile(), { wrapper: createHookWrapper(qc) });
+
+    await waitFor(() => expect(result.current.data?.time_format).toBe("24h"));
+
+    await act(async () => {
+      await updateProfile("guest", null, { time_format: "12h" });
+    });
+
+    expect(getProfile().time_format).toBe("12h");
+    expect(qc.getQueryData<LocalProfile>(queryKeys.profile("guest", null))?.time_format).toBe("12h");
+    await waitFor(() => expect(result.current.data?.time_format).toBe("12h"));
   });
 });
 

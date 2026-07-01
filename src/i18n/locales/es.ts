@@ -343,6 +343,7 @@ const es: Translations = {
   month: {
     totalLogged: "Total registrado",
     daysLogged: "Días registrados",
+    segmentTooltip: "{{kind}}: {{name}}, {{start}} – {{end}}",
     monthNames: [
       "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
       "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -478,6 +479,12 @@ const es: Translations = {
     plannerPrefsDesc: "Cómo se detecta el tiempo libre y cómo la IA llena tu semana.",
     includeWeekends: "Incluir fines de semana",
     includeWeekendsDesc: "Planificar actividades el sábado y el domingo.",
+    timeFormatLabel24h: "Formato 24 horas",
+    timeFormatLabel12h: "Formato 12 horas (AM/PM)",
+    timeFormatDesc24h: "Se muestra 09:00, 14:30 en toda la app. Desactiva para usar AM/PM.",
+    timeFormatDesc12h: "Se muestra 9 AM, 2:30 PM en toda la app. Activa para usar formato 24 horas.",
+    timeFormatSwitchTo12h: "Cambiar a formato 12 horas AM/PM",
+    timeFormatSwitchTo24h: "Cambiar a formato 24 horas",
     weeklyReviewDay: "Día de revisión semanal",
     savePreferences: "Guardar preferencias",
     dangerZone: "Zona de peligro",
@@ -495,10 +502,12 @@ const es: Translations = {
     password: {
       title: "Contraseña",
       desc: "Cambia la contraseña que usas para iniciar sesión en tu cuenta.",
+      current: "Contraseña actual",
       new: "Nueva contraseña",
       confirm: "Confirmar nueva contraseña",
       submit: "Actualizar contraseña",
       updated: "Contraseña actualizada",
+      currentIncorrect: "Tu contraseña actual es incorrecta.",
       failed: "No se pudo actualizar tu contraseña. Inténtalo de nuevo.",
     },
   },
@@ -540,6 +549,7 @@ const es: Translations = {
     useHexColor: "Usa un color hex de 6 dígitos",
     passwordMin: "Al menos 6 caracteres",
     passwordsMatch: "Las contraseñas no coinciden",
+    currentPasswordRequired: "Ingresa tu contraseña actual",
   },
 };
 export default es;

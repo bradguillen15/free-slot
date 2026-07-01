@@ -11,6 +11,8 @@ vi.mock("framer-motion", () => ({
   },
 }));
 
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
+
 function makeDay(iso: string, isToday: boolean, label: string): DayCellData {
   return {
     iso,
@@ -56,10 +58,10 @@ describe("WeekGrid — log drag", () => {
     );
 
     const logEl = screen.getByLabelText("Log: Focus");
-    // 64px down at 32px/hr → 120 min delta → snapped 120 → newStart=660 newEnd=720
+    // 80px down at 40px/hr → 120 min delta → snapped 120 → newStart=660 newEnd=720
     fireEvent.pointerDown(logEl, { clientX: 200, clientY: 200, pointerId: 1 });
-    fireEvent.pointerMove(logEl, { clientX: 200, clientY: 264, pointerId: 1 });
-    fireEvent.pointerUp(logEl, { clientX: 200, clientY: 264, pointerId: 1 });
+    fireEvent.pointerMove(logEl, { clientX: 200, clientY: 280, pointerId: 1 });
+    fireEvent.pointerUp(logEl, { clientX: 200, clientY: 280, pointerId: 1 });
 
     expect(spy).toHaveBeenCalledWith("l1", "2026-06-15", 660, 720);
   });
@@ -82,6 +84,26 @@ describe("WeekGrid — log drag", () => {
     fireEvent.pointerUp(logEl, { clientX: 200, clientY: 264, pointerId: 1 });
 
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("renders overlapping logs in separate lanes", () => {
+    const logs = [
+      { id: "l1", seg: { startMin: 540, endMin: 660 }, name: "Focus", color: "#f00", category_id: "c1", type: "productive" as const },
+      { id: "l2", seg: { startMin: 600, endMin: 720 }, name: "Meeting", color: "#0f0", category_id: "c1", type: "productive" as const },
+    ];
+    const day = makeDay("2026-06-15", false, "Monday");
+    day.logs = logs;
+
+    render(
+      <MemoryRouter>
+        <WeekGrid days={[day]} onGapClick={noop} onSlotClick={noop} />
+      </MemoryRouter>
+    );
+
+    const focus = screen.getByLabelText("Log: Focus");
+    const meeting = screen.getByLabelText("Log: Meeting");
+    expect(focus).toHaveStyle({ left: "calc(0% + 3px)", width: "calc(50% - 6px)" });
+    expect(meeting).toHaveStyle({ left: "calc(50% + 3px)", width: "calc(50% - 6px)" });
   });
 });
 

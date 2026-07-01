@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useForm } from "react-hook-form";
+import { useForm, useFormState } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Settings as SettingsIcon, Trash2, Save, Tag, AlertTriangle, CalendarRange, ArrowRight } from "lucide-react";
@@ -33,21 +33,37 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const mode = user ? "cloud" : "guest";
 
-  const { data: profileRaw, refresh: refreshProfile } = useProfile();
+  const { data: profileRaw } = useProfile();
 
   const form = useForm<PlannerPrefsValues>({
     resolver: zodResolver(plannerPrefsSchema),
-    defaultValues: { includeWeekends: true, weeklyReviewDay: 0 },
+    defaultValues: { includeWeekends: true, weeklyReviewDay: 0, timeFormat: "24h" },
   });
+  const { isDirty } = useFormState({ control: form.control });
+  const timeFormat = form.watch("timeFormat");
+  const is24h = timeFormat === "24h";
 
   // Hydrate from the loaded profile; don't clobber unsaved edits on refetch.
   useEffect(() => {
-    if (!profileRaw || form.formState.isDirty) return;
+    if (!profileRaw || isDirty) return;
     form.reset({
       includeWeekends: profileRaw.include_weekends ?? true,
       weeklyReviewDay: profileRaw.weekly_review_day ?? 0,
+      timeFormat: profileRaw.time_format === "12h" ? "12h" : "24h",
     });
-  }, [profileRaw, form]);
+  }, [profileRaw, isDirty, form]);
+
+  const persistTimeFormat = async (timeFormat: PlannerPrefsValues["timeFormat"]) => {
+    if (mode === "cloud" && !user) return;
+    const previous = profileRaw?.time_format === "12h" ? "12h" : "24h";
+    try {
+      await updateProfile(mode, user?.id ?? null, { time_format: timeFormat });
+      form.resetField("timeFormat", { defaultValue: timeFormat });
+    } catch (err: unknown) {
+      form.resetField("timeFormat", { defaultValue: previous });
+      toast.error(err instanceof Error ? err.message : t("settings.couldNotSavePrefs"));
+    }
+  };
 
   const deleteAccountMutation = useDeleteAccountMutation();
   const deleting = deleteAccountMutation.isPending;
@@ -63,9 +79,9 @@ export default function SettingsPage() {
       await updateProfile(mode, user?.id ?? null, {
         include_weekends: values.includeWeekends,
         weekly_review_day: values.weeklyReviewDay,
+        time_format: values.timeFormat,
       });
-      await refreshProfile();
-      form.reset(values); // mark clean so the next profile refetch can rehydrate
+      form.reset(values);
       toast.success(t("settings.preferencesSaved"));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("settings.couldNotSavePrefs"));
@@ -173,7 +189,33 @@ export default function SettingsPage() {
                 )}
               />
 
-              <Button type="submit" disabled={form.formState.isSubmitting} className="gap-2">
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <Label className="text-base">
+                    {t(is24h ? "settings.timeFormatLabel24h" : "settings.timeFormatLabel12h")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t(is24h ? "settings.timeFormatDesc24h" : "settings.timeFormatDesc12h")}
+                  </p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="timeFormat"
+                  render={({ field }) => (
+                    <Switch
+                      aria-label={t(is24h ? "settings.timeFormatSwitchTo12h" : "settings.timeFormatSwitchTo24h")}
+                      checked={field.value === "24h"}
+                      onCheckedChange={(on) => {
+                        const next = on ? "24h" : "12h";
+                        field.onChange(next);
+                        void persistTimeFormat(next);
+                      }}
+                    />
+                  )}
+                />
+              </div>
+
+              <Button type="submit" disabled={form.formState.isSubmitting} className="gap-2 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
                 <Save className="h-4 w-4" /> {form.formState.isSubmitting ? t("actions.saving") : t("settings.savePreferences")}
               </Button>
             </form>

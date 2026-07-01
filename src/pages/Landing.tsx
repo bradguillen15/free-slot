@@ -62,7 +62,7 @@ export default function Landing() {
                     {t("landing.tryFree")} <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </Link>
-                <Link to="/auth">
+                <Link to="/auth?mode=signup">
                   <Button size="lg" variant="outline">
                     {t("common.createAccount")}
                   </Button>

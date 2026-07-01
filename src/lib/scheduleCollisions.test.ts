@@ -20,6 +20,16 @@ describe("findScheduleCollisions", () => {
     expect(collisions.every((c) => c.blockA.name === "Lunch" || c.blockB.name === "Lunch")).toBe(true);
   });
 
+  it("returns nothing when work is split around lunch and break", () => {
+    const blocks = [
+      block("a", "Work", "09:00", "12:00", [1, 2, 3, 4, 5]),
+      block("b", "Lunch", "12:00", "13:00", [1, 2, 3, 4, 5]),
+      block("c", "Break", "13:00", "13:25", [1, 2, 3, 4, 5]),
+      block("d", "Work", "13:25", "17:00", [1, 2, 3, 4, 5]),
+    ];
+    expect(findScheduleCollisions(blocks)).toEqual([]);
+  });
+
   it("returns nothing when blocks only touch at an edge", () => {
     const blocks = [
       block("a", "Morning", "09:00", "12:00", [1]),

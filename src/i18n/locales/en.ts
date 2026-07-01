@@ -341,6 +341,7 @@ const en = {
   month: {
     totalLogged: "Total logged",
     daysLogged: "Days logged",
+    segmentTooltip: "{{kind}}: {{name}}, {{start}} – {{end}}",
     monthNames: [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December",
@@ -476,6 +477,12 @@ const en = {
     plannerPrefsDesc: "How free time is detected and how the AI fills your week.",
     includeWeekends: "Include weekends",
     includeWeekendsDesc: "Plan activities on Saturday and Sunday.",
+    timeFormatLabel24h: "24-hour time",
+    timeFormatLabel12h: "12-hour time (AM/PM)",
+    timeFormatDesc24h: "Showing 09:00, 14:30 across the app. Turn off to use AM/PM instead.",
+    timeFormatDesc12h: "Showing 9 AM, 2:30 PM across the app. Turn on to use 24-hour format instead.",
+    timeFormatSwitchTo12h: "Switch to 12-hour AM/PM",
+    timeFormatSwitchTo24h: "Switch to 24-hour format",
     weeklyReviewDay: "Weekly review day",
     savePreferences: "Save preferences",
     dangerZone: "Danger zone",
@@ -493,10 +500,12 @@ const en = {
     password: {
       title: "Password",
       desc: "Change the password used to sign in to your account.",
+      current: "Current password",
       new: "New password",
       confirm: "Confirm new password",
       submit: "Update password",
       updated: "Password updated",
+      currentIncorrect: "Your current password is incorrect.",
       failed: "Couldn't update your password. Please try again.",
     },
   },
@@ -538,6 +547,7 @@ const en = {
     useHexColor: "Use a 6-digit hex color",
     passwordMin: "At least 6 characters",
     passwordsMatch: "Passwords don't match",
+    currentPasswordRequired: "Enter your current password",
   },
 };
 export default en;

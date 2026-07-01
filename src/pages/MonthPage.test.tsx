@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { DayCellData } from "@/lib/calendarDays";
 
 vi.mock("@/lib/calendarDays", () => ({
@@ -14,6 +15,7 @@ vi.mock("@/lib/dataStore", () => ({
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null }),
 }));
+vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
 import { useCalendarDays } from "@/lib/calendarDays";
 import MonthPage from "./MonthPage";
 
@@ -49,8 +51,11 @@ function coloredSegments(cell: HTMLElement): HTMLElement[] {
 
 function renderMonth() {
   return render(
-    <MemoryRouter>
-      <MonthPage />
+    <MemoryRouter initialEntries={["/app/month"]}>
+      <Routes>
+        <Route path="/app/month" element={<MonthPage />} />
+        <Route path="/app" element={<div data-testid="day-view">Day view</div>} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -138,6 +143,93 @@ describe("MonthPage", () => {
     renderMonth();
     const cell = screen.getByLabelText("Open day view for 2026-06-10");
     expect(coloredSegments(cell).length).toBeGreaterThan(0);
+    expect(coloredSegments(cell)[0].className).toContain("pointer-events-auto");
+  });
+
+  it("shows a logged-time tooltip on hover", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 600, endMin: 660 },
+          name: "Team meeting",
+          color: "#8b5cf6",
+          type: "productive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
+    renderMonth();
+    const cell = screen.getByLabelText("Open day view for 2026-06-10");
+    await user.hover(coloredSegments(cell)[0]);
+    const tooltip = await screen.findByTestId("month-segment-tooltip");
+    expect(tooltip).toHaveTextContent("Logged");
+    expect(tooltip).toHaveTextContent("Team meeting");
+    expect(tooltip).toHaveTextContent("10:00");
+    expect(tooltip.className).toMatch(/surface-elevated/);
+  });
+
+  it("shows a planned schedule tooltip on hover", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        blocks: [{
+          id: "b1",
+          seg: { startMin: 540, endMin: 720 },
+          name: "Work",
+          color: "#3b82f6",
+        }],
+      }),
+    ]);
+    renderMonth();
+    const cell = screen.getByLabelText("Open day view for 2026-06-10");
+    await user.hover(coloredSegments(cell)[0]);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Planned");
+    expect(tooltip).toHaveTextContent("Work");
+    expect(tooltip).toHaveTextContent("9:00");
+  });
+
+  it("opens the day view when clicking the day cell", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 540, endMin: 600 },
+          name: "Deep work",
+          color: "#3b82f6",
+          type: "productive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
+    renderMonth();
+    await user.click(screen.getByLabelText("Open day view for 2026-06-10"));
+    expect(await screen.findByTestId("day-view")).toBeInTheDocument();
+  });
+
+  it("does not navigate when tapping a segment", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useCalendarDays).mockReturnValue([
+      buildCell("2026-06-10", {
+        logs: [{
+          id: "l1",
+          seg: { startMin: 540, endMin: 600 },
+          name: "Deep work",
+          color: "#3b82f6",
+          type: "productive",
+          category_id: "c1",
+        }],
+      }),
+    ]);
+    renderMonth();
+    const segment = coloredSegments(screen.getByLabelText("Open day view for 2026-06-10"))[0];
+    await user.pointer([{ keys: "[TouchA>]", target: segment }, { keys: "[/TouchA]" }]);
+    expect(screen.queryByTestId("day-view")).not.toBeInTheDocument();
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Deep work");
   });
 
   it("does not render quarter-log buttons (DAY_QUARTERS removed)", () => {

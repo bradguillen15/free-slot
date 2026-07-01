@@ -21,6 +21,8 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimeInput } from "@/components/ui/time-input";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -39,7 +41,7 @@ import {
 } from "@/lib/dataStore";
 import type { PickerCategory } from "@/components/CategoryPicker";
 import { useAuth } from "@/contexts/AuthContext";
-import { BLOCK_PRESETS } from "@/lib/schedule";
+import { BLOCK_PRESETS, applyPresetSegmentsAtomic, presetSegments } from "@/lib/schedule";
 import { findScheduleCollisions, groupScheduleCollisions } from "@/lib/scheduleCollisions";
 import { toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -120,6 +122,7 @@ function SortableScheduleRow({
   actionsDisabled,
 }: SortableScheduleRowProps) {
   const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: b.id });
   const style = {
@@ -171,20 +174,20 @@ function SortableScheduleRow({
         />
       </div>
       <div className="flex items-center gap-2">
-        <Input
+        <TimeInput
           key={`${b.id}-start-${b.start_time}`}
-          type="time"
-          defaultValue={b.start_time.slice(0, 5)}
-          onBlur={(e) => e.target.value !== b.start_time.slice(0, 5) && onUpdate(b, { start_time: e.target.value })}
-          className="h-9 w-32 font-mono-num"
+          value={b.start_time.slice(0, 5)}
+          onChange={(v) => v !== b.start_time.slice(0, 5) && onUpdate(b, { start_time: v })}
+          format={timeFormat}
+          className="h-9 w-32"
         />
         <span className="text-muted-foreground text-xs">→</span>
-        <Input
+        <TimeInput
           key={`${b.id}-end-${b.end_time}`}
-          type="time"
-          defaultValue={b.end_time.slice(0, 5)}
-          onBlur={(e) => e.target.value !== b.end_time.slice(0, 5) && onUpdate(b, { end_time: e.target.value })}
-          className="h-9 w-32 font-mono-num"
+          value={b.end_time.slice(0, 5)}
+          onChange={(v) => v !== b.end_time.slice(0, 5) && onUpdate(b, { end_time: v })}
+          format={timeFormat}
+          className="h-9 w-32"
         />
       </div>
       <div className="flex items-center gap-1 flex-wrap">
@@ -353,14 +356,19 @@ export function ScheduleEditor() {
 
   const addPreset = async (preset: typeof BLOCK_PRESETS[number]) => {
     try {
-      await upsertScheduleBlock(mode, user?.id ?? null, {
-        name: preset.name,
-        start_time: preset.start,
-        end_time: preset.end,
-        days_of_week: [...preset.days],
-        color: preset.color,
-        type: preset.type,
-      });
+      await applyPresetSegmentsAtomic(
+        presetSegments(preset),
+        (seg) =>
+          upsertScheduleBlock(mode, user?.id ?? null, {
+            name: seg.name,
+            start_time: seg.start,
+            end_time: seg.end,
+            days_of_week: [...preset.days],
+            color: seg.color ?? preset.color,
+            type: preset.type,
+          }) as Promise<{ id: string }>,
+        (id) => deleteScheduleBlock(mode, user?.id ?? null, id),
+      );
       refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));

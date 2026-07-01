@@ -90,13 +90,22 @@ describe("createSupabaseProvider", () => {
     });
 
     it("returns profile when found", async () => {
-      const profile = { peak_hours: null, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, onboarding_skipped: true };
+      const profile = { peak_hours: null, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, onboarding_skipped: true, time_format: "24h" };
       queueTableResult("profiles", { data: profile });
       const result = await provider.profiles.get(USER_ID);
       expect(result).toEqual(profile);
       const call = fromCalls.find((c) => c.table === "profiles");
       const selectArgs = call?.methods.find(([m]) => m === "select")?.[1][0] as string | undefined;
       expect(selectArgs).toContain("onboarding_skipped");
+      expect(selectArgs).toContain("time_format");
+    });
+
+    it("writes time_format in profiles.update payload", async () => {
+      queueTableResult("profiles", { data: null });
+      await provider.profiles.update(USER_ID, { time_format: "12h" });
+      const call = fromCalls.find((c) => c.table === "profiles");
+      const updateArgs = call?.methods.find(([m]) => m === "update")?.[1][0] as Record<string, unknown>;
+      expect(updateArgs).toMatchObject({ time_format: "12h" });
     });
   });
 

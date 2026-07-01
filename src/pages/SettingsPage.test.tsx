@@ -12,15 +12,17 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 const updateUserMock = vi.hoisted(() => vi.fn());
+const signInWithPasswordMock = vi.hoisted(() => vi.fn());
+const getUserMock = vi.hoisted(() => vi.fn());
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: vi.fn().mockResolvedValue({ error: null }) },
-    auth: { updateUser: updateUserMock },
+    auth: { updateUser: updateUserMock, signInWithPassword: signInWithPasswordMock, getUser: getUserMock },
   },
 }));
 
 const profileData = vi.hoisted(() => ({
-  data: { peak_hours: { start: "08:00", end: "11:00" }, include_weekends: false, weekly_review_day: 2 } as Record<string, unknown> | null,
+  data: { peak_hours: { start: "08:00", end: "11:00" }, include_weekends: false, weekly_review_day: 2, time_format: "24h" } as Record<string, unknown> | null,
 }));
 const refreshProfile = vi.hoisted(() => vi.fn());
 const updateProfileMock = vi.hoisted(() => vi.fn());
@@ -35,9 +37,41 @@ import SettingsPage from "./SettingsPage";
 beforeEach(() => {
   vi.clearAllMocks();
   authState.user = { id: "u1" };
+  profileData.data = {
+    peak_hours: { start: "08:00", end: "11:00" },
+    include_weekends: false,
+    weekly_review_day: 2,
+    time_format: "24h",
+  };
+  getUserMock.mockResolvedValue({ data: { user: { email: "user@example.com" } }, error: null });
+  signInWithPasswordMock.mockResolvedValue({ error: null });
 });
 
 describe("SettingsPage planner preferences", () => {
+  it("updates the label when 12-hour mode is active", async () => {
+    profileData.data = {
+      ...profileData.data!,
+      time_format: "12h",
+    };
+    renderWithProviders(<SettingsPage />);
+
+    expect(screen.getByText("12-hour time (AM/PM)")).toBeInTheDocument();
+    expect(screen.getByText(/Showing 9 AM, 2:30 PM/)).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Switch to 24-hour format" })).toBeInTheDocument();
+  });
+
+  it("persists time format immediately when the toggle changes", async () => {
+    const user = userEvent.setup();
+    updateProfileMock.mockResolvedValue(undefined);
+    renderWithProviders(<SettingsPage />);
+
+    await user.click(screen.getByRole("switch", { name: "Switch to 12-hour AM/PM" }));
+
+    await waitFor(() =>
+      expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", { time_format: "12h" }),
+    );
+  });
+
   it("saves preferences parsed from the form back into the profile shape", async () => {
     const user = userEvent.setup();
     updateProfileMock.mockResolvedValue(undefined);
@@ -49,34 +83,55 @@ describe("SettingsPage planner preferences", () => {
       expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", {
         include_weekends: false,
         weekly_review_day: 2,
+        time_format: "24h",
       }),
     );
   });
 });
 
 describe("SettingsPage change password", () => {
-  it("updates the password when the confirmation matches", async () => {
+  it("verifies the current password before updating when the confirmation matches", async () => {
     const user = userEvent.setup();
     updateUserMock.mockResolvedValue({ error: null });
     renderWithProviders(<SettingsPage />);
 
+    await user.type(screen.getByTestId("settings-current-password"), "oldsecret1");
     await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
     await user.type(screen.getByTestId("settings-confirm-password"), "newsecret1");
     await user.click(screen.getByTestId("settings-password-submit"));
 
+    await waitFor(() =>
+      expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "oldsecret1" }),
+    );
     await waitFor(() => expect(updateUserMock).toHaveBeenCalledWith({ password: "newsecret1" }));
+  });
+
+  it("blocks the update and shows an error when the current password is wrong", async () => {
+    const user = userEvent.setup();
+    signInWithPasswordMock.mockResolvedValue({ error: { status: 400, message: "Invalid login credentials" } });
+    renderWithProviders(<SettingsPage />);
+
+    await user.type(screen.getByTestId("settings-current-password"), "wrongpass1");
+    await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
+    await user.type(screen.getByTestId("settings-confirm-password"), "newsecret1");
+    await user.click(screen.getByTestId("settings-password-submit"));
+
+    expect(await screen.findByText("Your current password is incorrect.")).toBeInTheDocument();
+    expect(updateUserMock).not.toHaveBeenCalled();
   });
 
   it("blocks the update and shows an error when confirmation differs", async () => {
     const user = userEvent.setup();
     renderWithProviders(<SettingsPage />);
 
+    await user.type(screen.getByTestId("settings-current-password"), "oldsecret1");
     await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
     await user.type(screen.getByTestId("settings-confirm-password"), "different1");
     await user.click(screen.getByTestId("settings-password-submit"));
 
     expect(await screen.findByText("Passwords don't match")).toBeInTheDocument();
     expect(updateUserMock).not.toHaveBeenCalled();
+    expect(signInWithPasswordMock).not.toHaveBeenCalled();
   });
 
   it("hides the password card for guest users", () => {

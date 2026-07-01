@@ -11,14 +11,82 @@ export const DAYS = [
 export const WEEKDAYS = [1, 2, 3, 4, 5];
 export const WEEKEND = [0, 6];
 
-export const BLOCK_PRESETS = [
-  { name: "Sleep",   start: "23:00", end: "07:00", days: [0,1,2,3,4,5,6], color: "#6366f1", type: "fixed" as const },
-  { name: "Work",    start: "09:00", end: "17:00", days: WEEKDAYS,        color: "#3b82f6", type: "fixed" as const },
-  { name: "Gym",     start: "18:00", end: "19:00", days: [1,3,5],         color: "#10b981", type: "fixed" as const },
-  { name: "Commute", start: "08:30", end: "09:00", days: WEEKDAYS,        color: "#94a3b8", type: "fixed" as const },
-  { name: "Lunch",   start: "12:30", end: "13:00", days: WEEKDAYS,        color: "#f59e0b", type: "fixed" as const },
-  { name: "Dinner",  start: "19:30", end: "20:30", days: [0,1,2,3,4,5,6], color: "#f59e0b", type: "fixed" as const },
+const WORK_COLOR = "#3b82f6";
+const LUNCH_COLOR = "#f59e0b";
+
+export type BlockPresetSegment = {
+  name: string;
+  start: string;
+  end: string;
+  color?: string;
+};
+
+export type BlockPreset = {
+  name: string;
+  start: string;
+  end: string;
+  days: number[];
+  color: string;
+  type: "fixed";
+  /** When set, one click adds multiple non-overlapping blocks (e.g. work split around lunch). */
+  bundle?: BlockPresetSegment[];
+};
+
+export const BLOCK_PRESETS: BlockPreset[] = [
+  { name: "Sleep",   start: "23:00", end: "07:00", days: [0,1,2,3,4,5,6], color: "#6366f1", type: "fixed" },
+  {
+    name: "Work",
+    start: "09:00",
+    end: "17:00",
+    days: WEEKDAYS,
+    color: WORK_COLOR,
+    type: "fixed",
+    bundle: [
+      { name: "Work", start: "09:00", end: "12:00" },
+      { name: "Lunch", start: "12:00", end: "13:00", color: LUNCH_COLOR },
+      { name: "Break", start: "13:00", end: "13:25", color: "#94a3b8" },
+      { name: "Work", start: "13:25", end: "17:00" },
+    ],
+  },
+  { name: "Gym",     start: "18:00", end: "19:00", days: [1,3,5],         color: "#10b981", type: "fixed" },
+  { name: "Commute", start: "08:30", end: "09:00", days: WEEKDAYS,        color: "#94a3b8", type: "fixed" },
+  { name: "Lunch",   start: "12:00", end: "13:00", days: WEEKDAYS,        color: LUNCH_COLOR, type: "fixed" },
+  { name: "Dinner",  start: "19:30", end: "20:30", days: [0,1,2,3,4,5,6], color: LUNCH_COLOR, type: "fixed" },
 ];
+
+/** Apply bundled preset segments atomically; rolls back prior inserts on failure. */
+export async function applyPresetSegmentsAtomic<T extends { id: string }>(
+  segments: BlockPresetSegment[],
+  createSegment: (seg: BlockPresetSegment) => Promise<T>,
+  deleteSegment: (id: string) => Promise<void>,
+): Promise<T[]> {
+  const created: T[] = [];
+  try {
+    for (const seg of segments) {
+      created.push(await createSegment(seg));
+    }
+    return created;
+  } catch (err) {
+    let rollbackFailed = false;
+    for (const item of [...created].reverse()) {
+      await deleteSegment(item.id).catch(() => {
+        rollbackFailed = true;
+      });
+    }
+    if (rollbackFailed) {
+      throw new Error("Preset apply failed and rollback was incomplete.");
+    }
+    throw err;
+  }
+}
+
+/** Segments a preset expands into when applied (single segment when no bundle). */
+export function presetSegments(preset: BlockPreset): BlockPresetSegment[] {
+  if (preset.bundle) {
+    return preset.bundle.map((seg) => ({ ...seg, color: seg.color ?? preset.color }));
+  }
+  return [{ name: preset.name, start: preset.start, end: preset.end, color: preset.color }];
+}
 
 export const ACTIVITY_PRESETS = [
   "Reading", "Meditation", "Side project", "Exercise", "Study", "Writing", "Learning",

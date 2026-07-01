@@ -1,7 +1,7 @@
 process.env.TZ = "America/New_York";
 
 import { describe, it, expect } from "vitest";
-import { addDaysISO, durationMinutes, expandRange, fmtDayHeading, fmtDuration, fmtTimeLabel, fromMin, isoToWeekday, subtractIntervals, toMin } from "./time";
+import { addDaysISO, durationMinutes, expandRange, fmtDayHeading, fmtDisplayTime, fmtDuration, fmtTimeLabel, from12HourParts, fromMin, isoToWeekday, parseTimeInput, subtractIntervals, to12HourParts, toMin } from "./time";
 
 describe("expandRange", () => {
   it("returns a single segment for a normal range", () => {
@@ -112,6 +112,49 @@ describe("fmtTimeLabel", () => {
     expect(fmtTimeLabel("13:30")).toBe("1:30 PM");
     expect(fmtTimeLabel("00:00")).toBe("12 AM");
     expect(fmtTimeLabel("12:00")).toBe("12 PM");
+  });
+});
+
+describe("fmtDisplayTime", () => {
+  it("returns HH:MM for 24h format", () => {
+    expect(fmtDisplayTime("14:30", "24h")).toBe("14:30");
+    expect(fmtDisplayTime("09:00", "24h")).toBe("09:00");
+  });
+
+  it("returns 12h label for 12h format", () => {
+    expect(fmtDisplayTime("13:30", "12h")).toBe("1:30 PM");
+  });
+});
+
+describe("to12HourParts / from12HourParts", () => {
+  it("round-trips noon and midnight", () => {
+    expect(from12HourParts(12, 0, "PM")).toBe("12:00");
+    expect(from12HourParts(12, 0, "AM")).toBe("00:00");
+    expect(to12HourParts("14:30")).toEqual({ hour12: 2, minute: 30, period: "PM" });
+  });
+});
+
+describe("parseTimeInput", () => {
+  it("parses a 24-hour HH:MM string", () => {
+    expect(parseTimeInput("11:45")).toBe("11:45");
+    expect(parseTimeInput("9:00")).toBe("09:00");
+    expect(parseTimeInput("00:00")).toBe("00:00");
+  });
+
+  it("parses 12-hour input with a meridiem regardless of format", () => {
+    expect(parseTimeInput("2:30 PM")).toBe("14:30");
+    expect(parseTimeInput("2:30pm")).toBe("14:30");
+    expect(parseTimeInput("12:00 AM")).toBe("00:00");
+    expect(parseTimeInput("12:00 PM")).toBe("12:00");
+  });
+
+  it("returns null for out-of-range or malformed input", () => {
+    expect(parseTimeInput("24:00")).toBeNull();
+    expect(parseTimeInput("12:60")).toBeNull();
+    expect(parseTimeInput("13:00 PM")).toBeNull();
+    expect(parseTimeInput("99:99")).toBeNull();
+    expect(parseTimeInput("")).toBeNull();
+    expect(parseTimeInput("nope")).toBeNull();
   });
 });
 

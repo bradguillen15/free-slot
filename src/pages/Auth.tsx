@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,7 +32,17 @@ export default function Auth() {
   const { t } = useTranslation();
   // Google OAuth is wired but hidden until the flow is refined — opt in with VITE_ENABLE_GOOGLE_SIGN_IN=true.
   const googleSignInEnabled = import.meta.env.VITE_ENABLE_GOOGLE_SIGN_IN === "true";
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  // Default to sign-in — returning users are the common case; "Create account"
+  // entry points opt into signup via ?mode=signup.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+
+  const toggleMode = () => {
+    const next = new URLSearchParams(searchParams);
+    if (mode === "signup") next.delete("mode");
+    else next.set("mode", "signup");
+    setSearchParams(next, { replace: true });
+  };
   const [googleLoading, setGoogleLoading] = useState(false);
   const [migrateOpen, setMigrateOpen] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
@@ -324,7 +334,7 @@ export default function Auth() {
           <div className="mt-5 text-center text-sm text-muted-foreground">
             {mode === "signup" ? t("auth.haveAccount") : t("auth.newHere")}{" "}
             <button
-              onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
+              onClick={toggleMode}
               data-testid="auth-mode-toggle"
               className="text-primary hover:text-primary-glow transition-colors font-medium"
             >
@@ -348,7 +358,7 @@ export default function Auth() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={startFresh} disabled={migrating} data-testid="migrate-start-fresh">{t("auth.migrate.startFresh")}</AlertDialogCancel>
-            <AlertDialogAction onClick={importNow} disabled={migrating} data-testid="migrate-import">
+            <AlertDialogAction onClick={importNow} disabled={migrating} data-testid="migrate-import" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
               {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("auth.migrate.import")}
             </AlertDialogAction>
           </AlertDialogFooter>

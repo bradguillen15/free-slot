@@ -59,9 +59,19 @@ describe("mapTimeLog", () => {
 });
 
 describe("mapProfile", () => {
-  it("passes through the row as-is", () => {
+  it("defaults time_format to 24h when missing", () => {
     const r = { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: false, weekly_review_day: 0, onboarding_completed: true };
-    expect(mapProfile(r as Record<string, unknown>)).toEqual(r);
+    expect(mapProfile(r as Record<string, unknown>).time_format).toBe("24h");
+  });
+
+  it("preserves 12h time_format", () => {
+    const r = { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, time_format: "12h" };
+    expect(mapProfile(r as Record<string, unknown>).time_format).toBe("12h");
+  });
+
+  it("falls back to 24h for unexpected time_format values", () => {
+    const r = { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: false, weekly_review_day: 0, onboarding_completed: true, time_format: "unexpected" };
+    expect(mapProfile(r as Record<string, unknown>).time_format).toBe("24h");
   });
 });
 

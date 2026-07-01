@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
-### Requirement: Overlap detection
-The system SHALL detect all pairs of rendered segments (log bars and visible block bars) in the day-view timeline that share at least one minute of overlap.
+### Requirement: Actual log overlap detection
+The system SHALL detect all pairs of rendered actual log segments that share at least one minute of overlap.
 
 #### Scenario: Two logs overlap
 - **WHEN** two time logs both include minute 120 (e.g. 1:00–3:00 and 2:00–4:00)
@@ -17,8 +17,8 @@ The system SHALL detect all pairs of rendered segments (log bars and visible blo
 
 ---
 
-### Requirement: Lane assignment
-The system SHALL assign each segment within a collision group to the leftmost available lane such that no two segments in the same lane overlap in time.
+### Requirement: Actual log lane assignment
+The system SHALL assign each actual log segment within a collision group to the leftmost available lane such that no two actual log segments in the same lane overlap in time.
 
 #### Scenario: Lane 0 assigned first
 - **WHEN** a segment is the first in its collision group
@@ -30,8 +30,8 @@ The system SHALL assign each segment within a collision group to the leftmost av
 
 ---
 
-### Requirement: Proportional width rendering
-The system SHALL render each segment at a width equal to `totalColumnWidth / groupLaneCount` and at a left offset equal to `lane * (totalColumnWidth / groupLaneCount)`.
+### Requirement: Proportional width rendering for actual logs
+The system SHALL render each actual log segment at a width equal to `totalColumnWidth / groupLaneCount` and at a left offset equal to `lane * (totalColumnWidth / groupLaneCount)`.
 
 #### Scenario: Single item — full width
 - **WHEN** a segment has no overlapping neighbours
@@ -56,9 +56,34 @@ The system SHALL allow drag-to-reschedule for log bars regardless of their assig
 
 ---
 
-### Requirement: Block bars participate in collision layout
-The system SHALL include visible schedule-block segments in the collision calculation alongside log segments.
+### Requirement: Schedule blocks remain full-width background guides
+The system SHALL render schedule-block segments full-width as planned background guides and SHALL NOT shrink schedule blocks into collision lanes because an actual log overlaps them.
 
 #### Scenario: Block and log at the same time
-- **WHEN** a schedule block segment and a log segment overlap in time
-- **THEN** they are placed in separate lanes and each renders at half width
+- **WHEN** a schedule block segment and an actual log segment overlap in time
+- **THEN** the schedule block remains full-width in the background
+- **AND** the actual log renders above it
+
+#### Scenario: Two schedule blocks overlap
+- **WHEN** two schedule block segments overlap in time
+- **THEN** both schedule blocks remain full-width background guides rather than being split into columns
+
+---
+
+### Requirement: Week view handles actual log collisions
+The system SHALL render overlapping actual logs in the week view with the same lane assignment model used by the day view, while preserving full-width schedule blocks underneath them.
+
+#### Scenario: Two week-view logs overlap
+- **WHEN** two actual logs overlap in the same week-day column
+- **THEN** each log renders in a separate lane at half width
+- **AND** the day cell remains clickable outside the log bars
+
+#### Scenario: Week-view log overlaps a schedule block
+- **WHEN** an actual log overlaps a schedule block in the week view
+- **THEN** the schedule block remains full-width in the background
+- **AND** the actual log renders above it
+
+---
+
+### Requirement: Month view remains compact
+The system SHALL keep month cells compact by stacking schedule and logged segments in the existing vertical strip, with hover/touch descriptions identifying whether a segment is planned or logged.
