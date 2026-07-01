@@ -365,6 +365,7 @@ const en = {
     assignCategory: "Assign a category before dragging this block.",
     rescheduled: "Block rescheduled",
     couldNotReschedule: "Could not reschedule",
+    dragToReschedule: "Drag to reschedule",
   },
   aiPanel: {
     title: "AI weekly plan",

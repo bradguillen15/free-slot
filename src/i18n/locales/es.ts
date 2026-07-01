@@ -367,6 +367,7 @@ const es: Translations = {
     assignCategory: "Asigna una categoría antes de arrastrar este bloque.",
     rescheduled: "Bloque reprogramado",
     couldNotReschedule: "No se pudo reprogramar",
+    dragToReschedule: "Arrastrar para reprogramar",
   },
   aiPanel: {
     title: "Plan semanal con IA",

@@ -21,6 +21,29 @@ snapping to 15-minute increments, and SHALL persist the change via `updateTimeLo
 - **WHEN** the user attempts to drag a log that has no category assigned
 - **THEN** the drag is blocked and a toast prompts assigning a category first
 
+### Requirement: Mobile log drag uses an explicit grip handle
+
+On viewports below the `md` breakpoint, dragging the log bar body SHALL NOT reschedule the log. A grip handle on the bar SHALL be the only touch drag affordance for rescheduling. Tapping the bar body SHALL still open `QuickLogDialog`.
+
+#### Scenario: Mobile bar drag does not reschedule
+
+- **WHEN** the user drags a log bar body on a mobile viewport
+- **THEN** the log time and date remain unchanged
+
+#### Scenario: Mobile grip handle reschedules
+
+- **WHEN** the user drags the grip handle on a mobile viewport
+- **THEN** the log reschedules with the same snap and persistence rules as desktop drag
+
+### Requirement: Week view day columns are wider on mobile
+
+On mobile viewports, `WeekGrid` SHALL render day columns at least 116px wide and allow horizontal scrolling rather than compressing columns below a readable width.
+
+#### Scenario: Mobile week grid scroll width
+
+- **WHEN** the week view renders on a mobile viewport
+- **THEN** the grid minimum width is at least 860px (48px hour rail + 7 × 116px day columns)
+
 ### Requirement: updateTimeLog supports moving a log to a new date
 
 `updateTimeLog` SHALL accept an optional `date` and move the log to that date in both guest and cloud

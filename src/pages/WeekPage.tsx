@@ -18,7 +18,6 @@ import { buildDayCells, type DayCellData, type DayCellBlock, type DayCellLog } f
 import { WeekGrid } from "@/components/week/WeekGrid";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
-import { BlockActionChooser } from "@/components/day/BlockActionChooser";
 import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
 import { AIPlanPanel, type WeeklyPlan, type ActivityLite } from "@/components/week/AIPlanPanel";
 import {
@@ -66,7 +65,6 @@ export default function WeekPage() {
   }>({});
 
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
-  const [chooser, setChooser] = useState<{ block: ScheduleBlock; iso: string } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -178,15 +176,17 @@ export default function WeekPage() {
 
   const onBlockClick = (iso: string, cellBlock: DayCellBlock) => {
     const full = cellBlock.id ? blockById[cellBlock.id] : undefined;
-    if (full) setChooser({ block: full, iso });
-  };
-
-  const logFromBlock = (block: ScheduleBlock, iso: string) => {
-    setLogCtx({ date: iso, ...logDefaultsFromBlock(block) });
+    if (!full) return;
+    setLogCtx({ date: iso, ...logDefaultsFromBlock(full) });
     setLogOpen(true);
   };
 
-  const handleLogReschedule = async (logId: string, newDate: string, newStartMin: number, newEndMin: number) => {
+  const handleLogReschedule = async (
+    logId: string,
+    newDate: string,
+    newStartMin: number,
+    newEndMin: number,
+  ) => {
     const log = (logsRaw ?? []).find((l) => (l as { id?: string }).id === logId);
     if (!(log as { category_id?: string | null } | undefined)?.category_id) {
       toast.error(t("week.assignCategory"));
@@ -314,8 +314,7 @@ export default function WeekPage() {
 
         <div className="flex gap-4">
           <div className="overflow-x-auto flex-1 min-w-0">
-            <div className="min-w-[720px]">
-              <WeekGrid
+            <WeekGrid
                 days={dayCells}
                 onGapClick={onGapClick}
                 onSlotClick={onSlotClick}
@@ -324,7 +323,6 @@ export default function WeekPage() {
                 onLogReschedule={handleLogReschedule}
                 notedDates={notedDates}
               />
-            </div>
           </div>
 
           <AnimatePresence>
@@ -376,17 +374,6 @@ export default function WeekPage() {
         onCategoriesRefresh={refreshCats}
       />
 
-      <BlockActionChooser
-        open={!!chooser}
-        onOpenChange={(o) => !o && setChooser(null)}
-        blockName={chooser?.block.name ?? ""}
-        onLog={() => chooser && logFromBlock(chooser.block, chooser.iso)}
-        onEdit={() => {
-          if (!chooser) return;
-          setBlockDialogTarget({ block: chooser.block });
-          setBlockDialogOpen(true);
-        }}
-      />
     </>
   );
 }

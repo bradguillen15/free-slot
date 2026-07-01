@@ -40,19 +40,17 @@ SHALL reflect this wrapped value.
 - **WHEN** the user enters start 09:00 and end 10:30
 - **THEN** the duration readout shows 1h 30m
 
-### Requirement: Logging from an overnight block prefills its real span
+### Requirement: Logging from a schedule block prefills its real span
 
-The log dialog SHALL prefill the start and end with the block's actual span when the user chooses
-"log here" on a schedule block whose end time is at or before its start time (an overnight block),
-rather than a truncated window.
+The log dialog SHALL prefill the start and end with the block's actual span when the user clicks a schedule block in the day or week timeline, rather than a truncated window. For overnight blocks (end at or before start), the full overnight span is used.
 
 #### Scenario: Log actual from an overnight sleep block
 
-- **WHEN** the user clicks an overnight Sleep block of 23:00–08:00 and chooses "log here"
+- **WHEN** the user clicks an overnight Sleep block of 23:00–08:00 in the timeline
 - **THEN** the log dialog opens prefilled with start 23:00 and end 08:00
 
 #### Scenario: Log actual from a same-day block
 
-- **WHEN** the user clicks a Work block of 09:00–17:00 and chooses "log here"
+- **WHEN** the user clicks a Work block of 09:00–17:00 in the timeline
 - **THEN** the log dialog opens prefilled with start 09:00 and end 17:00
 

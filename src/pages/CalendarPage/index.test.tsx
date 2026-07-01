@@ -1,4 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
+import { fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import "@/i18n";
 
@@ -11,7 +12,8 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));
 
-import { ensureBootstrap } from "@/lib/localStore";
+import { upsertScheduleBlock, ensureBootstrap } from "@/lib/localStore";
+import { isoToWeekday, todayISO } from "@/lib/time";
 import CalendarPage from ".";
 
 beforeEach(() => {
@@ -43,5 +45,27 @@ describe("CalendarPage — Summary/Notes tabs", () => {
     const activeTabs = document.querySelectorAll('[role="tab"][data-state="active"]');
     const texts = Array.from(activeTabs).map((t) => t.textContent);
     expect(texts).toContain("Summary");
+  });
+});
+
+describe("CalendarPage — schedule block click", () => {
+  it("opens Quick Log prefilled when a schedule block is clicked", async () => {
+    const today = todayISO();
+    upsertScheduleBlock({
+      name: "Work",
+      start_time: "09:00",
+      end_time: "17:00",
+      days_of_week: [isoToWeekday(today)],
+      color: "#3b82f6",
+      type: "fixed",
+    });
+
+    const { findByTestId, findByTitle } = renderWithProviders(<CalendarPage />);
+
+    fireEvent.click(await findByTitle(/Work · Planned/));
+
+    expect(await findByTestId("quicklog-title")).toHaveValue("Work");
+    expect(await findByTestId("quicklog-start")).toHaveValue("09:00");
+    expect(await findByTestId("quicklog-end")).toHaveValue("17:00");
   });
 });
