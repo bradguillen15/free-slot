@@ -25,7 +25,7 @@ This document explains how FreeSlot is put together: the layers, the data flow, 
                     │  - Postgres (with RLS)            │
                     │  - Auth (email + password)        │
                     │  - Edge functions (Deno)          │
-                    │  - Anthropic API (secret key)     │
+                    │  - Gemini API (secret key)        │
                     └───────────────────────────────────┘
 ```
 
@@ -148,7 +148,7 @@ Cloud-only. Flow:
 
 1. Component collects this week's `gaps`, the user's `activities`, and their `weekly_priorities`.
 2. Calls the `generate-weekly-plan` edge function.
-3. Edge function calls the **Anthropic Messages API** directly (Claude, via the `ANTHROPIC_API_KEY` Supabase secret) with a prompt asking for slot assignments.
+3. Edge function calls the **Gemini `generateContent` API** directly (`gemini-2.5-flash`, via the `GEMINI_API_KEY` Supabase secret) with a prompt asking for slot assignments.
 4. Result is `upsert`ed into `weekly_plans` keyed on `(user_id, week_start)` — the unique constraint prevents race conditions from double-clicks.
 5. UI displays slots as dashed primary-colored ribbons over the week grid; clicking "Accept" inserts a corresponding `time_log` (also guarded with `useRef` against double-fires).
 

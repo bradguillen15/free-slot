@@ -13,10 +13,10 @@ Trust boundaries, from least to most privileged:
 
 1. **Browser (untrusted)** → Supabase PostgREST with the anon key. The ONLY server-side defense for CRUD is **RLS**. Client-side checks (`ProtectedRoute`, gating) are UX, not security.
 2. **Browser** → **edge functions** (`generate-weekly-plan`, `weekly-review`, `delete-account`) with a user JWT. Functions validate the JWT, then act with the user's RLS-scoped client — except `delete-account`, which escalates to the **service role**.
-3. **Edge functions** → **Anthropic API** with `ANTHROPIC_API_KEY`. User-controlled strings (activity names, gap labels) flow into prompts; model output flows back into the DB.
+3. **Edge functions** → **Gemini API** with `GEMINI_API_KEY`. User-controlled strings (activity names, gap labels) flow into prompts; model output flows back into the DB.
 4. **Guest mode** is localStorage-only — no server trust involved until `migrateGuest.ts` writes it to the cloud on signup.
 
-Assets: per-user time/schedule data (low-sensitivity PII: daily routines reveal behavior patterns), Supabase service-role key, Anthropic API key, user accounts.
+Assets: per-user time/schedule data (low-sensitivity PII: daily routines reveal behavior patterns), Supabase service-role key, Gemini API key, user accounts.
 
 Out of scope: Supabase platform internals, Anthropic API internals, DoS/rate-exhaustion beyond config review.
 
@@ -138,7 +138,7 @@ Key packages: `vitest@3.2.4` (critical, dev-only — Vitest UI exposed to networ
 
 | ID | Severity | Location | Exploit scenario | Fix |
 |----|----------|----------|------------------|-----|
-| U0-1 | **High** | `.gitignore:1-35`, `.env` (tracked) | `.env` is **not** gitignored and is **still tracked** (`git ls-files .env`). Commit `e74d293` added live `VITE_SUPABASE_URL`, project ref, and anon JWT. Any future secret (service role, Anthropic key) added to `.env` would be committed again. | Add `.env`, `.env.*`, `!.env.example` to `.gitignore`; `git rm --cached .env`; rotate keys if repo is/was public; purge history with `git filter-repo` if needed. |
+| U0-1 | **High** | `.gitignore:1-35`, `.env` (tracked) | `.env` is **not** gitignored and is **still tracked** (`git ls-files .env`). Commit `e74d293` added live `VITE_SUPABASE_URL`, project ref, and anon JWT. Any future secret (service role, Gemini key) added to `.env` would be committed again. | Add `.env`, `.env.*`, `!.env.example` to `.gitignore`; `git rm --cached .env`; rotate keys if repo is/was public; purge history with `git filter-repo` if needed. |
 | U0-2 | **High** | lockfiles: `bun.lockb`, `package-lock.json` tracked; `pnpm-lock.yaml` untracked; `.github/workflows/ci.yml:24` | CI runs `pnpm install --frozen-lockfile` but `pnpm-lock.yaml` is not committed — CI cannot reproduce installs. Three lockfiles = ambiguous audit surface. | Pick pnpm; commit `pnpm-lock.yaml`; remove `bun.lockb` and `package-lock.json` from git. |
 | U0-3 | N/A | `src/`, `supabase/` | `eval(` / `new Function(` — **none found**. | — |
 | U0-4 | N/A | `src/` (except chart) | `dangerouslySetInnerHTML` — **one hit** in `chart.tsx:70` (see U4-1). | — |
@@ -161,7 +161,7 @@ Key packages: `vitest@3.2.4` (critical, dev-only — Vitest UI exposed to networ
 | ID | Severity | Location | Exploit scenario | Fix |
 |----|----------|----------|------------------|-----|
 | U2-1 | Medium | `generate-weekly-plan/index.ts:11`, `delete-account/index.ts:5`, `weekly-review/index.ts:5` | `Access-Control-Allow-Origin: *`. Any origin can invoke functions if it holds the user's JWT (e.g. XSS on another site reading `localStorage`). CSRF via cookies is N/A (Bearer header). | Restrict `Origin` to production allowlist; or accept risk and document dependency on XSS prevention. |
-| U2-2 | Medium | `generate-weekly-plan/index.ts:32-36` | Client supplies `gaps`, `activities`, `priorities` wholesale — no count/length caps, no schema validation. Attacker (authenticated) can send huge arrays → inflated Anthropic cost. SEC-1/SEC-3 from old Express audit were never ported; status unchanged. | Re-fetch activities/priorities from DB server-side; cap array sizes and string lengths; validate `week_start` ISO format. |
+| U2-2 | Medium | `generate-weekly-plan/index.ts:32-36` | Client supplies `gaps`, `activities`, `priorities` wholesale — no count/length caps, no schema validation. Attacker (authenticated) can send huge arrays → inflated Gemini API cost. SEC-1/SEC-3 from old Express audit were never ported; status unchanged. | Re-fetch activities/priorities from DB server-side; cap array sizes and string lengths; validate `week_start` ISO format. |
 | U2-3 | Low | `generate-weekly-plan/index.ts:128,134`, `weekly-review/index.ts:86,92` | `insErr.message` / `e.message` returned to client. Postgres errors can include constraint/column names (info disclosure). | Return generic `{ error: "Internal error" }`; log details server-side only. |
 | U2-4 | Medium | `delete-account/index.ts:38-42` | Per-table delete errors are logged and **swallowed**; auth user is still deleted. Partial failure → orphaned rows without owner, or account deleted while data remains. | Abort on first delete error; use transaction or single `DELETE FROM auth.users` relying on `ON DELETE CASCADE` (add missing cascades if needed). |
 | U2-5 | N/A | `weekly_plans` | Prompt/response debug columns removed; current table stores generated slots only. | — |

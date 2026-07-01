@@ -118,7 +118,7 @@ When a guest signs up, `src/lib/migrateGuest.ts` snapshots their local data and 
 | State / data | Custom `dataStore` hooks (cloud + guest unified); React Query is wired up but not yet adopted |
 | Drag & drop | `@dnd-kit` |
 | Backend | **Supabase** (self-managed) — Postgres, Auth, Edge Functions |
-| AI | **Anthropic API** (Claude) — called from edge functions with `ANTHROPIC_API_KEY` |
+| AI | **Gemini API** — called from edge functions with `GEMINI_API_KEY` |
 | Tests | Vitest |
 
 See [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) for the full breakdown and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for how it all fits together.

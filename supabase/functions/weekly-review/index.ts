@@ -1,4 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import {
+  buildReviewGeminiBody,
+  callGeminiGenerateContent,
+  parseGeminiText,
+  resolveGeminiApiFailure,
+} from "../_shared/gemini.ts";
 import { buildReviewPrompts } from "../_shared/planning.ts";
 
 const corsHeaders = {
@@ -31,8 +37,8 @@ Deno.serve(async (req) => {
 
     if (!week_start) return json({ error: "week_start required" }, 400);
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) return json({ error: "AI not configured" }, 500);
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) return json({ error: "AI not configured" }, 500);
 
     const { system: systemPrompt, user: userPrompt } = buildReviewPrompts({
       weekStart: week_start,
@@ -42,34 +48,20 @@ Deno.serve(async (req) => {
       totalTracked,
     });
 
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 512,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
+    const aiRes = await callGeminiGenerateContent(
+      GEMINI_API_KEY,
+      buildReviewGeminiBody(systemPrompt, userPrompt)
+    );
 
     if (!aiRes.ok) {
-      if (aiRes.status === 429) return json({ error: "Rate limit, try again shortly." }, 429);
-      const t = await aiRes.text();
-      console.error("AI error", aiRes.status, t);
-      return json({ error: "AI error" }, 500);
+      const { message, httpStatus } = resolveGeminiApiFailure(aiRes.status, aiRes.text);
+      console.error("Gemini API error", aiRes.status, message);
+      return json({ error: message }, httpStatus);
     }
 
-    const aiJson = await aiRes.json();
     const insights: string =
-      aiJson.content?.[0]?.text?.trim() ?? "Nice work showing up this week.";
+      parseGeminiText(aiRes.json) ?? "Nice work showing up this week.";
 
-    // Atomic upsert against UNIQUE (user_id, week_start) — the previous
-    // delete-then-insert raced with concurrent regenerations.
     const { data: saved, error: insErr } = await supabase
       .from("weekly_reviews")
       .upsert(
@@ -86,7 +78,6 @@ Deno.serve(async (req) => {
 
     return json({ review: saved });
   } catch (e) {
-    // Log internals server-side; never return raw error details to the client.
     console.error("fn error", e);
     return json({ error: "Unexpected error" }, 500);
   }

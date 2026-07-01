@@ -40,7 +40,7 @@ reviews:
       instructions: |
         Backend is self-managed Supabase (Postgres + RLS + Deno edge functions), not a separate Node API.
         - Every user-owned table needs user_id, RLS enabled, and own-data policies.
-        - ANTHROPIC_API_KEY and service-role usage must stay server-side only (edge functions).
+        - GEMINI_API_KEY and service-role usage must stay server-side only (edge functions).
         - Update docs/api-spec.yml when edge function contracts change.
     - path: "**/*.{test,spec}.{ts,tsx}"
       instructions: |

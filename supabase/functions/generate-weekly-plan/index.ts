@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import {
+  buildPlanGeminiBody,
+  callGeminiGenerateContent,
+  parseGeminiFunctionCall,
+  resolveGeminiApiFailure,
+} from "../_shared/gemini.ts";
+import {
   buildPlanPrompts,
   validateSlots,
   type GapWindow,
@@ -37,76 +43,35 @@ Deno.serve(async (req) => {
 
     if (!week_start) return json({ error: "week_start required" }, 400);
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) return json({ error: "AI not configured" }, 500);
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) return json({ error: "AI not configured" }, 500);
 
     const { system: systemPrompt, user: userPrompt } = buildPlanPrompts(
       week_start, gaps, activities, priorities
     );
 
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-        tools: [
-          {
-            name: "propose_plan",
-            description: "Return scheduled slots for the week.",
-            input_schema: {
-              type: "object",
-              properties: {
-                slots: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      activity_id: { type: "string" },
-                      activity_name: { type: "string" },
-                      day: { type: "string", description: "ISO date YYYY-MM-DD" },
-                      start: { type: "string", description: "HH:MM 24h" },
-                      end: { type: "string", description: "HH:MM 24h" },
-                      rationale: { type: "string" },
-                    },
-                    required: ["activity_id", "activity_name", "day", "start", "end"],
-                    additionalProperties: false,
-                  },
-                },
-                summary: { type: "string" },
-              },
-              required: ["slots", "summary"],
-              additionalProperties: false,
-            },
-          },
-        ],
-        tool_choice: { type: "tool", name: "propose_plan" },
-      }),
-    });
+    const aiRes = await callGeminiGenerateContent(
+      GEMINI_API_KEY,
+      buildPlanGeminiBody(systemPrompt, userPrompt)
+    );
 
     if (!aiRes.ok) {
-      if (aiRes.status === 429) return json({ error: "Rate limit, try again shortly." }, 429);
-      const t = await aiRes.text();
-      console.error("AI error", aiRes.status, t);
-      return json({ error: "AI error" }, 500);
+      const { message, httpStatus } = resolveGeminiApiFailure(aiRes.status, aiRes.text);
+      console.error("Gemini API error", aiRes.status, message);
+      return json({ error: message }, httpStatus);
     }
 
-    const aiJson = await aiRes.json();
-    const toolBlock = aiJson.content?.find((b: { type: string }) => b.type === "tool_use");
-    if (!toolBlock) return json({ error: "No plan returned" }, 500);
+    const toolArgs = parseGeminiFunctionCall(aiRes.json, "propose_plan");
+    if (!toolArgs) {
+      return json(
+        { error: "AI did not return a plan structure. Try generating again." },
+        500
+      );
+    }
 
-    const parsed: { slots: unknown[]; summary: string } = toolBlock.input;
-    // The model's output is untrusted — drop slots with bad formats or that
-    // fall outside the submitted free windows before persisting.
+    const parsed = toolArgs as { slots: unknown[]; summary: string };
     const slots = validateSlots(parsed.slots, gaps);
 
-    // Atomic upsert by (user_id, week_start) — relies on unique constraint
     const { data: saved, error: insErr } = await supabase
       .from("weekly_plans")
       .upsert(
@@ -128,7 +93,6 @@ Deno.serve(async (req) => {
 
     return json({ plan: saved, summary: parsed.summary });
   } catch (e) {
-    // Log internals server-side; never return raw error details to the client.
     console.error("fn error", e);
     return json({ error: "Unexpected error" }, 500);
   }
