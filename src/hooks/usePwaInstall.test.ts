@@ -156,4 +156,24 @@ describe("usePwaInstall", () => {
 
     expect(outcome).toBe("unavailable");
   });
+
+  it("returns failed and clears the deferred prompt when prompt throws", async () => {
+    const deferred = createDeferredPrompt();
+    deferred.prompt = vi.fn().mockRejectedValue(new Error("prompt failed"));
+    const { result } = renderHook(() => usePwaInstall());
+
+    act(() => {
+      dispatchWindowEvent("beforeinstallprompt", deferred);
+    });
+
+    await waitFor(() => expect(result.current.canInstall).toBe(true));
+
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.install();
+    });
+
+    expect(outcome).toBe("failed");
+    expect(result.current.canInstall).toBe(false);
+  });
 });

@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import "@/i18n";
 import { InstallAppCard } from "./InstallAppCard";
 
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
 const pwaState = vi.hoisted(() => ({
   canInstall: false,
   isInstalled: false,
@@ -40,6 +42,20 @@ describe("InstallAppCard", () => {
 
     await user.click(button);
     expect(pwaState.install).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error toast when install fails", async () => {
+    const user = userEvent.setup();
+    const { toast } = await import("sonner");
+    pwaState.canInstall = true;
+    pwaState.install.mockResolvedValue("failed");
+    render(<InstallAppCard />);
+
+    await user.click(screen.getByTestId("install-app-button"));
+
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+      "Could not start install. Try again from your browser menu.",
+    );
   });
 
   it("shows iOS manual instructions when on iOS without a deferred prompt", () => {

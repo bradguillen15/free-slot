@@ -19,7 +19,7 @@ export function isStandaloneMode(): boolean {
   return window.matchMedia("(display-mode: standalone)").matches;
 }
 
-export type PwaInstallOutcome = "accepted" | "dismissed" | "unavailable";
+export type PwaInstallOutcome = "accepted" | "dismissed" | "unavailable" | "failed";
 
 export function usePwaInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -60,10 +60,15 @@ export function usePwaInstall() {
 
   const install = useCallback(async (): Promise<PwaInstallOutcome> => {
     if (!deferredPrompt) return "unavailable";
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    return outcome;
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      return outcome;
+    } catch {
+      return "failed";
+    } finally {
+      setDeferredPrompt(null);
+    }
   }, [deferredPrompt]);
 
   return {

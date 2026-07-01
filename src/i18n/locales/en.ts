@@ -508,6 +508,7 @@ const en = {
       iosStep2: "Scroll down and tap Add to Home Screen.",
       iosStep3: "Tap Add — FreeSlot will open without the browser chrome.",
       unsupported: "Your browser does not support one-tap install here. Try Chrome or Edge on desktop or Android, or use Safari on iPhone.",
+      failed: "Could not start install. Try again from your browser menu.",
     },
     password: {
       title: "Password",

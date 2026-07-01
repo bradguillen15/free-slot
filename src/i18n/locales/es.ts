@@ -510,6 +510,7 @@ const es: Translations = {
       iosStep2: "Desplázate y toca Añadir a pantalla de inicio.",
       iosStep3: "Toca Añadir — FreeSlot se abrirá sin la interfaz del navegador.",
       unsupported: "Tu navegador no admite instalación con un toque aquí. Prueba Chrome o Edge en escritorio o Android, o Safari en iPhone.",
+      failed: "No se pudo iniciar la instalación. Inténtalo de nuevo desde el menú del navegador.",
     },
     password: {
       title: "Contraseña",

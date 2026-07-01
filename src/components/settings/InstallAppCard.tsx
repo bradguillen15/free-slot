@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, Smartphone } from "lucide-react";
+import { toast } from "sonner";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,12 @@ export function InstallAppCard() {
   const handleInstall = async () => {
     setInstalling(true);
     try {
-      await install();
+      const outcome = await install();
+      if (outcome === "failed") {
+        toast.error(t("settings.installApp.failed"));
+      }
+    } catch {
+      toast.error(t("settings.installApp.failed"));
     } finally {
       setInstalling(false);
     }
