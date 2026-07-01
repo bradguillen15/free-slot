@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -78,6 +78,7 @@ type SortableScheduleRowProps = {
   editLabel: string;
   deleteLabel: string;
   dragLabel: string;
+  actionsDisabled: boolean;
 };
 
 function IconTooltipButton({
@@ -116,6 +117,7 @@ function SortableScheduleRow({
   editLabel,
   deleteLabel,
   dragLabel,
+  actionsDisabled,
 }: SortableScheduleRowProps) {
   const { t } = useTranslation();
   const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
@@ -205,13 +207,13 @@ function SortableScheduleRow({
         })}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <IconTooltipButton label={editLabel} onClick={() => onEdit(b)} testId={`schedule-edit-${b.id}`}>
+        <IconTooltipButton label={editLabel} onClick={() => onEdit(b)} testId={`schedule-edit-${b.id}`} className={actionsDisabled ? "pointer-events-none opacity-40" : undefined}>
           <Pencil className="h-3.5 w-3.5" />
         </IconTooltipButton>
-        <IconTooltipButton label={duplicateLabel} onClick={() => onDuplicate(b)} testId={`schedule-duplicate-${b.id}`}>
+        <IconTooltipButton label={duplicateLabel} onClick={() => onDuplicate(b)} testId={`schedule-duplicate-${b.id}`} className={actionsDisabled ? "pointer-events-none opacity-40" : undefined}>
           <Copy className="h-3.5 w-3.5" />
         </IconTooltipButton>
-        <IconTooltipButton label={deleteLabel} onClick={() => onDelete(b)} testId={`schedule-delete-${b.id}`}>
+        <IconTooltipButton label={deleteLabel} onClick={() => onDelete(b)} testId={`schedule-delete-${b.id}`} className={actionsDisabled ? "pointer-events-none opacity-40" : undefined}>
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </IconTooltipButton>
       </div>
@@ -238,6 +240,8 @@ export function ScheduleEditor() {
   const [dialogBlock, setDialogBlock] = useState<ScheduleBlock | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<ScheduleBlock | null>(null);
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
+  const orderedIdsRef = useRef(orderedIds);
+  const [isDragging, setIsDragging] = useState(false);
 
   const dialogPickerCategories = useMemo(
     () => pickerCategories(
@@ -254,7 +258,9 @@ export function ScheduleEditor() {
   );
 
   useEffect(() => {
-    setOrderedIds(blocks.map((b) => b.id));
+    const ids = blocks.map((b) => b.id);
+    setOrderedIds(ids);
+    orderedIdsRef.current = ids;
   }, [blocks]);
 
   const orderedBlocks = useMemo(() => {
@@ -326,6 +332,7 @@ export function ScheduleEditor() {
           : [...orderedIds, copyId];
       await reorderScheduleBlocks(mode, user?.id ?? null, nextIds);
       setOrderedIds(nextIds);
+      orderedIdsRef.current = nextIds;
       refresh();
       toast.success(t("schedule.duplicated"));
     } catch (err: unknown) {
@@ -383,19 +390,24 @@ export function ScheduleEditor() {
       .join(", ");
 
   const onDragEnd = async (e: DragEndEvent) => {
+    setIsDragging(false);
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const oldIdx = orderedIds.indexOf(String(active.id));
-    const newIdx = orderedIds.indexOf(String(over.id));
+    const ids = orderedIdsRef.current;
+    const oldIdx = ids.indexOf(String(active.id));
+    const newIdx = ids.indexOf(String(over.id));
     if (oldIdx < 0 || newIdx < 0) return;
-    const nextIds = arrayMove(orderedIds, oldIdx, newIdx);
+    const nextIds = arrayMove(ids, oldIdx, newIdx);
     setOrderedIds(nextIds);
+    orderedIdsRef.current = nextIds;
     try {
       await reorderScheduleBlocks(mode, user?.id ?? null, nextIds);
       refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
-      setOrderedIds(blocks.map((b) => b.id));
+      const fallback = blocks.map((b) => b.id);
+      setOrderedIds(fallback);
+      orderedIdsRef.current = fallback;
     }
   };
 
@@ -429,7 +441,13 @@ export function ScheduleEditor() {
         {blocks.length > 1 && (
           <p className="text-xs text-muted-foreground">{t("schedule.dragHint")}</p>
         )}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={() => setIsDragging(true)}
+          onDragCancel={() => setIsDragging(false)}
+          onDragEnd={onDragEnd}
+        >
           <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
               {orderedBlocks.map((b) => (
@@ -445,6 +463,7 @@ export function ScheduleEditor() {
                   editLabel={t("schedule.edit")}
                   deleteLabel={t("schedule.delete")}
                   dragLabel={t("schedule.dragToReorder")}
+                  actionsDisabled={isDragging}
                 />
               ))}
             </div>
