@@ -11,7 +11,7 @@ This guide walks you through setting up a **new, self-managed Supabase project**
 - [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) installed: `brew install supabase/tap/supabase`
 - Logged in to the CLI: `supabase login`
 - A Google Cloud project (only if you want Google OAuth)
-- An Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
+- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
 
 ---
 
@@ -86,8 +86,8 @@ Verify in the Supabase dashboard → **Table Editor** that these tables exist:
 ## Step 5 — Set edge function secrets
 
 ```bash
-# Your Anthropic API key — used by generate-weekly-plan and weekly-review
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref <YOUR_PROJECT_REF>
+# Your Gemini API key — used by generate-weekly-plan and weekly-review
+supabase secrets set GEMINI_API_KEY=... --project-ref <YOUR_PROJECT_REF>
 
 # The service role key — used by delete-account to bypass RLS
 # Get this from: Dashboard → Settings → API → service_role (secret) key
@@ -100,7 +100,7 @@ Verify secrets are set:
 supabase secrets list --project-ref <YOUR_PROJECT_REF>
 ```
 
-You should see `ANTHROPIC_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` listed.
+You should see `GEMINI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` listed.
 
 > `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically — do not set them manually.
 
@@ -169,7 +169,7 @@ bun run dev
 1. Open `http://localhost:8080`.
 2. Create a new account with email/password — you should land on the app immediately (no email confirmation).
 3. Log some time entries (guest mode) then sign in — guest data should migrate.
-4. Go to the **Week view** → click **Generate Plan** — verify the AI planner returns a plan (requires `ANTHROPIC_API_KEY` to be set correctly).
+4. Go to the **Week view** → click **Generate Plan** — verify the AI planner returns a plan (requires `GEMINI_API_KEY` to be set correctly).
 5. Go to **Dashboard** → **Weekly Review** — verify a review is generated.
 6. Go to **Settings** → **Delete account** — verify the function runs without error (you can use a throwaway account).
 
@@ -179,7 +179,7 @@ bun run dev
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `AI not configured` error from edge function | `ANTHROPIC_API_KEY` secret not set | Re-run Step 5 |
+| `AI not configured` error from edge function | `GEMINI_API_KEY` secret not set | Re-run Step 5 |
 | Auth redirect loop after Google sign-in | Redirect URL mismatch | Check Step 4 — URL must match exactly |
 | Tables missing after `db push` | Migration failed silently | Check `supabase db push` output for errors; run `supabase db diff` |
 | `Invalid API key` from Supabase client | Wrong anon key in `.env` | Re-check Step 7 — copy the **anon** key, not the service role key |

@@ -72,7 +72,7 @@ See [`ARCHITECTURE.md §2`](./ARCHITECTURE.md) for the full pattern.
 | **Postgres + RLS** | Schema defined via SQL migrations under `supabase/migrations/`. Every table has a `user_id`-scoped policy. |
 | **Supabase Auth** | Email/password (UI). Auto-confirm enabled so guest→account is instant. Google OAuth can be enabled in the dashboard but is not wired into the UI. |
 | **Edge functions (Deno)** | Under `supabase/functions/`. Deployed with the Supabase CLI (`supabase functions deploy`). Used for AI calls, weekly review, account deletion. |
-| **Anthropic API** | Edge functions call the Anthropic Messages API directly (Claude) using the `ANTHROPIC_API_KEY` Supabase secret. Server-side only. |
+| **Gemini API** | Edge functions call the Gemini `generateContent` REST API directly using the `GEMINI_API_KEY` Supabase secret. Server-side only. Model: `gemini-2.5-flash`. |
 
 See [`CLOUD.md`](./CLOUD.md) for the schema, RLS policies, edge functions, and secrets.
 

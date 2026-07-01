@@ -3,6 +3,19 @@ import type { Json } from "@/integrations/supabase/types";
 import type { ResourcesProvider, ActivityInput, CategoryInput, ScheduleBlockInput, TimeLogInput, TimeLogPatch } from "@/resources/_providers/types";
 import { mapActivity, mapCategory, mapDailyNote, mapInboxItem, mapProfile, mapScheduleBlock, mapTimeLog, mapWeeklyPlan, sortCategories, sortScheduleBlocks } from "./mappers";
 
+export function edgeFunctionErrorMessage(error: unknown, data: unknown): string {
+  if (data && typeof data === "object" && "error" in data) {
+    const message = (data as { error: unknown }).error;
+    if (typeof message === "string" && message.length > 0) return message;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return "Request failed";
+}
+
+function throwOnFunctionError(error: unknown, data: unknown): void {
+  if (error) throw new Error(edgeFunctionErrorMessage(error, data));
+}
+
 export function createSupabaseProvider(): ResourcesProvider {
   return {
     categories: {
@@ -532,13 +545,13 @@ export function createSupabaseProvider(): ResourcesProvider {
     functions: {
       async generateWeeklyReview(body) {
         const { data, error } = await supabase.functions.invoke("weekly-review", { body });
-        if (error) throw error;
+        throwOnFunctionError(error, data);
         return data as { review: { insights: string } };
       },
 
       async generateWeeklyPlan(body) {
         const { data, error } = await supabase.functions.invoke("generate-weekly-plan", { body });
-        if (error) throw error;
+        throwOnFunctionError(error, data);
         return data as { slots: unknown[] };
       },
 

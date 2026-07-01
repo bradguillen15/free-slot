@@ -89,8 +89,8 @@ supabase functions deploy generate-weekly-plan --project-ref <YOUR_PROJECT_REF>
 
 | Function | Purpose | JWT | AI |
 |---|---|---|---|
-| `generate-weekly-plan` | Calls Anthropic with the user's gaps + activities + priorities; upserts the result into `weekly_plans`. | required | `claude-haiku-4-5-20251001` |
-| `weekly-review` | Aggregates planned-vs-actual for a week, asks the AI for insights, writes `weekly_reviews`. | required | `claude-haiku-4-5-20251001` |
+| `generate-weekly-plan` | Calls Gemini with the user's gaps + activities + priorities; upserts the result into `weekly_plans`. | required | `gemini-2.5-flash` |
+| `weekly-review` | Aggregates planned-vs-actual for a week, asks the AI for insights, writes `weekly_reviews`. | required | `gemini-2.5-flash` |
 | `delete-account` | Service-role cleanup + auth user deletion. | required | none |
 
 ### Calling an edge function
@@ -112,21 +112,20 @@ Apply the same belt-and-braces approach for any expensive write.
 
 ---
 
-## AI: Anthropic API
+## AI: Gemini API
 
-Edge functions call the Anthropic Messages API directly using `ANTHROPIC_API_KEY` (a Supabase secret). No additional gateway or proxy is needed.
+Edge functions call the Google Gemini `generateContent` REST API directly using `GEMINI_API_KEY` (a Supabase secret). No additional gateway or proxy is needed.
 
-Model in use: `claude-haiku-4-5-20251001` — fast and cost-efficient for structured planning and short reflections.
+Model in use: `gemini-2.5-flash` — fast, cost-efficient, and eligible for the Gemini API free tier.
 
 Always parse responses defensively:
 
 ```ts
 // Text response (weekly-review)
-const text = aiJson.content?.[0]?.text?.trim() ?? "fallback";
+const text = parseGeminiText(aiJson) ?? "fallback";
 
-// Tool-use response (generate-weekly-plan)
-const toolBlock = aiJson.content?.find((b) => b.type === "tool_use");
-const parsed = toolBlock?.input;
+// Function-call response (generate-weekly-plan)
+const parsed = parseGeminiFunctionCall(aiJson, "propose_plan");
 ```
 
 ---
@@ -138,7 +137,7 @@ Managed via Supabase CLI or the project dashboard (Settings → Edge Functions �
 Set secrets via CLI:
 
 ```bash
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref <YOUR_PROJECT_REF>
+supabase secrets set GEMINI_API_KEY=... --project-ref <YOUR_PROJECT_REF>
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... --project-ref <YOUR_PROJECT_REF>
 ```
 
@@ -146,7 +145,7 @@ Currently required:
 
 | Secret | Used by | How to get |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | `generate-weekly-plan`, `weekly-review` | console.anthropic.com → API Keys |
+| `GEMINI_API_KEY` | `generate-weekly-plan`, `weekly-review` | [Google AI Studio](https://aistudio.google.com/apikey) → API Keys |
 | `SUPABASE_SERVICE_ROLE_KEY` | `delete-account` | Supabase dashboard → Settings → API → service_role key |
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically by Supabase into every edge function — you do not need to set these manually.

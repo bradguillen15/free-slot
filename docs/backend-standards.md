@@ -20,7 +20,7 @@ FreeSlot's backend is a **self-managed Supabase project**: Postgres with RLS, Au
 | Auth | Supabase Auth (email + Google) |
 | Client SDK | `@supabase/supabase-js` (generated client in `src/integrations/supabase/`) |
 | Serverless | Deno edge functions under `supabase/functions/` |
-| AI | Anthropic Messages API (`ANTHROPIC_API_KEY` Supabase secret, server-side only) |
+| AI | Gemini `generateContent` API (`GEMINI_API_KEY` Supabase secret, server-side only) |
 | Migrations | `supabase/migrations/` (applied via `supabase db push`) |
 
 ## Security — Row-Level Security
