@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
@@ -38,6 +39,44 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.svg", "pwa-192x192.png", "pwa-512x512.png", "pwa-512x512-maskable.png"],
+      manifest: {
+        name: "FreeSlot",
+        short_name: "FreeSlot",
+        description: "FreeSlot maps your week, tracks your focus, and uses AI to plan time for the activities you actually care about.",
+        theme_color: "#3399FF",
+        background_color: "#0B0D12",
+        start_url: "/app",
+        scope: "/",
+        display: "standalone",
+        icons: [
+          {
+            src: "pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "pwa-512x512-maskable.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      workbox: {
+        navigateFallback: "/index.html",
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
+    }),
     ...(sentryUploadConfigured
       ? [
           sentryVitePlugin({

@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import "@/i18n";
 import { WeekGrid, type DayCellData } from "./WeekGrid";
+
+const EXPECTED_MOBILE_WEEK_GRID_MIN_WIDTH_PX = 860;
+const EXPECTED_MOBILE_DAY_COL_PX = 116;
 
 vi.mock("framer-motion", () => ({
   motion: {
@@ -12,6 +16,9 @@ vi.mock("framer-motion", () => ({
 }));
 
 vi.mock("@/hooks/useTimeFormat", () => ({ useTimeFormat: () => "24h" }));
+
+const mockIsMobile = vi.hoisted(() => ({ value: false }));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => mockIsMobile.value }));
 
 function makeDay(iso: string, isToday: boolean, label: string): DayCellData {
   return {
@@ -66,6 +73,50 @@ describe("WeekGrid — log drag", () => {
     expect(spy).toHaveBeenCalledWith("l1", "2026-06-15", 660, 720);
   });
 
+  it("does not reschedule when dragging the log bar on mobile", () => {
+    mockIsMobile.value = true;
+    const spy = vi.fn();
+    const log = { id: "l1", seg: { startMin: 540, endMin: 600 }, name: "Focus", color: "#f00", category_id: "c1", type: "productive" as const };
+    const day = makeDay("2026-06-15", false, "Monday");
+    day.logs = [log];
+
+    render(
+      <MemoryRouter>
+        <WeekGrid days={[day]} onGapClick={noop} onSlotClick={noop} onLogReschedule={spy} />
+      </MemoryRouter>
+    );
+
+    const logEl = screen.getByLabelText("Log: Focus");
+    fireEvent.pointerDown(logEl, { clientX: 200, clientY: 200, pointerId: 1 });
+    fireEvent.pointerMove(logEl, { clientX: 200, clientY: 280, pointerId: 1 });
+    fireEvent.pointerUp(logEl, { clientX: 200, clientY: 280, pointerId: 1 });
+
+    expect(spy).not.toHaveBeenCalled();
+    mockIsMobile.value = false;
+  });
+
+  it("reschedules from the move handle on mobile", () => {
+    mockIsMobile.value = true;
+    const spy = vi.fn();
+    const log = { id: "l1", seg: { startMin: 540, endMin: 600 }, name: "Focus", color: "#f00", category_id: "c1", type: "productive" as const };
+    const day = makeDay("2026-06-15", false, "Monday");
+    day.logs = [log];
+
+    render(
+      <MemoryRouter>
+        <WeekGrid days={[day]} onGapClick={noop} onSlotClick={noop} onLogReschedule={spy} />
+      </MemoryRouter>
+    );
+
+    const moveHandle = screen.getByRole("button", { name: "Drag to reschedule" });
+    fireEvent.pointerDown(moveHandle, { clientX: 200, clientY: 200, pointerId: 1 });
+    fireEvent.pointerMove(moveHandle, { clientX: 200, clientY: 280, pointerId: 1 });
+    fireEvent.pointerUp(moveHandle, { clientX: 200, clientY: 280, pointerId: 1 });
+
+    expect(spy).toHaveBeenCalledWith("l1", "2026-06-15", 660, 720);
+    mockIsMobile.value = false;
+  });
+
   it("does not fire onLogReschedule when log has no category_id", () => {
     const spy = vi.fn();
     const log = { id: "l2", seg: { startMin: 540, endMin: 600 }, name: "Uncategorized", color: "#aaa", category_id: null, type: "productive" as const };
@@ -84,6 +135,64 @@ describe("WeekGrid — log drag", () => {
     fireEvent.pointerUp(logEl, { clientX: 200, clientY: 264, pointerId: 1 });
 
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("calls onBlockClick when a schedule block is clicked", () => {
+    const onBlockClick = vi.fn();
+    const day = makeDay("2026-06-15", false, "Monday");
+    day.blocks = [
+      { id: "b1", seg: { startMin: 540, endMin: 1020 }, name: "Work", color: "#3b82f6" },
+    ];
+
+    render(
+      <MemoryRouter>
+        <WeekGrid days={[day]} onGapClick={noop} onSlotClick={noop} onBlockClick={onBlockClick} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByTitle(/Work · 09:00/));
+    expect(onBlockClick).toHaveBeenCalledWith("2026-06-15", expect.objectContaining({ id: "b1", name: "Work" }));
+  });
+
+  it("uses wider fixed columns and min width on mobile", () => {
+    mockIsMobile.value = true;
+    const day = makeDay("2026-06-15", false, "Monday");
+
+    const { getByTestId, container } = render(
+      <MemoryRouter>
+        <WeekGrid days={[day]} onGapClick={noop} onSlotClick={noop} />
+      </MemoryRouter>,
+    );
+
+    expect(getByTestId("week-grid")).toHaveStyle({ minWidth: `${EXPECTED_MOBILE_WEEK_GRID_MIN_WIDTH_PX}px` });
+    const headerGrid = container.querySelector(".grid") as HTMLElement;
+    expect(headerGrid.style.gridTemplateColumns).toBe(`48px repeat(7, ${EXPECTED_MOBILE_DAY_COL_PX}px)`);
+    mockIsMobile.value = false;
+  });
+
+  it("keeps a long label truncating beside the mobile drag handle", () => {
+    mockIsMobile.value = true;
+    const log = {
+      id: "l-long",
+      seg: { startMin: 540, endMin: 600 },
+      name: "Very long activity name that should truncate",
+      color: "#f00",
+      category_id: "c1",
+      type: "productive" as const,
+    };
+    const day = makeDay("2026-06-15", false, "Monday");
+    day.logs = [log];
+
+    render(
+      <MemoryRouter>
+        <WeekGrid days={[day]} onGapClick={noop} onSlotClick={noop} onLogReschedule={noop} />
+      </MemoryRouter>,
+    );
+
+    const label = screen.getByText(/Very long activity/);
+    expect(label.className).toMatch(/truncate|min-w-0/);
+    expect(screen.getByRole("button", { name: "Drag to reschedule" })).toBeInTheDocument();
+    mockIsMobile.value = false;
   });
 
   it("renders overlapping logs in separate lanes", () => {

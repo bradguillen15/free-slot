@@ -33,21 +33,21 @@ In `WeekGrid`, block bars and log bars SHALL both span the full day-column width
 
 ---
 
-### Requirement: Clicking a schedule block in day view opens an edit dialog
+### Requirement: Clicking a schedule block in day view opens Quick Log prefilled
 
-Schedule block bars in `DayTimeline` SHALL be interactive (`pointer-events-auto`). Clicking one SHALL open a `ScheduleBlockDialog` pre-filled with that block's current data (name, start time, end time, days, color). Saving SHALL call `upsertScheduleBlock` and refresh the block list. Deleting SHALL call `deleteScheduleBlock` and refresh.
+Schedule block bars in `DayTimeline` SHALL be interactive (`pointer-events-auto`). Clicking one SHALL open `QuickLogDialog` prefilled with that block's name and time span via `logDefaultsFromBlock`. The recurring block template is not edited from this gesture.
 
 #### Scenario: User clicks a schedule block bar
 
 - **WHEN** the user clicks a schedule block bar in the day timeline
-- **THEN** a dialog opens showing the block's name, time range, color, and selected days
-- **AND** the user can edit any field and save
+- **THEN** `QuickLogDialog` opens prefilled with the block's name, start time, and end time
+- **AND** the user can save a time log without an intermediate chooser dialog
 
-#### Scenario: User deletes a block from the edit dialog
+#### Scenario: User edits the recurring block template from the Schedule page
 
-- **WHEN** the user clicks "Delete" inside the schedule block edit dialog
-- **THEN** the block is deleted via `deleteScheduleBlock`
-- **AND** the dialog closes and the timeline refreshes
+- **WHEN** the user needs to change which days a block repeats or its template fields
+- **THEN** they use the Schedule page or another explicit block-edit entry point
+- **AND** clicking the block in the calendar still opens Quick Log, not `ScheduleBlockDialog`
 
 ---
 
@@ -63,14 +63,14 @@ Time-log bars in `DayTimeline` SHALL be interactive. Clicking one SHALL open `Qu
 
 ---
 
-### Requirement: Clicking blocks and logs in week view opens edit dialogs
+### Requirement: Clicking blocks and logs in week view opens the correct dialogs
 
-The same click-to-edit behaviour from the day view SHALL apply in `WeekGrid`. Clicking a schedule block opens `ScheduleBlockDialog`; clicking a log bar opens `QuickLogDialog` in edit mode.
+In `WeekGrid`, clicking a schedule block SHALL open `QuickLogDialog` prefilled from that block's occurrence on the clicked day. Clicking a log bar SHALL open `QuickLogDialog` in edit mode.
 
 #### Scenario: User clicks a block in week view
 
 - **WHEN** the user clicks a schedule block bar in the week grid
-- **THEN** `ScheduleBlockDialog` opens pre-filled with that block's data
+- **THEN** `QuickLogDialog` opens prefilled with that block's name and time span for that day
 
 #### Scenario: User clicks a log in week view
 
@@ -131,11 +131,17 @@ A right-click or long-press on an empty hour slot in `DayTimeline` SHALL offer a
 
 All new interactions (block edit, log edit, block create from timeline) SHALL work in both guest mode (localStorage via `dataStore`) and cloud mode (Supabase). No direct `supabase.from()` calls in page or timeline components — use `upsertScheduleBlock`, `deleteScheduleBlock`, `updateTimeLog`, `insertTimeLog` from `dataStore`.
 
-#### Scenario: Guest user edits a schedule block
+#### Scenario: Guest user logs time from a schedule block
 
-- **WHEN** a guest user (not signed in) clicks a schedule block bar
-- **THEN** `ScheduleBlockDialog` opens and saves via localStorage
-- **AND** the timeline reflects the change without requiring sign-in
+- **WHEN** a guest user (not signed in) clicks a schedule block bar in the day timeline
+- **THEN** `QuickLogDialog` opens prefilled with that block's name and time span via `logDefaultsFromBlock`
+- **AND** saving the log persists via localStorage without requiring sign-in
+
+#### Scenario: Signed-in user logs time from a schedule block
+
+- **WHEN** a signed-in user clicks a schedule block bar in the day timeline
+- **THEN** `QuickLogDialog` opens with the same prefilled fields as guest mode
+- **AND** saving the log persists via Supabase through `insertTimeLog` / `updateTimeLog` from `dataStore`
 
 ---
 

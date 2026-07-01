@@ -10,7 +10,6 @@ import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/
 import { DaySummary } from "@/components/day/DaySummary";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
-import { BlockActionChooser } from "@/components/day/BlockActionChooser";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { toast } from "sonner";
@@ -48,7 +47,6 @@ export default function CalendarPage() {
   const [blockDialogTarget, setBlockDialogTarget] = useState<{
     block?: ScheduleBlock; defaultStartTime?: string; defaultWeekday?: number;
   }>({});
-  const [chooserBlock, setChooserBlock] = useState<ScheduleBlock | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -130,17 +128,8 @@ export default function CalendarPage() {
   }, [cats, user, refreshCats]);
 
   const handleBlockClick = useCallback((block: ScheduleBlock) => {
-    setChooserBlock(block);
-  }, []);
-
-  const logFromBlock = useCallback((block: ScheduleBlock) => {
     setLogDefaults({ ...logDefaultsFromBlock(block), defaultCategoryId: undefined });
     setLogOpen(true);
-  }, []);
-
-  const editBlockTemplate = useCallback((block: ScheduleBlock) => {
-    setBlockDialogTarget({ block });
-    setBlockDialogOpen(true);
   }, []);
 
   const handleLogClick = useCallback((log: TimeLog) => {
@@ -290,14 +279,6 @@ export default function CalendarPage() {
         </div>
 
         <CalendarCreateMenu viewId="day" onLogTime={openQuickLog} />
-
-        <BlockActionChooser
-          open={!!chooserBlock}
-          onOpenChange={(o) => !o && setChooserBlock(null)}
-          blockName={chooserBlock?.name ?? ""}
-          onLog={() => chooserBlock && logFromBlock(chooserBlock)}
-          onEdit={() => chooserBlock && editBlockTemplate(chooserBlock)}
-        />
 
         <QuickLogDialog
           open={logOpen}

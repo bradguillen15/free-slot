@@ -146,7 +146,7 @@ export function AddLabelDialog({ open, defaultColor, onOpenChange, onSave }: Pro
               )}
             />
 
-            <DialogFooter className="gap-2">
+            <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
                 {t("labels.cancel")}
               </Button>

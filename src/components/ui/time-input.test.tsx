@@ -1,11 +1,20 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TimeInput } from "./time-input";
 
+const mockIsMobile = vi.hoisted(() => ({ value: false }));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => mockIsMobile.value,
+}));
+
 const field = (testid = "time") => screen.getByTestId(testid) as HTMLInputElement;
 
 describe("TimeInput", () => {
+  beforeEach(() => {
+    mockIsMobile.value = false;
+  });
   it("shows the 24-hour value in the field", () => {
     render(<TimeInput value="14:30" onChange={vi.fn()} format="24h" data-testid="time" />);
     expect(field()).toHaveValue("14:30");
@@ -40,13 +49,49 @@ describe("TimeInput", () => {
 
       fireEvent.click(field());
       fireEvent.scroll(screen.getByLabelText("Hour wheel"), {
-        target: { scrollTop: 10 * 36 },
+        target: { scrollTop: 10 * 40 },
       });
       act(() => {
         vi.advanceTimersByTime(120);
       });
 
       expect(onChange).toHaveBeenCalledWith("10:00");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves off-step minutes in the minute wheel", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TimeInput value="09:07" onChange={onChange} format="24h" data-testid="time" />);
+
+    expect(field()).toHaveValue("09:07");
+
+    await user.click(field());
+
+    expect(screen.getByRole("button", { name: "Minute 07" })).toHaveAttribute(
+      "data-selected",
+      "true",
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("wraps the hour wheel after the last hour", () => {
+    vi.useFakeTimers();
+    try {
+      const onChange = vi.fn();
+      render(<TimeInput value="23:00" onChange={onChange} format="24h" data-testid="time" />);
+
+      fireEvent.click(field());
+      fireEvent.scroll(screen.getByLabelText("Hour wheel"), {
+        target: { scrollTop: (4 * 24 + 24) * 40 },
+      });
+      act(() => {
+        vi.advanceTimersByTime(120);
+      });
+
+      expect(onChange).toHaveBeenCalledWith("00:00");
     } finally {
       vi.useRealTimers();
     }
@@ -118,5 +163,28 @@ describe("TimeInput", () => {
       "data-selected",
       "true",
     );
+  });
+
+  it("opens an in-place partial picker on mobile", async () => {
+    mockIsMobile.value = true;
+    const user = userEvent.setup();
+    render(<TimeInput value="09:00" onChange={vi.fn()} format="24h" data-testid="time" />);
+
+    await user.click(field());
+
+    expect(screen.getByTestId("time-picker-mobile")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Done" })).not.toBeInTheDocument();
+  });
+
+  it("keeps AM/PM interactive in the mobile picker", async () => {
+    mockIsMobile.value = true;
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TimeInput value="09:00" onChange={onChange} format="12h" data-testid="time" />);
+
+    await user.click(field());
+    await user.click(screen.getByRole("button", { name: "PM" }));
+
+    expect(onChange).toHaveBeenCalledWith("21:00");
   });
 });

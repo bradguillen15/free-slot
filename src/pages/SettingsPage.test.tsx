@@ -48,6 +48,12 @@ beforeEach(() => {
 });
 
 describe("SettingsPage planner preferences", () => {
+  it("renders the install app card", () => {
+    renderWithProviders(<SettingsPage />);
+    expect(screen.getByTestId("install-app-card")).toBeInTheDocument();
+    expect(screen.getByText("Install app")).toBeInTheDocument();
+  });
+
   it("updates the label when 12-hour mode is active", async () => {
     profileData.data = {
       ...profileData.data!,

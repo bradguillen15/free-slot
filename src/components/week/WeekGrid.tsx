@@ -1,7 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useTimelineLogDrag } from "@/hooks/useTimelineLogDrag";
+import { TimelineLogMobileDragHandle } from "@/components/calendar/TimelineLogMobileDragHandle";
 import { cn } from "@/lib/utils";
 import { MIN_PER_DAY, fmtDisplayTime, fmtDisplayTimeFromMin, fmtDuration } from "@/lib/time";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
@@ -28,6 +31,11 @@ const TOTAL_HEIGHT = TOTAL_HOURS * PX_PER_HOUR;
 const SNAP_MIN = 15;
 const DRAG_CANCEL_PX = 4;
 const HOUR_RAIL_PX = 48;
+/** Desktop week grid min width (48px rail + 7 × ~96px columns). */
+export const WEEK_GRID_MIN_WIDTH_PX = 720;
+/** Mobile day columns are 20px wider than the desktop minimum (~96px → 116px). */
+export const MOBILE_DAY_COL_PX = 116;
+export const MOBILE_WEEK_GRID_MIN_WIDTH_PX = HOUR_RAIL_PX + MOBILE_DAY_COL_PX * 7;
 
 type Seg = { startMin: number; endMin: number };
 
@@ -69,6 +77,12 @@ export function WeekGrid({
 }) {
   const { t } = useTranslation();
   const timeFormat = useTimeFormat();
+  const isMobile = useIsMobile();
+  const dayColumns = isMobile
+    ? `repeat(7, ${MOBILE_DAY_COL_PX}px)`
+    : "repeat(7, 1fr)";
+  const gridColumns = `${HOUR_RAIL_PX}px ${dayColumns}`;
+  const gridMinWidth = isMobile ? MOBILE_WEEK_GRID_MIN_WIDTH_PX : WEEK_GRID_MIN_WIDTH_PX;
   const hours = useMemo(
     () => Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => HOURS_START + i),
     []
@@ -92,9 +106,9 @@ export function WeekGrid({
 
   return (
     <TooltipProvider delayDuration={150}>
-    <Surface className="overflow-hidden">
+    <Surface data-testid="week-grid" className="overflow-hidden" style={{ minWidth: gridMinWidth }}>
       {/* Day headers */}
-      <div className="grid" style={{ gridTemplateColumns: `48px repeat(7, 1fr)` }}>
+      <div className="grid" style={{ gridTemplateColumns: gridColumns }}>
         <div />
         {days.map((d) => (
           <Link
@@ -124,7 +138,7 @@ export function WeekGrid({
       <div
         ref={gridBodyRef}
         className="relative grid border-t border-border/40"
-        style={{ gridTemplateColumns: `48px repeat(7, 1fr)`, height: TOTAL_HEIGHT }}
+        style={{ gridTemplateColumns: gridColumns, height: TOTAL_HEIGHT }}
       >
         {/* Hour rail */}
         <div className="relative">
@@ -320,93 +334,83 @@ function WeekLogBar({
   onClick?: () => void;
 }) {
   const { t } = useTranslation();
-  const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
-  const dragRef = useRef<{
-    startX: number; startY: number;
-    origStart: number; origEnd: number;
-    moved: boolean;
-  } | null>(null);
-
+  const isMobile = useIsMobile();
+  const allowBarDrag = draggable && !isMobile;
+  const barRef = useRef<HTMLDivElement>(null);
   const c = clamp(log.seg);
+
+  const {
+    offset,
+    isDragging,
+    startHandleDrag,
+    barPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+  } = useTimelineLogDrag({
+    enabled: draggable && !!onReschedule && !!c,
+    allowBarDrag,
+    captureTargetRef: barRef,
+    onTap: onClick,
+    onComplete: (e, start) => {
+      if (!onReschedule || !log.id || !c) return;
+      const origStart = c.startMin;
+      const origEnd = c.endMin;
+      const dur = origEnd - origStart;
+      const deltaMin = snapMin(Math.round(((e.clientY - start.y) / PX_PER_HOUR) * 60));
+      let newStart = snapMin(origStart + deltaMin);
+      let newEnd = newStart + dur;
+      if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+      if (newEnd > MIN_PER_DAY) {
+        const over = newEnd - MIN_PER_DAY;
+        newStart = Math.max(0, newStart - over);
+        newEnd = MIN_PER_DAY;
+      }
+
+      let newDate = dayISO;
+      if (gridBodyRef.current) {
+        const rect = gridBodyRef.current.getBoundingClientRect();
+        const availWidth = rect.width - HOUR_RAIL_PX;
+        if (availWidth > 0) {
+          const colWidth = availWidth / days.length;
+          const colIdx = Math.floor((e.clientX - rect.left - HOUR_RAIL_PX) / colWidth);
+          const clamped = Math.max(0, Math.min(days.length - 1, colIdx));
+          newDate = days[clamped].iso;
+        }
+      }
+
+      if (newDate !== dayISO || newStart !== origStart || newEnd !== origEnd) {
+        onReschedule(log.id, newDate, newStart, newEnd);
+      }
+    },
+  });
+
   if (!c) return null;
 
   const top = topFor(c.startMin);
   const durationPx = heightFor(c);
   const barHeight = barHeightFromDuration(durationPx);
+  const compact = barHeight < 36;
   const laneWidth = 100 / groupWidth;
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (!draggable || !onReschedule) return;
-    e.stopPropagation();
-    e.preventDefault();
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origStart: c.startMin, origEnd: c.endMin, moved: false };
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* jsdom */ }
-    setDragOffset({ dx: 0, dy: 0 });
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
-    if (Math.abs(dx) > DRAG_CANCEL_PX || Math.abs(dy) > DRAG_CANCEL_PX) dragRef.current.moved = true;
-    setDragOffset({ dx, dy });
-  };
-
-  const endDrag = (e: React.PointerEvent) => {
-    if (!dragRef.current || !onReschedule) {
-      dragRef.current = null;
-      setDragOffset({ dx: 0, dy: 0 });
-      return;
-    }
-    const { startX, startY, origStart, origEnd, moved } = dragRef.current;
-    dragRef.current = null;
-    setDragOffset({ dx: 0, dy: 0 });
-    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-
-    if (!moved) {
-      onClick?.();
-      return;
-    }
-
-    const dur = origEnd - origStart;
-    const deltaMin = snapMin(Math.round(((e.clientY - startY) / PX_PER_HOUR) * 60));
-    let newStart = snapMin(origStart + deltaMin);
-    let newEnd = newStart + dur;
-    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
-    if (newEnd > MIN_PER_DAY) {
-      const over = newEnd - MIN_PER_DAY;
-      newStart = Math.max(0, newStart - over);
-      newEnd = MIN_PER_DAY;
-    }
-
-    let newDate = dayISO;
-    if (gridBodyRef.current) {
-      const rect = gridBodyRef.current.getBoundingClientRect();
-      const availWidth = rect.width - HOUR_RAIL_PX;
-      if (availWidth > 0) {
-        const colWidth = availWidth / days.length;
-        const colIdx = Math.floor((e.clientX - rect.left - HOUR_RAIL_PX) / colWidth);
-        const clamped = Math.max(0, Math.min(days.length - 1, colIdx));
-        newDate = days[clamped].iso;
-      }
-    }
-
-    if (log.id) onReschedule(log.id, newDate, newStart, newEnd);
-  };
+  const mobileDragHandle = draggable && isMobile ? (
+    <TimelineLogMobileDragHandle compact={compact} onPointerDown={startHandleDrag} />
+  ) : null;
 
   return (
     <motion.div
+      ref={barRef}
       initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1, x: dragOffset.dx, y: dragOffset.dy }}
+      animate={{ opacity: 1, scale: 1, x: offset.dx, y: offset.dy }}
       transition={{ opacity: {}, scale: {}, x: { duration: 0 }, y: { duration: 0 } }}
       className={cn(
         timelineLogBarClassName,
         "z-[20] select-none",
-        draggable
-          ? "cursor-grab touch-none active:cursor-grabbing"
-          : onClick
-          ? "cursor-pointer"
-          : "pointer-events-none"
+        allowBarDrag && "cursor-grab touch-none active:cursor-grabbing",
+        isDragging && allowBarDrag && "cursor-grabbing",
+        !draggable && onClick && "cursor-pointer",
+        isMobile && draggable && onClick && "cursor-pointer",
+        !draggable && !onClick && "pointer-events-none",
       )}
       style={{
         top,
@@ -417,15 +421,16 @@ function WeekLogBar({
       }}
       aria-label={t("calendar.logAria", { name: log.name })}
       title={log.name}
-      onPointerDown={draggable ? onPointerDown : undefined}
-      onPointerMove={draggable ? onPointerMove : undefined}
-      onPointerUp={draggable ? endDrag : undefined}
-      onPointerCancel={draggable ? endDrag : undefined}
-      onClick={!draggable && onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
+      onPointerDown={barPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onClick={isMobile && onClick ? (e) => { e.stopPropagation(); onClick(); } : !draggable && onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
     >
       <div className={timelineLogFillLayerClassName} style={{ backgroundColor: log.color }} />
-      <div className={timelineLabelRowClassName}>
-        <span className={timelineLogLabelClassName}>{log.name}</span>
+      <div className={cn(timelineLabelRowClassName, "gap-0.5")}>
+        <span className={cn(timelineLogLabelClassName, "min-w-0 flex-1")}>{log.name}</span>
+        {mobileDragHandle}
       </div>
     </motion.div>
   );

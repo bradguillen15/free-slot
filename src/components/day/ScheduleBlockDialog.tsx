@@ -351,8 +351,8 @@ export function ScheduleBlockDialog({
               )}
             />
 
-            <DialogFooter className="gap-2 sm:justify-between">
-              <div>
+            <DialogFooter className="justify-between">
+              <div className="shrink-0">
                 {block && (
                   <Button
                     type="button"
@@ -365,7 +365,7 @@ export function ScheduleBlockDialog({
                   </Button>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t("actions.cancel")}</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting || deleting} data-testid="schedule-dialog-submit" className="gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
                   {form.formState.isSubmitting ? t("actions.saving") : block ? t("actions.save") : t("actions.add")}

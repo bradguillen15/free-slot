@@ -4,6 +4,10 @@ import { useTranslation } from "react-i18next";
 import { StickyNote } from "lucide-react";
 import { MIN_PER_DAY, fmtDuration, fmtDisplayTime, toMin } from "@/lib/time";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useTimelineLogDrag } from "@/hooks/useTimelineLogDrag";
+import { TimelineLogMobileDragHandle } from "@/components/calendar/TimelineLogMobileDragHandle";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { computeLaneLayout, segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
 import {
@@ -186,6 +190,7 @@ export function DayTimeline({
   );
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div
       className="relative rounded-2xl border border-border bg-surface overflow-hidden"
       onClick={contextMenu ? closeContextMenu : undefined}
@@ -316,6 +321,7 @@ export function DayTimeline({
         />
       )}
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -384,73 +390,63 @@ function LogBar({
   onReschedule?: (logId: string, newStartMin: number, newEndMin: number) => void;
   onClick?: () => void;
 }) {
-  const { t } = useTranslation();
+  const isMobile = useIsMobile();
+  const allowBarDrag = draggable && !isMobile;
   const top = (seg.startMin / 60) * PX_PER_HOUR;
   const durationPx = ((seg.endMin - seg.startMin) / 60) * PX_PER_HOUR;
   const barHeight = barHeightFromDuration(durationPx);
   const durationMin = seg.endMin - seg.startMin;
   const compact = isCompactBar(barHeight);
   const pct = 100 / groupWidth;
-  const [dragDy, setDragDy] = useState(0);
-  const dragRef = useRef<{ startY: number; origStart: number; origEnd: number; moved: boolean } | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (!draggable || !onReschedule) return;
-    e.stopPropagation();
-    e.preventDefault();
-    dragRef.current = { startY: e.clientY, origStart: seg.startMin, origEnd: seg.endMin, moved: false };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    setDragDy(0);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const dy = e.clientY - dragRef.current.startY;
-    if (Math.abs(dy) > DRAG_CANCEL_PX) dragRef.current.moved = true;
-    setDragDy(dy);
-  };
-
-  const endDrag = (e: React.PointerEvent) => {
-    if (!dragRef.current || !onReschedule) {
-      dragRef.current = null;
-      setDragDy(0);
-      return;
-    }
-    const { startY, origStart, origEnd, moved } = dragRef.current;
-    dragRef.current = null;
-    setDragDy(0);
-    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-
-    if (!moved) {
-      // Treat as a click
-      onClick?.();
-      return;
-    }
-
-    const dur = origEnd - origStart;
-    const deltaMin = snapMin(Math.round(((e.clientY - startY) / PX_PER_HOUR) * 60));
-    let newStart = snapMin(origStart + deltaMin);
-    let newEnd = newStart + dur;
-    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
-    if (newEnd > MIN_PER_DAY) {
-      const over = newEnd - MIN_PER_DAY;
-      newStart = Math.max(0, newStart - over);
-      newEnd = MIN_PER_DAY;
-    }
-    if (newStart !== origStart || newEnd !== origEnd) {
-      onReschedule(log.id, newStart, newEnd);
-    }
-  };
+  const {
+    offset,
+    isDragging,
+    startHandleDrag,
+    barPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+  } = useTimelineLogDrag({
+    enabled: draggable && !!onReschedule,
+    allowBarDrag,
+    captureTargetRef: barRef,
+    onTap: onClick,
+    onComplete: (e, start) => {
+      if (!onReschedule) return;
+      const origStart = seg.startMin;
+      const origEnd = seg.endMin;
+      const dur = origEnd - origStart;
+      const deltaMin = snapMin(Math.round(((e.clientY - start.y) / PX_PER_HOUR) * 60));
+      let newStart = snapMin(origStart + deltaMin);
+      let newEnd = newStart + dur;
+      if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+      if (newEnd > MIN_PER_DAY) {
+        const over = newEnd - MIN_PER_DAY;
+        newStart = Math.max(0, newStart - over);
+        newEnd = MIN_PER_DAY;
+      }
+      if (newStart !== origStart || newEnd !== origEnd) {
+        onReschedule(log.id, newStart, newEnd);
+      }
+    },
+  });
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClick?.();
   };
 
+  const mobileDragHandle = draggable && isMobile ? (
+    <TimelineLogMobileDragHandle compact={compact} onPointerDown={startHandleDrag} />
+  ) : null;
+
   return (
     <motion.div
+      ref={barRef}
       initial={{ opacity: 0, x: 4 }}
-      animate={{ opacity: 1, x: 0, y: dragDy }}
+      animate={{ opacity: 1, x: 0, y: offset.dy }}
       data-timeline-log=""
       transition={{
         opacity: { delay: index * 0.02 },
@@ -460,7 +456,10 @@ function LogBar({
       className={cn(
         timelineLogBarClassName,
         "select-none pointer-events-auto",
-        draggable ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-pointer"
+        allowBarDrag && "cursor-grab touch-none active:cursor-grabbing",
+        isDragging && allowBarDrag && "cursor-grabbing",
+        !draggable && "cursor-pointer",
+        isMobile && draggable && "cursor-pointer",
       )}
       style={{
         top,
@@ -469,24 +468,26 @@ function LogBar({
         width: `calc(${pct}% - 6px)`,
         zIndex: 20 + lane,
       }}
-      onPointerDown={draggable ? onPointerDown : undefined}
-      onPointerMove={draggable ? onPointerMove : undefined}
-      onPointerUp={draggable ? endDrag : undefined}
-      onPointerCancel={draggable ? endDrag : undefined}
-      onClick={!draggable ? handleClick : undefined}
+      onPointerDown={barPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onClick={isMobile && onClick ? handleClick : !draggable ? handleClick : undefined}
       title={name}
     >
       <div className={timelineLogFillLayerClassName} style={{ backgroundColor: color }} />
       {compact ? (
-        <div className={cn(timelineLabelRowClassName, "gap-1")}>
-          <span className={timelineLogLabelClassName}>{name}</span>
+        <div className={cn(timelineLabelRowClassName, "gap-0.5")}>
+          <span className={cn(timelineLogLabelClassName, "min-w-0 flex-1")}>{name}</span>
           {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
+          {mobileDragHandle}
         </div>
       ) : (
-        <div className={timelineLabelStackClassName}>
-          <div className={cn(timelineLogLabelClassName, "text-[11px] flex items-center gap-1")}>
-            <span className="truncate">{name}</span>
+        <div className={cn(timelineLabelStackClassName, mobileDragHandle && "pr-0.5")}>
+          <div className="flex min-w-0 w-full items-center gap-1">
+            <span className={cn(timelineLogLabelClassName, "min-w-0 flex-1 text-[11px]")}>{name}</span>
             {log.note_json && <StickyNote className="h-2.5 w-2.5 shrink-0 opacity-70" />}
+            {mobileDragHandle}
           </div>
           <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-mono-num">
             {fmtDuration(durationMin)}

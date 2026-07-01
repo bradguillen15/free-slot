@@ -268,7 +268,12 @@ export function AIPlanPanel({
                 <Trash2 className="h-3.5 w-3.5" /> {t("aiPanel.clear")}
               </Button>
             )}
-            <Button onClick={generate} disabled={loading} size="sm" className="gap-1.5">
+            <Button
+              onClick={generate}
+              disabled={loading}
+              size="sm"
+              className="gap-1.5 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+            >
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
               {typedPlan ? t("aiPanel.regenerate") : t("aiPanel.generatePlan")}
             </Button>

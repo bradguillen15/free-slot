@@ -19,9 +19,17 @@ The application SHALL provide a reusable `TimeInput` component for selecting tim
 
 - **WHEN** the picker is open
 - **THEN** hours and minutes are presented as scroll-snap wheels with a center selection band
-- **AND** the selected rows are rendered in the primary (blue) color
+- **AND** the selected row stays aligned to the primary (blue) center selection band
+- **AND** the wheels allow continuous scrolling past the first and last values without visibly resetting to a boundary
 - **AND** scrolling a wheel to a new row, or clicking a row, emits the corresponding `HH:MM`
 - **AND** minutes advance in 5-minute steps, while an off-step current minute remains selectable
+
+#### Scenario: Mobile picker stays inside the current dialog
+
+- **WHEN** the user activates a `TimeInput` field on a mobile viewport inside a dialog
+- **THEN** the picker appears as a partial-height panel in the current dialog flow
+- **AND** the picker does not create a separate fullscreen modal or portal outside the dialog
+- **AND** wheel scrolling and AM/PM buttons remain interactive
 
 #### Scenario: Types a time directly into the field
 
