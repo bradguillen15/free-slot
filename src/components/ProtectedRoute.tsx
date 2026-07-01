@@ -1,8 +1,8 @@
-import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import Forbidden from "@/pages/Forbidden";
 
-/** Requires an authenticated user. Redirects to /auth otherwise. */
+/** Requires an authenticated user. Shows the Forbidden page otherwise. */
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) {
@@ -12,6 +12,6 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Forbidden />;
   return <>{children}</>;
 }

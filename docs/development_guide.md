@@ -14,6 +14,17 @@ bun install    # or: npm install / pnpm install
 
 Copy `.env.example` to `.env` and fill in your Supabase project values (`VITE_SUPABASE_*`). See `docs/MIGRATION_RUNBOOK.md` for the full backend setup.
 
+### Observability (Sentry)
+
+Sentry is **optional locally and disabled by default**: it initializes only in production builds (`import.meta.env.PROD`) when `VITE_SENTRY_DSN` is set, so `bun run dev`, Vitest, and Playwright never send events. Frontend env vars (all optional, documented in `.env.example`):
+
+- `VITE_SENTRY_DSN` — public DSN; leave blank to keep Sentry off.
+- `VITE_SENTRY_TRACES_SAMPLE_RATE` — performance trace sampling, defaults to `0.1`.
+
+Build-only secrets for source map upload are set in Vercel (never committed): `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`. Without the auth token, `bun run build` still succeeds and just skips the upload.
+
+**Verify a production error reaches Sentry:** deploy with the env vars set, open the deployed app, and navigate to a path that throws (or temporarily trigger an error). The event should appear in the Sentry project with a source-mapped stack trace and an attached replay. Locally, the error boundary itself is covered by `e2e/error-boundary.e2e.ts` via the dev-only `/__boom` route (stripped from production builds).
+
 ## Run Locally
 
 ```bash

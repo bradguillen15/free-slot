@@ -43,9 +43,17 @@ test.describe("guest navigation", () => {
     await visit("activities", /\/app\/activities/, "page-activities");
   });
 
-  test("settings is gated for guests", async ({ page }) => {
+  test("settings shows the Forbidden page for guests, with a sign-in path", async ({ page }) => {
     await seedGuest(page, { profile: { onboarding_skipped: true } });
     await page.goto("/app/settings");
+
+    // No silent redirect: the Forbidden page renders at the requested URL.
+    await expect(page).toHaveURL(/\/app\/settings/);
+    const forbidden = page.getByTestId("forbidden-page");
+    await expect(forbidden).toBeVisible();
+
+    // The sign-in action takes the guest to auth.
+    await forbidden.getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/auth/);
   });
 });

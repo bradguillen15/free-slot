@@ -1,5 +1,8 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { ErrorBoundary, wrapReactRouterRouting } from "@sentry/react";
+import { ErrorBoundaryFallback } from "@/integrations/sentry/ErrorBoundaryFallback";
+import { CrashTest } from "@/integrations/sentry/CrashTest";
 import { createQueryClient } from "@/lib/queryClient";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -25,44 +28,52 @@ import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = createQueryClient();
 
+const SentryRoutes = wrapReactRouterRouting(Routes);
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner theme="dark" />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            {/* Onboarding works for both guests and signed-in users */}
-            <Route path="/onboarding" element={<OnboardingGate key="onboarding"><Onboarding /></OnboardingGate>} />
-            {/* One AppLayout for all /app/* — child routes fade in/out on navigation */}
-            <Route
-              path="/app"
-              element={
-                <OnboardingGate key="app">
-                  <AppLayoutOutlet />
-                </OnboardingGate>
-              }
-            >
-              <Route index element={<CalendarPage />} />
-              <Route path="week" element={<WeekPage />} />
-              <Route path="month" element={<MonthPage />} />
-              <Route path="schedule" element={<SchedulePage />} />
-              <Route path="labels" element={<LabelsPage />} />
-              <Route path="activities" element={<ActivitiesPage />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="notes" element={<NotesPage />} />
-              <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary fallback={<ErrorBoundaryFallback />}>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner theme="dark" />
+        <BrowserRouter>
+          <AuthProvider>
+            <SentryRoutes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Onboarding works for both guests and signed-in users */}
+              <Route path="/onboarding" element={<OnboardingGate key="onboarding"><Onboarding /></OnboardingGate>} />
+              {/* One AppLayout for all /app/* — child routes fade in/out on navigation */}
+              <Route
+                path="/app"
+                element={
+                  <OnboardingGate key="app">
+                    <AppLayoutOutlet />
+                  </OnboardingGate>
+                }
+              >
+                <Route index element={<CalendarPage />} />
+                <Route path="week" element={<WeekPage />} />
+                <Route path="month" element={<MonthPage />} />
+                <Route path="schedule" element={<SchedulePage />} />
+                <Route path="labels" element={<LabelsPage />} />
+                <Route path="activities" element={<ActivitiesPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="notes" element={<NotesPage />} />
+                <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              </Route>
+              {/* Dev-only: lets E2E trigger a render error to exercise the boundary. */}
+              {import.meta.env.DEV && (
+                <Route path="/__boom" element={<CrashTest />} />
+              )}
+              <Route path="*" element={<NotFound />} />
+            </SentryRoutes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

@@ -517,6 +517,16 @@ const es: Translations = {
     message: "¡Vaya! Página no encontrada",
     returnHome: "Volver al inicio",
   },
+  errorBoundary: {
+    title: "Algo salió mal",
+    message: "Ocurrió un error inesperado. Intenta recargar la página.",
+    reload: "Recargar página",
+  },
+  forbidden: {
+    title: "Inicia sesión",
+    message: "Esta página requiere una cuenta. Inicia sesión para continuar.",
+    signIn: "Iniciar sesión",
+  },
   validation: {
     titleRequired: "El título es obligatorio",
     nameRequired: "El nombre es obligatorio",
