@@ -25,4 +25,19 @@ describe("ErrorPage", () => {
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
+
+  it("uses embedded layout without full-viewport height", () => {
+    render(
+      <ErrorPage
+        layout="embedded"
+        testId="embedded-error"
+        title="Blocked"
+        message="Sign in required"
+      />,
+    );
+
+    const container = screen.getByTestId("embedded-error");
+    expect(container).toHaveAttribute("data-layout", "embedded");
+    expect(container.className).not.toContain("h-dvh");
+  });
 });

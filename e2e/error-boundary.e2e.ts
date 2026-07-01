@@ -19,7 +19,9 @@ test.describe("error boundary", () => {
     await page.goto("/__boom");
 
     await expect(page.getByTestId("error-boundary-fallback")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reload page" })).toBeVisible();
+    await expect(
+      page.getByTestId("error-boundary-fallback").getByRole("button"),
+    ).toBeVisible();
 
     expect(sentryRequests).toHaveLength(0);
   });

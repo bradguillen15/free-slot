@@ -17,13 +17,25 @@ const resolveTracesSampleRate = (): number => {
   const raw = import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE;
   if (raw === undefined || raw === "") return DEFAULT_TRACES_SAMPLE_RATE;
   const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : DEFAULT_TRACES_SAMPLE_RATE;
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1
+    ? parsed
+    : DEFAULT_TRACES_SAMPLE_RATE;
+};
+
+const shouldInitializeSentry = (): boolean => {
+  const dsn = import.meta.env.VITE_SENTRY_DSN;
+  if (!import.meta.env.PROD || !dsn) return false;
+
+  const vercelEnv = import.meta.env.VERCEL_ENV;
+  if (vercelEnv === "preview" || vercelEnv === "development") return false;
+
+  return true;
 };
 
 export const initSentry = (): void => {
-  const dsn = import.meta.env.VITE_SENTRY_DSN;
+  if (!shouldInitializeSentry()) return;
 
-  if (!import.meta.env.PROD || !dsn) return;
+  const dsn = import.meta.env.VITE_SENTRY_DSN;
 
   init({
     dsn,

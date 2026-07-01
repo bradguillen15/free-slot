@@ -88,4 +88,36 @@ describe("initSentry", () => {
       expect.objectContaining({ tracesSampleRate: 0.5 }),
     );
   });
+
+  it("falls back to the default traces sample rate when the value is out of range", () => {
+    vi.stubEnv("PROD", true);
+    vi.stubEnv("VITE_SENTRY_DSN", VALID_DSN);
+    vi.stubEnv("VITE_SENTRY_TRACES_SAMPLE_RATE", "5");
+
+    initSentry();
+
+    expect(mockInit).toHaveBeenCalledWith(
+      expect.objectContaining({ tracesSampleRate: 0.1 }),
+    );
+  });
+
+  it("does not initialize on Vercel preview deploys", () => {
+    vi.stubEnv("PROD", true);
+    vi.stubEnv("VITE_SENTRY_DSN", VALID_DSN);
+    vi.stubEnv("VERCEL_ENV", "preview");
+
+    initSentry();
+
+    expect(mockInit).not.toHaveBeenCalled();
+  });
+
+  it("initializes on Vercel production deploys", () => {
+    vi.stubEnv("PROD", true);
+    vi.stubEnv("VITE_SENTRY_DSN", VALID_DSN);
+    vi.stubEnv("VERCEL_ENV", "production");
+
+    initSentry();
+
+    expect(mockInit).toHaveBeenCalledTimes(1);
+  });
 });

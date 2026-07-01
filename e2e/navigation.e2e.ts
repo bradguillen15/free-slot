@@ -47,12 +47,10 @@ test.describe("guest navigation", () => {
     await seedGuest(page, { profile: { onboarding_skipped: true } });
     await page.goto("/app/settings");
 
-    // No silent redirect: the Forbidden page renders at the requested URL.
     await expect(page).toHaveURL(/\/app\/settings/);
     const forbidden = page.getByTestId("forbidden-page");
     await expect(forbidden).toBeVisible();
 
-    // The sign-in action takes the guest to auth.
     await forbidden.getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/auth/);
   });

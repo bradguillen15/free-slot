@@ -2,10 +2,10 @@
 
 ### Requirement: Production-only initialization
 
-The system SHALL initialize Sentry only in production builds and only when a DSN is configured, so that local development, tests, and preview environments never send events or consume free-tier quota.
+The system SHALL initialize Sentry only in production builds, only when a DSN is configured, and only outside Vercel preview and development deploys, so that local development, tests, and preview environments never send events or consume free-tier quota.
 
 #### Scenario: Production build with DSN configured
-- **WHEN** the app boots with `import.meta.env.PROD === true` and `VITE_SENTRY_DSN` is a non-empty value
+- **WHEN** the app boots with `import.meta.env.PROD === true`, `VITE_SENTRY_DSN` is a non-empty value, and `import.meta.env.VERCEL_ENV` is not `preview` or `development`
 - **THEN** Sentry SHALL be initialized exactly once before the React app renders
 
 #### Scenario: Development build
@@ -15,6 +15,10 @@ The system SHALL initialize Sentry only in production builds and only when a DSN
 #### Scenario: Production build without DSN
 - **WHEN** the app boots in production but `VITE_SENTRY_DSN` is empty or undefined
 - **THEN** Sentry SHALL NOT be initialized and the app SHALL render normally without throwing
+
+#### Scenario: Vercel preview deploy
+- **WHEN** the app boots with `import.meta.env.PROD === true`, a DSN is configured, and `import.meta.env.VERCEL_ENV === "preview"`
+- **THEN** Sentry SHALL NOT be initialized and no events SHALL be sent
 
 ### Requirement: Error and exception tracking
 
@@ -61,12 +65,12 @@ The system SHALL enable session replay configured to record only sessions in whi
 The build system SHALL generate hidden source maps for production builds and upload them to Sentry, so that reported stack traces map to the original TypeScript without serving source maps to end users.
 
 #### Scenario: Production build with auth token
-- **WHEN** a production build runs with `SENTRY_AUTH_TOKEN`, org, and project configured
+- **WHEN** a production build runs with `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` configured
 - **THEN** hidden source maps SHALL be generated and uploaded to Sentry, and SHALL NOT be referenced by served bundles
 
 #### Scenario: Production build without auth token
-- **WHEN** a production build runs without `SENTRY_AUTH_TOKEN`
-- **THEN** the build SHALL still succeed and SHALL NOT fail solely due to the missing upload token
+- **WHEN** a production build runs without all of `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT`
+- **THEN** the build SHALL still succeed and SHALL NOT fail solely due to the missing upload configuration
 
 ### Requirement: Secrets and configuration hygiene
 

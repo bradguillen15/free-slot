@@ -4,6 +4,20 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "path";
 
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const sentryOrg = process.env.SENTRY_ORG;
+const sentryProject = process.env.SENTRY_PROJECT;
+const sentryUploadConfigured = Boolean(
+  sentryAuthToken && sentryOrg && sentryProject,
+);
+const sentryUploadPartiallyConfigured = Boolean(
+  sentryAuthToken && (!sentryOrg || !sentryProject),
+);
+
+if (sentryUploadPartiallyConfigured) {
+  console.warn(
+    "[sentry] SENTRY_AUTH_TOKEN is set but SENTRY_ORG and/or SENTRY_PROJECT are missing; source map upload will be skipped.",
+  );
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -19,15 +33,16 @@ export default defineConfig({
   build: {
     sourcemap: "hidden",
   },
+  define: {
+    "import.meta.env.VERCEL_ENV": JSON.stringify(process.env.VERCEL_ENV ?? ""),
+  },
   plugins: [
     react(),
-    // Only upload source maps when a build token is present (CI/Vercel); local
-    // builds without the token still succeed and simply skip the upload.
-    ...(sentryAuthToken
+    ...(sentryUploadConfigured
       ? [
           sentryVitePlugin({
-            org: process.env.SENTRY_ORG,
-            project: process.env.SENTRY_PROJECT,
+            org: sentryOrg,
+            project: sentryProject,
             authToken: sentryAuthToken,
             sourcemaps: {
               // Remove emitted maps after upload so they are never served statically.

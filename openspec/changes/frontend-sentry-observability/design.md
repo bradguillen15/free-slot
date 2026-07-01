@@ -45,7 +45,7 @@ Change [ProtectedRoute](../../../src/components/ProtectedRoute.tsx) so that an u
 - **Behavioral impact**: the existing `e2e/navigation.e2e.ts` "settings is gated for guests" assertion (expects `/auth`) MUST be updated to assert the Forbidden page renders at `/app/settings` instead.
 
 ### Decision: Production-only gating
-`initSentry()` returns early unless `import.meta.env.PROD === true` **and** `VITE_SENTRY_DSN` is non-empty. This is the single guard that protects free-tier quota from dev/test/preview noise.
+`initSentry()` returns early unless `import.meta.env.PROD === true`, `VITE_SENTRY_DSN` is non-empty, and `import.meta.env.VERCEL_ENV` is not `preview` or `development`. Vite injects `VERCEL_ENV` at build time from the Vercel environment. This guard protects free-tier quota from dev/test/preview noise.
 - **Alternative considered**: environment-based `enabled` flag inside `Sentry.init`. Returning early is simpler and guarantees zero SDK side effects in dev.
 
 ### Decision: Free-tier sampling configuration

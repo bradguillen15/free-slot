@@ -8,6 +8,7 @@ const Forbidden = () => {
 
   return (
     <ErrorPage
+      layout="embedded"
       testId="forbidden-page"
       title={t("forbidden.title")}
       message={t("forbidden.message")}

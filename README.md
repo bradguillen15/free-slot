@@ -213,7 +213,7 @@ pnpm dev
 
 #### Local Supabase
 
-Develop or test **sign-in, sync, AI planner, and dashboard** against a backend on your machine. Requires [Docker](https://docs.docker.com/get-docker/) and the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) (`brew install supabase/tap/supabase`).
+Develop or test **sign-in, sync, AI planner, and dashboard** against a backend on your machine. Requires [Docker](https://docs.docker.com/get-docker/) and the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started).
 
 ```bash
 pnpm dev:local
