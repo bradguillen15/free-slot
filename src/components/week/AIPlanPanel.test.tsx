@@ -82,6 +82,16 @@ describe("AIPlanPanel generate()", () => {
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
+  it("blocks generation when every active activity is zero, even if an inactive one has a target", async () => {
+    renderPanel([
+      { id: "a1", name: "Exercise", category_id: null, target_hours_per_week: 0, is_active: true },
+      { id: "a2", name: "Old hobby", category_id: null, target_hours_per_week: 5, is_active: false },
+    ]);
+    fireEvent.click(screen.getByText("Generate plan"));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("No weekly targets set", expect.anything()));
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
   it("allows generation when at least one activity has a positive target", async () => {
     renderPanel([
       { id: "a1", name: "Exercise", category_id: null, target_hours_per_week: 0, is_active: true },

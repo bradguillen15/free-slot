@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { addDaysISO } from "@/lib/time";
+import { toSupportedLocale } from "@/lib/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useTimeLogsInRange,
@@ -52,7 +53,7 @@ export function useWeeklyReviewData({ open, weekStart }: {
         productive_ratio: agg.ratio,
         total_tracked: agg.total,
         daily_notes: dailyNotes.length ? dailyNotes : undefined,
-        locale: i18n.language === "es" ? "es" : "en",
+        locale: toSupportedLocale(i18n.language),
       });
       toast.success("Weekly review saved");
     } catch (e: unknown) {

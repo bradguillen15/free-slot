@@ -99,19 +99,20 @@ describe("upsertScheduleBlock", () => {
 describe("clearExampleScheduleBlocks / clearExampleTimeLogs", () => {
   it("removes only is_example rows, keeping edited/real ones", () => {
     ensureBootstrap();
+    const today = new Date().toISOString().slice(0, 10);
     const realBlock = upsertScheduleBlock({ name: "Custom", start_time: "08:00", end_time: "09:00", days_of_week: [1], type: "fixed", color: "#000" });
-    const realLog = insertLog({ date: "2026-06-10", start_time: "09:00", end_time: "10:00", type: "productive" });
+    const realLog = insertLog({ date: today, start_time: "09:00", end_time: "10:00", type: "productive" });
 
     expect(listScheduleBlocks().some((b) => b.is_example)).toBe(true);
-    expect(listLogsInRange("2026-01-01", "2026-12-31").some((l) => l.is_example)).toBe(true);
+    expect(listLogsInRange(today, today).some((l) => l.is_example)).toBe(true);
 
     clearExampleScheduleBlocks();
     clearExampleTimeLogs();
 
     expect(listScheduleBlocks().every((b) => !b.is_example)).toBe(true);
     expect(listScheduleBlocks().some((b) => b.id === realBlock.id)).toBe(true);
-    expect(listLogsInRange("2026-01-01", "2026-12-31").every((l) => !l.is_example)).toBe(true);
-    expect(listLogsInRange("2026-01-01", "2026-12-31").some((l) => l.id === realLog.id)).toBe(true);
+    expect(listLogsInRange(today, today).every((l) => !l.is_example)).toBe(true);
+    expect(listLogsInRange(today, today).some((l) => l.id === realLog.id)).toBe(true);
   });
 });
 

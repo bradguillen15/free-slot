@@ -41,6 +41,15 @@ export function ConfirmDayButton({
   }
 
   if (preview.rows.length === 0) {
+    const allNoCategory = preview.skipped.length > 0 && preview.skipped.every((s) => s.reason === "no-category");
+    if (allNoCategory) {
+      return (
+        <Button variant="ghost" size="sm" disabled data-testid="confirm-day-no-category" className="text-muted-foreground">
+          <CheckCircle2 className="h-4 w-4 mr-1.5" />
+          {t("day.confirmSkippedNoCategory", { count: preview.skipped.length })}
+        </Button>
+      );
+    }
     return (
       <Button variant="ghost" size="sm" disabled data-testid="confirm-day-already-logged" className="text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 mr-1.5" />

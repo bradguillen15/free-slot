@@ -32,7 +32,7 @@
 
 ## 5. Manual verification
 
-- [x] 5.1 Exercised `buildConfirmDayRows` directly across all six scenarios; documented in `openspec/changes/confirm-your-day-logging/reports/2026-07-03-manual-verification.md`
+- [x] 5.1 Exercised `buildConfirmDayRows` directly across all six scenarios; documented in `openspec/changes/archive/2026-07-03-confirm-your-day-logging/reports/2026-07-03-manual-verification.md`
 
 ## 6. Documentation
 

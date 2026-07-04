@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addDaysISO, fmtDuration, toMin } from "@/lib/time";
+import { toSupportedLocale } from "@/lib/locale";
 import {
   useWeeklyPlan,
   useWeeklyPriorities,
@@ -119,7 +120,8 @@ export function AIPlanPanel({
         toast.error(t("aiPanel.noWindowsTitle"), { description: t("aiPanel.noWindowsDesc") });
         return;
       }
-      if (activities.every((a) => a.target_hours_per_week <= 0)) {
+      const activeActivities = activities.filter((a) => a.is_active);
+      if (activeActivities.every((a) => a.target_hours_per_week <= 0)) {
         toast.error(t("aiPanel.allTargetsZeroTitle"), {
           description: t("aiPanel.allTargetsZeroDesc"),
           action: { label: t("aiPanel.allTargetsZeroCta"), onClick: () => navigate("/app/activities") },
@@ -140,7 +142,7 @@ export function AIPlanPanel({
         priorities,
         daily_notes: dailyNotes.length ? dailyNotes : undefined,
         inbox_items: inboxItems.length ? inboxItems : undefined,
-        locale: i18n.language === "es" ? "es" : "en",
+        locale: toSupportedLocale(i18n.language),
       });
 
       if ((data as unknown as Record<string, unknown>)?.error) {

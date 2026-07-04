@@ -35,6 +35,19 @@ describe("ConfirmDayButton", () => {
     expect(screen.getByTestId("confirm-day-already-logged")).toBeDisabled();
   });
 
+  it("shows a distinct 'no category' state when blocks are only skipped for missing a category", () => {
+    render(
+      <ConfirmDayButton
+        date={monday}
+        blocks={[block({ category_id: null })]}
+        logs={[]}
+        categories={[category]}
+      />
+    );
+    expect(screen.getByTestId("confirm-day-no-category")).toBeDisabled();
+    expect(screen.queryByTestId("confirm-day-already-logged")).not.toBeInTheDocument();
+  });
+
   it("shows the actionable confirm button when there are eligible blocks", () => {
     render(<ConfirmDayButton date={monday} blocks={[block()]} logs={[]} categories={[category]} />);
     expect(screen.getByTestId("confirm-day-button")).not.toBeDisabled();

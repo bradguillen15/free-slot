@@ -16,12 +16,16 @@ export function SampleDataBanner({ visible }: { visible: boolean }) {
 
   if (!visible) return null;
 
-  const confirmClear = async () => {
+  const confirmClear = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // AlertDialogAction (Radix) closes the dialog on click by default — prevent
+    // that so a failed clear leaves the dialog open for the user to retry.
+    e.preventDefault();
     try {
       await clearMutation.mutateAsync();
       toast.success(t("sampleData.cleared"));
-    } finally {
       setConfirmOpen(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
     }
   };
 

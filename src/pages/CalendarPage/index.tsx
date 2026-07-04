@@ -71,13 +71,15 @@ export default function CalendarPage() {
   const isToday = date === todayISO();
 
   const { data: allBlocks, refresh: refreshBlocks } = useScheduleBlocks();
-  const hasExampleData = useMemo(
-    () => (allBlocks ?? []).some((b) => (b as unknown as { is_example?: boolean }).is_example),
-    [allBlocks]
-  );
   const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const logsStart = useMemo(() => addDaysISO(date, -1), [date]);
   const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(logsStart, date);
+  const hasExampleData = useMemo(
+    () =>
+      (allBlocks ?? []).some((b) => (b as unknown as { is_example?: boolean }).is_example) ||
+      (dayLogs ?? []).some((l) => (l as unknown as { is_example?: boolean }).is_example),
+    [allBlocks, dayLogs]
+  );
 
   const blocks = useMemo(
     () => (allBlocks as unknown as ScheduleBlock[]).filter((x) => x.days_of_week?.includes(weekday)),
