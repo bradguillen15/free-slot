@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     const gaps: GapWindow[] = body.gaps ?? [];
     const activities: Activity[] = body.activities ?? [];
     const priorities: Priority[] = body.priorities ?? [];
+    const locale: "en" | "es" = body.locale === "es" ? "es" : "en";
 
     if (!week_start) return json({ error: "week_start required" }, 400);
 
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
     if (!GEMINI_API_KEY) return json({ error: "AI not configured" }, 500);
 
     const { system: systemPrompt, user: userPrompt } = buildPlanPrompts(
-      week_start, gaps, activities, priorities
+      week_start, gaps, activities, priorities, [], [], locale
     );
 
     const aiRes = await callGeminiGenerateContent(

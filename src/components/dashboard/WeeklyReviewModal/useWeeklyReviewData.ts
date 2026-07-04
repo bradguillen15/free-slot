@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { addDaysISO } from "@/lib/time";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -18,6 +19,7 @@ export function useWeeklyReviewData({ open, weekStart }: {
   weekStart: string;
 }) {
   const { user } = useAuth();
+  const { i18n } = useTranslation();
   const weekEnd = addDaysISO(weekStart, 6);
 
   const { data: logs } = useTimeLogsInRange(weekStart, weekEnd);
@@ -50,6 +52,7 @@ export function useWeeklyReviewData({ open, weekStart }: {
         productive_ratio: agg.ratio,
         total_tracked: agg.total,
         daily_notes: dailyNotes.length ? dailyNotes : undefined,
+        locale: i18n.language === "es" ? "es" : "en",
       });
       toast.success("Weekly review saved");
     } catch (e: unknown) {

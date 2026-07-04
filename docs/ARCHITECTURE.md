@@ -146,11 +146,13 @@ midnight). Week and Month views are **not yet clipped** — a deliberate follow-
 
 Cloud-only. Flow:
 
-1. Component collects this week's `gaps`, the user's `activities`, and their `weekly_priorities`.
-2. Calls the `generate-weekly-plan` edge function.
-3. Edge function calls the **Gemini `generateContent` API** directly (`gemini-2.5-flash`, via the `GEMINI_API_KEY` Supabase secret) with a prompt asking for slot assignments.
+1. Component collects this week's `gaps`, the user's `activities` (including each activity's real `target_hours_per_week` and `is_active`), and their `weekly_priorities`. If every active activity has a `target_hours_per_week` of `0`, generation is blocked client-side with a localized message pointing to Activities — no request is sent.
+2. Calls the `generate-weekly-plan` edge function with the current UI locale (`en`/`es`) so generated rationale and summary text match it.
+3. Edge function calls the **Gemini `generateContent` API** directly (`gemini-2.5-flash`, via the `GEMINI_API_KEY` Supabase secret) with a prompt asking for slot assignments, instructed to respond in the request's locale (defaulting to English).
 4. Result is `upsert`ed into `weekly_plans` keyed on `(user_id, week_start)` — the unique constraint prevents race conditions from double-clicks.
 5. UI displays slots as dashed primary-colored ribbons over the week grid; clicking "Accept" inserts a corresponding `time_log` (also guarded with `useRef` against double-fires).
+
+The weekly review (`weekly-review` edge function) follows the same locale convention.
 
 **Why edge function and not client-side?** AI keys are server-only, and we want a single canonical prompt format that we can iterate on without shipping client builds.
 

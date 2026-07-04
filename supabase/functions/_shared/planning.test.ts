@@ -214,6 +214,42 @@ describe("daily notes and inbox injection", () => {
   });
 });
 
+describe("locale-aware prompts", () => {
+  const baseArgs: [string, GapWindow[], [], []] = ["2026-06-08", [], [], []];
+  const reviewInput = {
+    weekStart: "2026-06-08",
+    planned: [],
+    actual: [],
+    productiveRatio: 70,
+    totalTracked: 120,
+  };
+
+  it("buildPlanPrompts instructs Spanish output when locale is es", () => {
+    const { system } = buildPlanPrompts(...baseArgs, [], [], "es");
+    expect(system).toContain("Spanish");
+  });
+
+  it("buildPlanPrompts instructs English output when locale is en", () => {
+    const { system } = buildPlanPrompts(...baseArgs, [], [], "en");
+    expect(system).toContain("English");
+  });
+
+  it("buildPlanPrompts defaults to English when locale is omitted", () => {
+    const { system } = buildPlanPrompts(...baseArgs);
+    expect(system).toContain("English");
+  });
+
+  it("buildReviewPrompts instructs Spanish output when locale is es", () => {
+    const { system } = buildReviewPrompts(reviewInput, [], "es");
+    expect(system).toContain("Spanish");
+  });
+
+  it("buildReviewPrompts defaults to English when locale is omitted", () => {
+    const { system } = buildReviewPrompts(reviewInput);
+    expect(system).toContain("English");
+  });
+});
+
 describe("fmtMinutes", () => {
   it("formats minutes, hours, and mixes", () => {
     expect(fmtMinutes(45)).toBe("45m");

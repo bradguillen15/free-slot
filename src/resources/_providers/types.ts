@@ -115,6 +115,7 @@ export interface ResourcesProvider {
       productive_ratio: number;
       total_tracked: number;
       daily_notes?: { date: string; text: string }[];
+      locale?: "en" | "es";
     }): Promise<{ review: { insights: string } }>;
     generateWeeklyPlan(body: {
       week_start: string;
@@ -123,6 +124,7 @@ export interface ResourcesProvider {
       priorities?: unknown[];
       daily_notes?: { date: string; text: string }[];
       inbox_items?: string[];
+      locale?: "en" | "es";
     }): Promise<{ slots: unknown[] }>;
     deleteAccount(userId: string): Promise<void>;
   };
