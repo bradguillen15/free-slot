@@ -137,10 +137,12 @@ The schedule is a **guide**, the log is the truth. In the day timeline (`DayTime
 schedule blocks are **clipped against logged time**: a block is rendered only for the minutes not
 covered by any `time_log` that day (`visibleBlockSegments` → `subtractIntervals` in `lib/time.ts`,
 overnight-aware). Logging a replacement activity is the override — the planned block recedes to the
-remaining, unaccounted-for time; there is no per-day "skip" mechanism. This clipping is
+remaining, unaccounted-for time. This clipping is
 **presentation-only** and does not change free-window detection (`gaps.ts` still treats both planned
 and logged time as busy). Time entries may also span midnight (`durationMinutes` wraps past
 midnight). Week and Month views are **not yet clipped** — a deliberate follow-up.
+
+**Confirm my day** (`src/lib/confirmDay.ts` + `ConfirmDayButton`) is the bulk version of "log a block's real span": for each schedule block active on a day, if it's entirely uncovered by any existing log (the same `visibleBlockSegments` check used for clipping — full coverage, not partial, or the block is skipped), it materializes one ordinary `time_log` matching the block's exact times (overnight blocks become a single row, same as clicking the block manually). Blocks without a `category_id` are skipped (logs require one). There is no "confirmed" marker anywhere — re-running the action is naturally a no-op for blocks it already logged, since the overlap check now finds them covered.
 
 ---
 

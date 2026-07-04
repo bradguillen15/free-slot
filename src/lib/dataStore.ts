@@ -42,6 +42,7 @@ import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys, type Mode } from "@/lib/queryKeys";
 import { todayISO } from "@/lib/time";
 import { SAMPLE_SCHEDULE_BLOCKS, buildSampleTimeLogs } from "@/lib/sampleData";
+import { buildConfirmDayRows, type ConfirmDayResult } from "@/lib/confirmDay";
 
 export type { Mode };
 
@@ -399,6 +400,40 @@ export function useDeleteAccountMutation() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: () => resources.functions.deleteAccount(user!.id),
+  });
+}
+
+/** Materializes eligible schedule blocks for `date` into real time logs. See confirmDay.ts for the skip rules. */
+export async function confirmDay(mode: Mode, userId: string | null, date: string): Promise<ConfirmDayResult> {
+  const [blocks, logs, categories] = mode === "guest"
+    ? [listScheduleBlocks(), listLogsInRange(date, date), listCategories()]
+    : await Promise.all([
+        resources.scheduleBlocks.list(userId!),
+        resources.timeLogs.listInRange(userId!, date, date),
+        resources.categories.list(userId!),
+      ]);
+
+  const result = buildConfirmDayRows(date, blocks, logs, categories);
+
+  if (result.rows.length) {
+    if (mode === "guest") {
+      result.rows.forEach((row) => localInsertLog(row));
+    } else {
+      await resources.timeLogs.insertMany(
+        userId!,
+        result.rows.map((row) => ({ ...row, notes: null, note_json: null }))
+      );
+    }
+    invalidateTimeLogs(mode, userId);
+  }
+
+  return result;
+}
+
+export function useConfirmDayMutation() {
+  const { mode, userId } = useAuthScope();
+  return useMutation({
+    mutationFn: (date: string) => confirmDay(mode, userId, date),
   });
 }
 

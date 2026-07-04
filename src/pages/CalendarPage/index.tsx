@@ -9,6 +9,8 @@ import { logDefaultsFromBlock } from "@/lib/schedule";
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
 import { SampleDataBanner } from "@/components/day/SampleDataBanner";
+import { ConfirmDayButton } from "@/components/day/ConfirmDayButton";
+import type { ConfirmDayBlock, ConfirmDayCategory, ConfirmDayLog } from "@/lib/confirmDay";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
@@ -197,14 +199,22 @@ export default function CalendarPage() {
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">{t("calendar.dayView")}</div>
             <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
           </div>
-          <CalendarNav
-            onToday={() => setDate(todayISO())}
-            onPrev={() => setDate(addDaysISO(date, -1))}
-            onNext={() => setDate(addDaysISO(date, 1))}
-            todayLabel={t("calendar.today")}
-            prevLabel={t("calendar.prevDay")}
-            nextLabel={t("calendar.nextDay")}
-          />
+          <div className="flex items-center gap-2">
+            <ConfirmDayButton
+              date={date}
+              blocks={blocks as unknown as ConfirmDayBlock[]}
+              logs={logs as unknown as ConfirmDayLog[]}
+              categories={cats as unknown as ConfirmDayCategory[]}
+            />
+            <CalendarNav
+              onToday={() => setDate(todayISO())}
+              onPrev={() => setDate(addDaysISO(date, -1))}
+              onNext={() => setDate(addDaysISO(date, 1))}
+              todayLabel={t("calendar.today")}
+              prevLabel={t("calendar.prevDay")}
+              nextLabel={t("calendar.nextDay")}
+            />
+          </div>
         </div>
 
         <SampleDataBanner visible={hasExampleData} />

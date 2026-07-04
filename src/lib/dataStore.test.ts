@@ -55,6 +55,8 @@ import {
   useDeleteAccountMutation,
   clearExampleData,
   useClearExampleDataMutation,
+  confirmDay,
+  useConfirmDayMutation,
 } from "./dataStore";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -552,5 +554,78 @@ describe("useClearExampleDataMutation", () => {
     });
     const { listScheduleBlocks: listBlocks } = await import("./localStore");
     expect(listBlocks().every((b) => !b.is_example)).toBe(true);
+  });
+});
+
+describe("confirmDay", () => {
+  it("guest mode materializes eligible blocks into real logs", async () => {
+    authState.user = null;
+    ensureBootstrap();
+    const { upsertScheduleBlock: localUpsertBlock, listLogsInRange: localListLogs } = await import("./localStore");
+    const cat = listCategories()[0];
+    localUpsertBlock({
+      name: "Work", start_time: "09:00", end_time: "17:00",
+      days_of_week: [1, 2, 3, 4, 5], type: "fixed", color: "#000", category_id: cat.id,
+    });
+
+    const monday = "2026-07-06";
+    const result = await confirmDay("guest", null, monday);
+
+    expect(result.rows).toHaveLength(1);
+    const logs = localListLogs(monday, monday);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ start_time: "09:00", end_time: "17:00", category_id: cat.id });
+  });
+
+  it("guest mode is idempotent across repeated calls", async () => {
+    authState.user = null;
+    ensureBootstrap();
+    const { upsertScheduleBlock: localUpsertBlock, listLogsInRange: localListLogs } = await import("./localStore");
+    const cat = listCategories()[0];
+    localUpsertBlock({
+      name: "Work", start_time: "09:00", end_time: "17:00",
+      days_of_week: [1, 2, 3, 4, 5], type: "fixed", color: "#000", category_id: cat.id,
+    });
+
+    const monday = "2026-07-06";
+    await confirmDay("guest", null, monday);
+    await confirmDay("guest", null, monday);
+
+    expect(localListLogs(monday, monday)).toHaveLength(1);
+  });
+
+  it("cloud mode inserts rows via resources.timeLogs.insertMany", async () => {
+    queueTableResult("schedule_blocks", {
+      data: [{ id: "b1", name: "Work", start_time: "09:00:00", end_time: "17:00:00", days_of_week: [1, 2, 3, 4, 5], category_id: "c1", color: "#000", type: "fixed", created_at: "" }],
+    });
+    queueTableResult("time_logs", { data: [] });
+    queueTableResult("categories", { data: [{ id: "c1", name: "Deep work", type: "productive", color: "#000", is_default: true, hidden: false, created_at: "" }] });
+    queueTableResult("time_logs", { data: [{ id: "l1", date: "2026-07-06", start_time: "09:00:00", end_time: "17:00:00", category_id: "c1", type: "productive", title: "Work", notes: null, note_json: null, created_at: "" }] });
+
+    const result = await confirmDay("cloud", "u1", "2026-07-06");
+
+    expect(result.rows).toHaveLength(1);
+    expect(
+      callsFor("time_logs").some((c) => c.methods.some(([m]) => m === "insert"))
+    ).toBe(true);
+  });
+});
+
+describe("useConfirmDayMutation", () => {
+  it("returns the confirm result via the mutation", async () => {
+    authState.user = null;
+    ensureBootstrap();
+    const { upsertScheduleBlock: localUpsertBlock } = await import("./localStore");
+    const cat = listCategories()[0];
+    localUpsertBlock({
+      name: "Work", start_time: "09:00", end_time: "17:00",
+      days_of_week: [1, 2, 3, 4, 5], type: "fixed", color: "#000", category_id: cat.id,
+    });
+
+    const { result } = renderDataHook(() => useConfirmDayMutation());
+    await act(async () => {
+      const confirmResult = await result.current.mutateAsync("2026-07-06");
+      expect(confirmResult.rows).toHaveLength(1);
+    });
   });
 });

@@ -407,6 +407,11 @@ const en = {
     topCategories: "Top categories",
     noLogsToday: "No logs yet today.",
     other: "Other",
+    confirmDay: "Confirm my day",
+    confirmedCount: "{{count}} logs confirmed",
+    nothingToConfirm: "Nothing to confirm",
+    alreadyLogged: "Day already logged",
+    confirmSkippedNoCategory: "{{count}} blocks skipped — assign them a category first",
   },
   quickLog: {
     editTitle: "Edit log",

@@ -409,6 +409,11 @@ const es: Translations = {
     topCategories: "Categorías principales",
     noLogsToday: "Aún no hay registros hoy.",
     other: "Otro",
+    confirmDay: "Confirmar mi día",
+    confirmedCount: "{{count}} registros confirmados",
+    nothingToConfirm: "Nada que confirmar",
+    alreadyLogged: "Día ya registrado",
+    confirmSkippedNoCategory: "Se omitieron {{count}} bloques — asígnales una categoría primero",
   },
   quickLog: {
     editTitle: "Editar registro",
