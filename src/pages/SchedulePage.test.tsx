@@ -16,7 +16,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));
 
-import { ensureBootstrap, listScheduleBlocks, reorderScheduleBlocks, upsertScheduleBlock } from "@/lib/localStore";
+import { deleteScheduleBlock, ensureBootstrap, listScheduleBlocks, reorderScheduleBlocks, upsertScheduleBlock } from "@/lib/localStore";
 import SchedulePage from "./SchedulePage";
 
 function renderPage() {
@@ -34,6 +34,9 @@ function renderPage() {
 beforeEach(() => {
   localStorage.clear();
   ensureBootstrap();
+  // These tests exercise the schedule editor against a controlled block list —
+  // clear the first-run sample blocks so they don't collide with test fixtures.
+  listScheduleBlocks().filter((b) => b.is_example).forEach((b) => deleteScheduleBlock(b.id));
   setQueryClientForTests(createTestQueryClient());
 });
 

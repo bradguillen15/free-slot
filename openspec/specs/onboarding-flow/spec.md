@@ -25,7 +25,17 @@ The system SHALL allow any user (guest or authenticated) to skip the onboarding 
 ---
 
 ### Requirement: Non-blocking OnboardingGate
-`OnboardingGate` SHALL allow users to access `/app/*` routes when either `onboarding_completed` OR `onboarding_skipped` is `true` in their profile. It SHALL only redirect to `/onboarding` when both flags are `false`.
+`OnboardingGate` SHALL NOT redirect users away from `/app/*` routes based on onboarding completion state. New users (both `onboarding_completed` and `onboarding_skipped` false) land directly in the app, which carries seeded first-run sample data instead of an empty state (see the `first-run-sample-data` capability). `/onboarding` SHALL remain a normal, reachable route; visiting it explicitly SHALL always render the wizard regardless of completion state, except that it redirects away to `/app` once already done.
+
+#### Scenario: Gate never redirects away from /app
+- **WHEN** `onboarding_completed = false` and `onboarding_skipped = false`
+- **WHEN** the user navigates to any `/app/*` route
+- **THEN** `OnboardingGate` renders its children without redirecting to `/onboarding`
+
+#### Scenario: /onboarding remains directly reachable
+- **WHEN** a user (in any onboarding state) navigates to `/onboarding`
+- **THEN** the onboarding wizard renders normally
+- **THEN** completing or skipping it writes `onboarding_completed`/`onboarding_skipped` as before
 
 #### Scenario: Gate passes through on completed
 - **WHEN** `onboarding_completed = true` and `onboarding_skipped = false`
@@ -34,10 +44,6 @@ The system SHALL allow any user (guest or authenticated) to skip the onboarding 
 #### Scenario: Gate passes through on skipped
 - **WHEN** `onboarding_completed = false` and `onboarding_skipped = true`
 - **THEN** `OnboardingGate` renders its children and does not redirect
-
-#### Scenario: Gate redirects when neither flag is set
-- **WHEN** `onboarding_completed = false` and `onboarding_skipped = false`
-- **THEN** `OnboardingGate` redirects to `/onboarding`
 
 #### Scenario: Gate redirects away from onboarding when already done
 - **WHEN** either `onboarding_completed = true` or `onboarding_skipped = true`

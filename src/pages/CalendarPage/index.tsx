@@ -8,6 +8,7 @@ import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/li
 import { logDefaultsFromBlock } from "@/lib/schedule";
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
+import { SampleDataBanner } from "@/components/day/SampleDataBanner";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
@@ -68,6 +69,10 @@ export default function CalendarPage() {
   const isToday = date === todayISO();
 
   const { data: allBlocks, refresh: refreshBlocks } = useScheduleBlocks();
+  const hasExampleData = useMemo(
+    () => (allBlocks ?? []).some((b) => (b as unknown as { is_example?: boolean }).is_example),
+    [allBlocks]
+  );
   const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const logsStart = useMemo(() => addDaysISO(date, -1), [date]);
   const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(logsStart, date);
@@ -201,6 +206,8 @@ export default function CalendarPage() {
             nextLabel={t("calendar.nextDay")}
           />
         </div>
+
+        <SampleDataBanner visible={hasExampleData} />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:flex-1 lg:min-h-0">
           <div className="relative lg:flex lg:flex-col lg:min-h-0">

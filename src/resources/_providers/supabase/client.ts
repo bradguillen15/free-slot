@@ -194,6 +194,7 @@ export function createSupabaseProvider(): ResourcesProvider {
               color: input.color,
               type: input.type,
               category_id: input.category_id ?? null,
+              is_example: false,
             })
             .eq("id", input.id)
             .eq("user_id", userId)
@@ -258,6 +259,15 @@ export function createSupabaseProvider(): ResourcesProvider {
         if (error) throw new Error(error.message);
         return sortScheduleBlocks((data ?? []).map((r) => mapScheduleBlock(r as Record<string, unknown>)));
       },
+
+      async deleteExamples(userId) {
+        const { error } = await supabase
+          .from("schedule_blocks")
+          .delete()
+          .eq("user_id", userId)
+          .eq("is_example", true);
+        if (error) throw new Error(error.message);
+      },
     },
 
     timeLogs: {
@@ -306,6 +316,7 @@ export function createSupabaseProvider(): ResourcesProvider {
             ...(patch.title !== undefined ? { title: patch.title } : {}),
             ...(patch.note_json !== undefined ? { note_json: patch.note_json as Json | null } : {}),
             notes: patch.notes ?? null,
+            is_example: false,
           })
           .eq("id", id)
           .eq("user_id", userId)
@@ -330,13 +341,22 @@ export function createSupabaseProvider(): ResourcesProvider {
         if (error) throw new Error(error.message);
         return (data ?? []).map((r) => mapTimeLog(r as Record<string, unknown>));
       },
+
+      async deleteExamples(userId) {
+        const { error } = await supabase
+          .from("time_logs")
+          .delete()
+          .eq("user_id", userId)
+          .eq("is_example", true);
+        if (error) throw new Error(error.message);
+      },
     },
 
     profiles: {
       async get(userId) {
         const { data, error } = await supabase
           .from("profiles")
-          .select("peak_hours,include_weekends,weekly_review_day,time_format,onboarding_completed,onboarding_skipped")
+          .select("peak_hours,include_weekends,weekly_review_day,time_format,onboarding_completed,onboarding_skipped,sample_data_seeded")
           .eq("id", userId)
           .maybeSingle();
         if (error) throw new Error(error.message);
@@ -352,6 +372,7 @@ export function createSupabaseProvider(): ResourcesProvider {
           time_format?: string;
           onboarding_completed?: boolean;
           onboarding_skipped?: boolean;
+          sample_data_seeded?: boolean;
         } = {
           ...patch,
           ...(patch.peak_hours !== undefined ? { peak_hours: patch.peak_hours as Json } : {}),

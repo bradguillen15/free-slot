@@ -552,6 +552,15 @@ const es: Translations = {
     message: "Esta página requiere una cuenta. Inicia sesión para continuar.",
     signIn: "Iniciar sesión",
   },
+  sampleData: {
+    bannerText: "Esto son datos de ejemplo para mostrarte cómo funciona FreeSlot.",
+    clearCta: "Borrar ejemplos",
+    confirmTitle: "¿Borrar los datos de ejemplo?",
+    confirmDesc: "Esto elimina el horario y los registros de ejemplo que no has editado. Lo que hayas cambiado se mantiene.",
+    confirmClear: "Borrar ejemplos",
+    cancel: "Cancelar",
+    cleared: "Datos de ejemplo borrados",
+  },
   validation: {
     titleRequired: "El título es obligatorio",
     nameRequired: "El nombre es obligatorio",

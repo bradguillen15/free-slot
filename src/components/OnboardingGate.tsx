@@ -7,7 +7,9 @@ import { useProfile } from "@/lib/dataStore";
  * Routes onboarding flow for both signed-in users and guests.
  *  - Signed-in: reads profile via useProfile (resources layer).
  *  - Guests: reads localStorage profile via useProfile.
- * Passes through when either flag is true; redirects to /onboarding only when both are false.
+ * `/app/*` is never gated on onboarding state — new users land there directly,
+ * backed by first-run sample data instead of an empty state. `/onboarding`
+ * stays reachable on demand, but redirects away once already done.
  */
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth();
@@ -23,10 +25,6 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   }
 
   const done = !!(profile?.onboarding_completed || profile?.onboarding_skipped);
-  const isSetupRoute = location.pathname.startsWith("/app/schedule") || location.pathname.startsWith("/app/activities");
-  if (!done && !location.pathname.startsWith("/onboarding") && !isSetupRoute) {
-    return <Navigate to="/onboarding" replace />;
-  }
   if (done && location.pathname.startsWith("/onboarding")) {
     return <Navigate to="/app" replace />;
   }

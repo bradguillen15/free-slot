@@ -3,6 +3,8 @@ process.env.TZ = "America/New_York";
 
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
+  clearExampleScheduleBlocks,
+  clearExampleTimeLogs,
   clearGuestData,
   deleteLog,
   ensureBootstrap,
@@ -77,6 +79,40 @@ describe("updateLog", () => {
     const updated = updateLog(log.id, { notes: "hi" });
     expect(updated?.notes).toBe("hi");
   });
+
+  it("clears is_example when editing a sample log", () => {
+    const log = insertLog({ date: "2026-06-10", start_time: "09:00", end_time: "10:00", type: "productive", is_example: true });
+    const updated = updateLog(log.id, { notes: "edited" });
+    expect(updated?.is_example).toBe(false);
+  });
+});
+
+describe("upsertScheduleBlock", () => {
+  it("clears is_example when editing a sample block", () => {
+    const block = upsertScheduleBlock({ name: "Sleep", start_time: "23:00", end_time: "07:00", days_of_week: [0], type: "fixed", color: "#000", is_example: true });
+    expect(block.is_example).toBe(true);
+    const updated = upsertScheduleBlock({ id: block.id, name: "Sleep (updated)" });
+    expect(updated.is_example).toBe(false);
+  });
+});
+
+describe("clearExampleScheduleBlocks / clearExampleTimeLogs", () => {
+  it("removes only is_example rows, keeping edited/real ones", () => {
+    ensureBootstrap();
+    const realBlock = upsertScheduleBlock({ name: "Custom", start_time: "08:00", end_time: "09:00", days_of_week: [1], type: "fixed", color: "#000" });
+    const realLog = insertLog({ date: "2026-06-10", start_time: "09:00", end_time: "10:00", type: "productive" });
+
+    expect(listScheduleBlocks().some((b) => b.is_example)).toBe(true);
+    expect(listLogsInRange("2026-01-01", "2026-12-31").some((l) => l.is_example)).toBe(true);
+
+    clearExampleScheduleBlocks();
+    clearExampleTimeLogs();
+
+    expect(listScheduleBlocks().every((b) => !b.is_example)).toBe(true);
+    expect(listScheduleBlocks().some((b) => b.id === realBlock.id)).toBe(true);
+    expect(listLogsInRange("2026-01-01", "2026-12-31").every((l) => !l.is_example)).toBe(true);
+    expect(listLogsInRange("2026-01-01", "2026-12-31").some((l) => l.id === realLog.id)).toBe(true);
+  });
 });
 
 describe("ensureBootstrap", () => {
@@ -84,6 +120,30 @@ describe("ensureBootstrap", () => {
     ensureBootstrap();
     ensureBootstrap();
     expect(listCategories()).toHaveLength(14);
+  });
+
+  it("seeds sample schedule blocks marked is_example on first bootstrap", () => {
+    ensureBootstrap();
+    const blocks = listScheduleBlocks();
+    expect(blocks.length).toBeGreaterThan(0);
+    expect(blocks.every((b) => b.is_example === true)).toBe(true);
+  });
+
+  it("seeds 2-3 sample time logs for today marked is_example on first bootstrap", () => {
+    ensureBootstrap();
+    const today = new Date().toISOString().slice(0, 10);
+    const logs = listLogsInRange(today, today);
+    expect(logs.length).toBeGreaterThanOrEqual(2);
+    expect(logs.length).toBeLessThanOrEqual(3);
+    expect(logs.every((l) => l.is_example === true)).toBe(true);
+  });
+
+  it("does not reseed sample data on subsequent bootstraps", () => {
+    ensureBootstrap();
+    const blocksBefore = listScheduleBlocks().length;
+    ensureBootstrap();
+    ensureBootstrap();
+    expect(listScheduleBlocks().length).toBe(blocksBefore);
   });
 
   it("top-ups missing defaults for guests bootstrapped with an older set", () => {

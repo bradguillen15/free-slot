@@ -40,6 +40,7 @@ export type LocalScheduleBlock = {
   type: "fixed" | "waste_expected";
   category_id: string | null;
   created_at: string;
+  is_example?: boolean;
 };
 
 export type LocalTimeLog = {
@@ -53,9 +54,12 @@ export type LocalTimeLog = {
   notes: string | null;
   note_json?: object | null;
   created_at: string;
+  is_example?: boolean;
 };
 
 import type { TimeFormat } from "@/lib/time";
+import { todayISO } from "@/lib/time";
+import { SAMPLE_SCHEDULE_BLOCKS, buildSampleTimeLogs } from "@/lib/sampleData";
 
 export type LocalProfile = {
   peak_hours: { start: string; end: string };
@@ -64,6 +68,7 @@ export type LocalProfile = {
   time_format: TimeFormat;
   onboarding_completed: boolean;
   onboarding_skipped: boolean;
+  sample_data_seeded: boolean;
 };
 
 /** Seeded defaults for guests and referenced by migrateGuest name mapping. Keep in sync with handle_new_user() migration. */
@@ -91,6 +96,9 @@ const DEFAULT_PROFILE: LocalProfile = {
   time_format: "24h",
   onboarding_completed: false,
   onboarding_skipped: false,
+  // Guests are seeded with sample data inline during ensureBootstrap(), unlike
+  // cloud accounts which are seeded lazily on first profile load (see dataStore.ts).
+  sample_data_seeded: true,
 };
 
 function rid() {
@@ -166,8 +174,26 @@ export function ensureBootstrap() {
     }));
     write(`${PREFIX}.categories`, cats);
     write(`${PREFIX}.activities`, [] as LocalActivity[]);
-    write(`${PREFIX}.schedule_blocks`, [] as LocalScheduleBlock[]);
+    const sampleBlocks: LocalScheduleBlock[] = SAMPLE_SCHEDULE_BLOCKS.map((b) => ({
+      ...b,
+      id: rid(),
+      category_id: null,
+      created_at: now,
+      is_example: true,
+    }));
+    write(`${PREFIX}.schedule_blocks`, sampleBlocks);
     write(`${PREFIX}.profile`, DEFAULT_PROFILE);
+    const categoryIdByName = new Map(cats.map((c) => [c.name, c.id]));
+    const sampleLogs = buildSampleTimeLogs(todayISO(), categoryIdByName);
+    const sampleLogsByMonth = new Map<string, LocalTimeLog[]>();
+    for (const seed of sampleLogs) {
+      const log: LocalTimeLog = { ...seed, id: rid(), notes: null, created_at: now };
+      const month = monthKey(seed.date);
+      sampleLogsByMonth.set(month, [...(sampleLogsByMonth.get(month) ?? []), log]);
+    }
+    for (const [month, logs] of sampleLogsByMonth) {
+      write(logsKey(month), logs);
+    }
     localStorage.setItem(`${PREFIX}.bootstrapped`, "1");
   }
   topUpDefaultCategories();
@@ -275,7 +301,7 @@ export function listScheduleBlocks(): LocalScheduleBlock[] {
 export function upsertScheduleBlock(input: Partial<LocalScheduleBlock> & { id?: string }) {
   const all = listScheduleBlocks();
   if (input.id && all.some((b) => b.id === input.id)) {
-    const next = all.map((b) => (b.id === input.id ? { ...b, ...input } : b));
+    const next = all.map((b) => (b.id === input.id ? { ...b, ...input, is_example: false } : b));
     write(`${PREFIX}.schedule_blocks`, next);
     return next.find((b) => b.id === input.id)!;
   }
@@ -289,6 +315,7 @@ export function upsertScheduleBlock(input: Partial<LocalScheduleBlock> & { id?: 
     type: input.type ?? "fixed",
     category_id: input.category_id ?? null,
     created_at: new Date().toISOString(),
+    is_example: input.is_example ?? false,
   };
   write(`${PREFIX}.schedule_blocks`, [...all, created]);
   return created;
@@ -296,6 +323,11 @@ export function upsertScheduleBlock(input: Partial<LocalScheduleBlock> & { id?: 
 
 export function deleteScheduleBlock(id: string) {
   write(`${PREFIX}.schedule_blocks`, listScheduleBlocks().filter((b) => b.id !== id));
+}
+
+/** Removes all remaining first-run sample schedule blocks (is_example: true). */
+export function clearExampleScheduleBlocks() {
+  write(`${PREFIX}.schedule_blocks`, listScheduleBlocks().filter((b) => !b.is_example));
 }
 
 /** Reorder blocks to match `orderedIds` (unknown ids are ignored; missing ids trail). */
@@ -368,6 +400,7 @@ export function insertLog(input: Partial<LocalTimeLog> & { date: string; start_t
     notes: input.notes ?? null,
     note_json: input.note_json ?? null,
     created_at: new Date().toISOString(),
+    is_example: input.is_example ?? false,
   };
   const month = monthKey(input.date);
   const all = listLogsForMonth(month);
@@ -386,6 +419,18 @@ export function deleteLog(id: string) {
   }
 }
 
+/** Removes all remaining first-run sample time logs (is_example: true). */
+export function clearExampleTimeLogs() {
+  if (typeof window === "undefined") return;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(`${PREFIX}.time_logs.`)) continue;
+    const arr = readArray<LocalTimeLog>(k);
+    const next = arr.filter((l) => !l.is_example);
+    if (next.length !== arr.length) write(k, next);
+  }
+}
+
 export function updateLog(id: string, patch: Partial<Omit<LocalTimeLog, "id" | "date" | "created_at">>) {
   if (typeof window === "undefined") return;
   for (let i = 0; i < localStorage.length; i++) {
@@ -395,7 +440,7 @@ export function updateLog(id: string, patch: Partial<Omit<LocalTimeLog, "id" | "
     const idx = arr.findIndex((l) => l.id === id);
     if (idx !== -1) {
       const updated = [...arr];
-      updated[idx] = { ...updated[idx], ...patch };
+      updated[idx] = { ...updated[idx], ...patch, is_example: false };
       write(k, updated);
       return updated[idx];
     }
@@ -417,7 +462,7 @@ export function moveLog(id: string, newDate: string, patch: Partial<Omit<LocalTi
     const log = arr[idx];
     const oldMonth = log.date.slice(0, 7);
     const newMonth = newDate.slice(0, 7);
-    const updated: LocalTimeLog = { ...log, ...patch, date: newDate };
+    const updated: LocalTimeLog = { ...log, ...patch, date: newDate, is_example: false };
 
     if (oldMonth === newMonth) {
       const next = [...arr];

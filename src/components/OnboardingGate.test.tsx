@@ -39,9 +39,9 @@ beforeEach(() => {
 });
 
 describe("OnboardingGate — guest", () => {
-  it("redirects a fresh guest from /app to /onboarding", async () => {
+  it("lets a fresh guest through to /app (no forced redirect to onboarding)", async () => {
     renderAt("/app");
-    await waitFor(() => expect(screen.getByText("ONBOARDING")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
   });
 
   it("lets an onboarded guest through to /app", async () => {
@@ -56,6 +56,11 @@ describe("OnboardingGate — guest", () => {
     updateProfile({ onboarding_skipped: true });
     renderAt("/app");
     await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
+  });
+
+  it("renders the wizard when a fresh guest navigates directly to /onboarding", async () => {
+    renderAt("/onboarding");
+    await waitFor(() => expect(screen.getByText("ONBOARDING")).toBeInTheDocument());
   });
 
   it("redirects an onboarded guest away from /onboarding", async () => {
@@ -76,29 +81,29 @@ describe("OnboardingGate — guest", () => {
 describe("OnboardingGate — signed in", () => {
   it("lets an onboarded user through", async () => {
     authState.user = { id: "u1" };
-    queueTableResult("profiles", { data: { onboarding_completed: true, onboarding_skipped: false } });
+    queueTableResult("profiles", { data: { onboarding_completed: true, onboarding_skipped: false, sample_data_seeded: true } });
     renderAt("/app");
     await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
   });
 
   it("lets a user who skipped through", async () => {
     authState.user = { id: "u1" };
-    queueTableResult("profiles", { data: { onboarding_completed: false, onboarding_skipped: true } });
+    queueTableResult("profiles", { data: { onboarding_completed: false, onboarding_skipped: true, sample_data_seeded: true } });
     renderAt("/app");
     await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
   });
 
-  it("sends a user with neither flag set to onboarding", async () => {
+  it("lets a user with neither flag set through to /app (no forced redirect)", async () => {
     authState.user = { id: "u1" };
-    queueTableResult("profiles", { data: { onboarding_completed: false, onboarding_skipped: false } });
+    queueTableResult("profiles", { data: { onboarding_completed: false, onboarding_skipped: false, sample_data_seeded: true } });
     renderAt("/app");
-    await waitFor(() => expect(screen.getByText("ONBOARDING")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("APP")).toBeInTheDocument());
   });
 
-  it("sends a user without a completed profile to onboarding", async () => {
+  it("renders the wizard when a user with neither flag navigates directly to /onboarding", async () => {
     authState.user = { id: "u1" };
-    queueTableResult("profiles", { data: { onboarding_completed: false } });
-    renderAt("/app");
+    queueTableResult("profiles", { data: { onboarding_completed: false, onboarding_skipped: false, sample_data_seeded: true } });
+    renderAt("/onboarding");
     await waitFor(() => expect(screen.getByText("ONBOARDING")).toBeInTheDocument());
   });
 });

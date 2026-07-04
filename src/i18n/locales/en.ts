@@ -550,6 +550,15 @@ const en = {
     message: "This page needs an account. Sign in to continue.",
     signIn: "Sign in",
   },
+  sampleData: {
+    bannerText: "This is example data to show you how FreeSlot works.",
+    clearCta: "Clear examples",
+    confirmTitle: "Clear example data?",
+    confirmDesc: "This removes the sample schedule and logs that haven't been edited. Anything you've changed stays.",
+    confirmClear: "Clear examples",
+    cancel: "Cancel",
+    cleared: "Example data cleared",
+  },
   validation: {
     titleRequired: "Title is required",
     nameRequired: "Name is required",

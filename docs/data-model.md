@@ -6,11 +6,11 @@ Canonical detail also lives in `docs/CLOUD.md`. Update this file when entities o
 
 | Entity | Storage | Key fields | Purpose |
 |---|---|---|---|
-| Profile | `profiles` | `id` (= auth.uid), `email`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | User preferences. Either `onboarding_completed` or `onboarding_skipped` being `true` passes the `OnboardingGate`. |
+| Profile | `profiles` | `id` (= auth.uid), `email`, `peak_hours`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped`, `sample_data_seeded` | User preferences. `OnboardingGate` no longer redirects based on these flags — `/onboarding` is a reachable route, not a gate. `sample_data_seeded` guards the one-time cloud sample-data seed. |
 | Category | `categories` | `id`, `user_id`, `name`, `type`, `color`, `is_default`, `hidden`, `sort_order` | Tags for activities and logs |
 | Activity | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | Goals / time targets |
-| ScheduleBlock | `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time |
-| TimeLog | `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes`, `note_json` | Actual time spent |
+| ScheduleBlock | `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week`, `type`, `color`, `category_id`, `sort_order`, `is_example` | Recurring fixed time. `is_example` marks unedited first-run sample data. |
+| TimeLog | `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes`, `note_json`, `is_example` | Actual time spent. `is_example` marks unedited first-run sample data. |
 | WeeklyPriority | `weekly_priorities` | `user_id`, `week_start`, `activity_id`, `rank` | Drag-ranked focus per week |
 | WeeklyPlan | `weekly_plans` | `user_id`, `week_start`, `generated_at`, `slots` | AI-generated plan (`UNIQUE(user_id, week_start)`) |
 | WeeklyReview | `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | Completed week AI insights |
