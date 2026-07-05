@@ -77,6 +77,7 @@ describe("updateLog", () => {
     const updated = updateLog(log.id, { notes: "hi" });
     expect(updated?.notes).toBe("hi");
   });
+
 });
 
 describe("ensureBootstrap", () => {
@@ -84,6 +85,13 @@ describe("ensureBootstrap", () => {
     ensureBootstrap();
     ensureBootstrap();
     expect(listCategories()).toHaveLength(14);
+  });
+
+  it("does not seed any schedule blocks or time logs", () => {
+    ensureBootstrap();
+    const today = new Date().toISOString().slice(0, 10);
+    expect(listScheduleBlocks()).toEqual([]);
+    expect(listLogsInRange(today, today)).toEqual([]);
   });
 
   it("top-ups missing defaults for guests bootstrapped with an older set", () => {

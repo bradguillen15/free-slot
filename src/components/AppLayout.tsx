@@ -1,7 +1,7 @@
 import { Link, useLocation, useOutlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { Calendar, BarChart3, Target, Settings, LogOut, CalendarRange, CalendarDays, Clock, LogIn, Lock, Menu, Tag, StickyNote } from "lucide-react";
+import { Calendar, BarChart3, Target, Settings, LogOut, CalendarRange, CalendarDays, Clock, HelpCircle, LogIn, Lock, Menu, Tag, StickyNote } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { GuestBanner } from "@/components/GuestBanner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTour } from "@/components/tour/TourProvider";
 
 
 const navItems = [
@@ -79,6 +80,7 @@ export function AppLayout({
   const { t } = useTranslation();
   const isGuest = !user;
   const [menuOpen, setMenuOpen] = useState(false);
+  const { start: startTour } = useTour();
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
@@ -128,6 +130,14 @@ export function AppLayout({
           })}
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2">
+          <button
+            onClick={startTour}
+            data-testid="tour-replay"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors"
+          >
+            <HelpCircle className="h-4 w-4" />
+            {t("tour.replay")}
+          </button>
           <div className="px-1"><LanguageSwitcher /></div>
           {user ? (
             <>
@@ -201,6 +211,14 @@ export function AppLayout({
                 })}
               </nav>
               <div className="p-3 border-t border-sidebar-border space-y-2">
+                <button
+                  onClick={() => { setMenuOpen(false); startTour(); }}
+                  data-testid="tour-replay-mobile"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  {t("tour.replay")}
+                </button>
                 <div className="px-1"><LanguageSwitcher /></div>
                 {user ? (
                   <>

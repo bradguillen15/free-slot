@@ -74,12 +74,13 @@ export async function migrateGuestToCloud(userId: string) {
 
   // 3. Schedule blocks — dedupe on (name, start, end) for retry safety.
   let blocksCount = 0;
-  if (snap.schedule_blocks.length) {
+  const migratableBlocks = snap.schedule_blocks;
+  if (migratableBlocks.length) {
     const existingBlocks = await resources.scheduleBlocks.list(userId);
     const blockKey = (b: { name: string; start_time: string; end_time: string }) =>
       `${b.name}|${b.start_time.slice(0, 5)}|${b.end_time.slice(0, 5)}`;
     const existingBlockKeys = new Set(existingBlocks.map(blockKey));
-    const rows = snap.schedule_blocks
+    const rows = migratableBlocks
       .filter((b) => !existingBlockKeys.has(blockKey(b)))
       .map((b) => ({
         name: b.name,
@@ -98,14 +99,15 @@ export async function migrateGuestToCloud(userId: string) {
 
   // 4. Time logs (chunked) — dedupe on (date, start, end) for retry safety.
   let logsCount = 0;
-  if (snap.time_logs.length) {
-    const dates = snap.time_logs.map((l) => l.date).sort();
+  const migratableLogs = snap.time_logs;
+  if (migratableLogs.length) {
+    const dates = migratableLogs.map((l) => l.date).sort();
     const existingLogs = await resources.timeLogs.listInRange(userId, dates[0], dates[dates.length - 1]);
     const logKey = (l: { date: string; start_time: string; end_time: string }) =>
       `${l.date}|${l.start_time.slice(0, 5)}|${l.end_time.slice(0, 5)}`;
     const existingLogKeys = new Set(existingLogs.map(logKey));
 
-    const all = snap.time_logs
+    const all = migratableLogs
       .filter((l) => !existingLogKeys.has(logKey(l)))
       .map((l) => ({
         date: l.date,

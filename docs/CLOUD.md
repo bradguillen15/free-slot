@@ -28,7 +28,7 @@ Environment variables (`.env` — copy from `.env.example`):
 
 | Table | Key columns | Purpose |
 |---|---|---|
-| `profiles` | `id (= auth.uid)`, `email`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped` | Per-user preferences. Created by trigger on signup. `email` is denormalized from auth for operational lookup. `onboarding_skipped` is an alternative pass-through flag — either flag set to `true` lets the user past `OnboardingGate`. |
+| `profiles` | `id (= auth.uid)`, `email`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped`, `tour_completed` | Per-user preferences. Created by trigger on signup. `email` is denormalized from auth for operational lookup. `onboarding_completed`/`onboarding_skipped` are legacy (the wizard was removed; kept for historical data). `tour_completed` gates the guided first-run tour's auto-start. |
 | `categories` | `id`, `user_id`, `name`, `type` (productive/unproductive/essential), `color`, `is_default`, `hidden`, `sort_order` | Tags for activities and logs. Defaults are seeded per user. |
 | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | What the user wants to spend time on. |
 | `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week int[]`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time. |

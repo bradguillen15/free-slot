@@ -336,7 +336,7 @@ export function createSupabaseProvider(): ResourcesProvider {
       async get(userId) {
         const { data, error } = await supabase
           .from("profiles")
-          .select("peak_hours,include_weekends,weekly_review_day,time_format,onboarding_completed,onboarding_skipped")
+          .select("peak_hours,include_weekends,weekly_review_day,time_format,onboarding_completed,onboarding_skipped,tour_completed")
           .eq("id", userId)
           .maybeSingle();
         if (error) throw new Error(error.message);
@@ -352,6 +352,7 @@ export function createSupabaseProvider(): ResourcesProvider {
           time_format?: string;
           onboarding_completed?: boolean;
           onboarding_skipped?: boolean;
+          tour_completed?: boolean;
         } = {
           ...patch,
           ...(patch.peak_hours !== undefined ? { peak_hours: patch.peak_hours as Json } : {}),

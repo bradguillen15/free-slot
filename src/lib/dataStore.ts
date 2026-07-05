@@ -38,6 +38,8 @@ import { resources } from "@/resources";
 import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
 import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys, type Mode } from "@/lib/queryKeys";
+import { buildConfirmDayRows, type ConfirmDayResult } from "@/lib/confirmDay";
+import { nowHHMM, todayISO } from "@/lib/time";
 
 export type { Mode };
 
@@ -269,8 +271,8 @@ export function useProfile() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
     queryKey: queryKeys.profile(mode, userId),
-    queryFn: () => {
-      if (mode === "guest") { ensureBootstrap(); return Promise.resolve(localGetProfile()); }
+    queryFn: async () => {
+      if (mode === "guest") { ensureBootstrap(); return localGetProfile(); }
       return resources.profiles.get(userId!);
     },
     enabled: mode === "guest" || !!userId,
@@ -366,6 +368,40 @@ export function useDeleteAccountMutation() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: () => resources.functions.deleteAccount(user!.id),
+  });
+}
+
+/** Materializes eligible schedule blocks for `date` into real time logs. See confirmDay.ts for the skip rules; today is elapsed-only. */
+export async function confirmDay(mode: Mode, userId: string | null, date: string): Promise<ConfirmDayResult> {
+  const [blocks, logs, categories] = mode === "guest"
+    ? [listScheduleBlocks(), listLogsInRange(date, date), listCategories()]
+    : await Promise.all([
+        resources.scheduleBlocks.list(userId!),
+        resources.timeLogs.listInRange(userId!, date, date),
+        resources.categories.list(userId!),
+      ]);
+
+  const result = buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined);
+
+  if (result.rows.length) {
+    if (mode === "guest") {
+      result.rows.forEach((row) => localInsertLog(row));
+    } else {
+      await resources.timeLogs.insertMany(
+        userId!,
+        result.rows.map((row) => ({ ...row, notes: null, note_json: null }))
+      );
+    }
+    invalidateTimeLogs(mode, userId);
+  }
+
+  return result;
+}
+
+export function useConfirmDayMutation() {
+  const { mode, userId } = useAuthScope();
+  return useMutation({
+    mutationFn: (date: string) => confirmDay(mode, userId, date),
   });
 }
 

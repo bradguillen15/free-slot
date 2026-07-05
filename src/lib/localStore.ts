@@ -64,6 +64,7 @@ export type LocalProfile = {
   time_format: TimeFormat;
   onboarding_completed: boolean;
   onboarding_skipped: boolean;
+  tour_completed: boolean;
 };
 
 /** Seeded defaults for guests and referenced by migrateGuest name mapping. Keep in sync with handle_new_user() migration. */
@@ -91,6 +92,7 @@ const DEFAULT_PROFILE: LocalProfile = {
   time_format: "24h",
   onboarding_completed: false,
   onboarding_skipped: false,
+  tour_completed: false,
 };
 
 function rid() {

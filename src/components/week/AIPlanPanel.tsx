@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Sparkles, Loader2, Wand2, Trash2, Check, CheckCheck } from "lucide-react";
@@ -7,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addDaysISO, fmtDuration, toMin } from "@/lib/time";
+import { toSupportedLocale } from "@/lib/locale";
 import {
   useWeeklyPlan,
   useWeeklyPriorities,
@@ -36,7 +38,13 @@ export type WeeklyPlan = {
   slots: AISlot[];
 };
 
-export type ActivityLite = { id: string; name: string; category_id: string | null };
+export type ActivityLite = {
+  id: string;
+  name: string;
+  category_id: string | null;
+  target_hours_per_week: number;
+  is_active: boolean;
+};
 type CategoryLite = { id: string; name: string; color: string; type: "productive" | "unproductive" | "essential" };
 
 function slotKey(s: AISlot) {
@@ -58,8 +66,9 @@ export function AIPlanPanel({
   onPlanChange: (plan: WeeklyPlan | null) => void;
   onSlotAccepted: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
   const { data: planData } = useWeeklyPlan(weekStart);
   const { data: priorities } = useWeeklyPriorities(weekStart);
@@ -111,6 +120,14 @@ export function AIPlanPanel({
         toast.error(t("aiPanel.noWindowsTitle"), { description: t("aiPanel.noWindowsDesc") });
         return;
       }
+      const activeActivities = activities.filter((a) => a.is_active);
+      if (activeActivities.every((a) => a.target_hours_per_week <= 0)) {
+        toast.error(t("aiPanel.allTargetsZeroTitle"), {
+          description: t("aiPanel.allTargetsZeroDesc"),
+          action: { label: t("aiPanel.allTargetsZeroCta"), onClick: () => navigate("/app/activities") },
+        });
+        return;
+      }
 
       const data = await generateMutation.mutateAsync({
         week_start: weekStart,
@@ -119,12 +136,13 @@ export function AIPlanPanel({
           id: a.id,
           name: a.name,
           category_id: a.category_id,
-          target_hours_per_week: 0,
-          is_active: true,
+          target_hours_per_week: a.target_hours_per_week,
+          is_active: a.is_active,
         })),
         priorities,
         daily_notes: dailyNotes.length ? dailyNotes : undefined,
         inbox_items: inboxItems.length ? inboxItems : undefined,
+        locale: toSupportedLocale(i18n.language),
       });
 
       if ((data as unknown as Record<string, unknown>)?.error) {

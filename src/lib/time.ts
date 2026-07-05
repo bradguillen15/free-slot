@@ -81,6 +81,10 @@ export function todayISO(d = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
+export function nowHHMM(d = new Date()): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export function addDaysISO(iso: string, delta: number): string {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, m - 1, d);

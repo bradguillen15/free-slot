@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -163,6 +168,7 @@ export type Database = {
           onboarding_skipped: boolean
           peak_hours: Json | null
           time_format: string
+          tour_completed: boolean
           weekly_review_day: number
         }
         Insert: {
@@ -174,6 +180,7 @@ export type Database = {
           onboarding_skipped?: boolean
           peak_hours?: Json | null
           time_format?: string
+          tour_completed?: boolean
           weekly_review_day?: number
         }
         Update: {
@@ -185,6 +192,7 @@ export type Database = {
           onboarding_skipped?: boolean
           peak_hours?: Json | null
           time_format?: string
+          tour_completed?: boolean
           weekly_review_day?: number
         }
         Relationships: []
@@ -517,4 +525,3 @@ export const Constants = {
     },
   },
 } as const
-

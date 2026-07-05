@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Copy, GripVertical, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { Copy, GripVertical, Pencil, Plus, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -41,8 +41,9 @@ import {
 } from "@/lib/dataStore";
 import type { PickerCategory } from "@/components/CategoryPicker";
 import { useAuth } from "@/contexts/AuthContext";
-import { BLOCK_PRESETS, applyPresetSegmentsAtomic, presetSegments } from "@/lib/schedule";
+import { BLOCK_PRESETS, SUGGESTED_SCHEDULE_TEMPLATE, applyPresetSegmentsAtomic, presetSegments } from "@/lib/schedule";
 import { findScheduleCollisions, groupScheduleCollisions } from "@/lib/scheduleCollisions";
+import { useTour } from "@/components/tour/TourProvider";
 import { toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Surface } from "@/components/Surface";
@@ -225,10 +226,9 @@ function SortableScheduleRow({
 }
 
 /**
- * The full schedule block editor — preset chips, sortable block rows, add/edit
- * modal, overlap warnings, and the mini week preview. Extracted from SchedulePage
- * so it can be reused both on `/app/schedule` and inside the onboarding wizard.
- * It owns no page chrome (title/description); callers provide that.
+ * The full schedule block editor — suggested-schedule apply, preset chips,
+ * sortable block rows, add/edit modal, overlap warnings, and the mini week
+ * preview. It owns no page chrome (title/description); callers provide that.
  */
 export function ScheduleEditor() {
   const { t } = useTranslation();
@@ -242,6 +242,8 @@ export function ScheduleEditor() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogBlock, setDialogBlock] = useState<ScheduleBlock | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<ScheduleBlock | null>(null);
+  const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
+  const { notifyAction } = useTour();
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const orderedIdsRef = useRef(orderedIds);
   const [isDragging, setIsDragging] = useState(false);
@@ -375,6 +377,34 @@ export function ScheduleEditor() {
     }
   };
 
+  const applySuggestedSchedule = async () => {
+    try {
+      const categoryIdByName = new Map(
+        (allCategoriesRaw as PickerCategory[]).map((c) => [c.name, c.id])
+      );
+      await applyPresetSegmentsAtomic(
+        SUGGESTED_SCHEDULE_TEMPLATE,
+        (block) =>
+          upsertScheduleBlock(mode, user?.id ?? null, {
+            name: block.name,
+            start_time: block.start,
+            end_time: block.end,
+            days_of_week: [...block.days],
+            color: block.color,
+            type: block.type,
+            category_id: categoryIdByName.get(block.categoryName) ?? null,
+          }) as Promise<{ id: string }>,
+        (id) => deleteScheduleBlock(mode, user?.id ?? null, id),
+      );
+      setApplyTemplateOpen(false);
+      refresh();
+      toast.success(t("scheduleTemplate.applied"));
+      notifyAction("apply-schedule");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+    }
+  };
+
   const usedNames = useMemo(() => new Set(blocks.map((b) => b.name)), [blocks]);
 
   const overlapGroups = useMemo(() => {
@@ -424,6 +454,17 @@ export function ScheduleEditor() {
       {/* Preset chips + add action */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
+          {blocks.length > 0 && (
+            <button
+              onClick={() => setApplyTemplateOpen(true)}
+              data-tour="apply-suggested"
+              data-testid="apply-suggested-schedule"
+              className="px-3 py-1.5 rounded-full text-xs font-medium border border-primary/40 bg-surface text-foreground hover:border-primary transition-all inline-flex items-center gap-1.5"
+            >
+              <Sparkles className="h-3 w-3 text-primary" />
+              {t("scheduleTemplate.cta")}
+            </button>
+          )}
           {BLOCK_PRESETS.filter((p) => !usedNames.has(p.name)).map((p) => (
             <button
               key={p.name}
@@ -440,10 +481,20 @@ export function ScheduleEditor() {
       </div>
 
       {/* Block rows */}
-      <div className="space-y-2">
+      <div className="space-y-2" data-tour="schedule-blocks">
         {blocks.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            {t("schedule.empty")}
+          <div className="rounded-xl border border-dashed border-border p-8 text-center space-y-4">
+            <p className="text-sm text-muted-foreground">{t("scheduleTemplate.emptyIntro")}</p>
+            <Button
+              onClick={() => setApplyTemplateOpen(true)}
+              data-tour="apply-suggested"
+              data-testid="apply-suggested-schedule"
+              className="gap-1.5 gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+            >
+              <Sparkles className="h-4 w-4" />
+              {t("scheduleTemplate.cta")}
+            </Button>
+            <p className="text-xs text-muted-foreground">{t("schedule.empty")}</p>
           </div>
         )}
         {blocks.length > 1 && (
@@ -534,6 +585,28 @@ export function ScheduleEditor() {
         categories={dialogPickerCategories}
         onCategoriesRefresh={refreshCats}
       />
+
+      <AlertDialog open={applyTemplateOpen} onOpenChange={setApplyTemplateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("scheduleTemplate.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("scheduleTemplate.confirmDesc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("scheduleTemplate.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                // Keep the dialog open on failure so the user can retry.
+                e.preventDefault();
+                applySuggestedSchedule();
+              }}
+              data-testid="apply-suggested-confirm"
+            >
+              {t("scheduleTemplate.confirmApply")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>

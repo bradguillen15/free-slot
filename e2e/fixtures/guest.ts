@@ -27,6 +27,7 @@ export type GuestProfile = {
   weekly_review_day?: number;
   onboarding_completed?: boolean;
   onboarding_skipped?: boolean;
+  tour_completed?: boolean;
   time_format?: "12h" | "24h";
 };
 
@@ -91,6 +92,9 @@ const DEFAULT_PROFILE = {
   weekly_review_day: 0,
   onboarding_completed: false,
   onboarding_skipped: false,
+  // Seeded guests are not "first run" — keep the guided tour out of the way
+  // unless a test opts in via profile: { tour_completed: false }.
+  tour_completed: true,
 };
 
 /**

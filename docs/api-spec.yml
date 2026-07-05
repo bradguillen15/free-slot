@@ -33,6 +33,10 @@ paths:
                   type: array
                 priorities:
                   type: array
+                locale:
+                  type: string
+                  enum: [en, es]
+                  description: UI language; AI-generated rationale/summary text is written in this language. Defaults to en when omitted or unsupported.
       responses:
         "200":
           description: Plan generated and stored
@@ -55,6 +59,10 @@ paths:
                 week_start:
                   type: string
                   format: date
+                locale:
+                  type: string
+                  enum: [en, es]
+                  description: UI language; AI-generated review insights are written in this language. Defaults to en when omitted or unsupported.
       responses:
         "200":
           description: Review created

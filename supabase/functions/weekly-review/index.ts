@@ -34,19 +34,24 @@ Deno.serve(async (req) => {
     const actual: { name: string; minutes: number }[] = body.actual ?? [];
     const productiveRatio: number = body.productive_ratio ?? 0;
     const totalTracked: number = body.total_tracked ?? 0;
+    const locale: "en" | "es" = body.locale === "es" ? "es" : "en";
 
     if (!week_start) return json({ error: "week_start required" }, 400);
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) return json({ error: "AI not configured" }, 500);
 
-    const { system: systemPrompt, user: userPrompt } = buildReviewPrompts({
-      weekStart: week_start,
-      planned,
-      actual,
-      productiveRatio,
-      totalTracked,
-    });
+    const { system: systemPrompt, user: userPrompt } = buildReviewPrompts(
+      {
+        weekStart: week_start,
+        planned,
+        actual,
+        productiveRatio,
+        totalTracked,
+      },
+      [],
+      locale
+    );
 
     const aiRes = await callGeminiGenerateContent(
       GEMINI_API_KEY,

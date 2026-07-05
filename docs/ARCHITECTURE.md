@@ -87,10 +87,12 @@ Defined in `src/App.tsx`.
 
 Two wrapper components:
 
-- **`OnboardingGate`** — redirects to `/onboarding` only when both `onboarding_completed` and `onboarding_skipped` are `false`. Either flag being `true` passes through. The gate also allows `/app/schedule` and `/app/activities` through regardless of flag state so the onboarding count-card links work. Two separate `key` props (`key="onboarding"` / `key="app"`) prevent React from reusing the same instance across the two route positions.
+- **`AuthLoadingGate`** — holds `/app/*` rendering behind a spinner until the auth session resolves, so signed-in users never flash guest-mode data. (The old `OnboardingGate` and the `/onboarding` wizard were removed — new-user orientation is now the guided tour.)
 - **`ProtectedRoute`** — redirects unauthenticated users to `/auth`. Used only on truly account-only pages.
 
 The mobile hamburger menu (top-right sheet, replaced the old bottom bar) and desktop sidebar show 🔒 next to gated entries for guests, and clicking them routes to `/auth` instead of the locked page.
+
+**Guided first-run tour.** New users land in an empty `/app` and a coach-mark tour auto-starts (gated by `profiles.tour_completed`; guests use the local profile field). The tour drives navigation itself — Day (welcome) → Schedule, where an **Apply suggested schedule** action inserts a non-overlapping starter week (sleep daily; work split by lunch on weekdays, each block mapped to a matching default label) after an explicit confirmation → back to Day, pointing at **Confirm Day**, which materializes only the blocks that have already elapsed today. Skip/Done persist `tour_completed`; a help button in the sidebar/mobile-sheet footer replays it. Implementation lives in `src/components/tour/` (`TourProvider` owns step state, route-driving, and persistence; `TourBubble` renders the anchored coach mark against `[data-tour=...]` anchors). There is no pre-seeded sample data — the tour walks the user into creating real data they own.
 
 ---
 
@@ -135,10 +137,12 @@ The schedule is a **guide**, the log is the truth. In the day timeline (`DayTime
 schedule blocks are **clipped against logged time**: a block is rendered only for the minutes not
 covered by any `time_log` that day (`visibleBlockSegments` → `subtractIntervals` in `lib/time.ts`,
 overnight-aware). Logging a replacement activity is the override — the planned block recedes to the
-remaining, unaccounted-for time; there is no per-day "skip" mechanism. This clipping is
+remaining, unaccounted-for time. This clipping is
 **presentation-only** and does not change free-window detection (`gaps.ts` still treats both planned
 and logged time as busy). Time entries may also span midnight (`durationMinutes` wraps past
 midnight). Week and Month views are **not yet clipped** — a deliberate follow-up.
+
+**Confirm my day** (`src/lib/confirmDay.ts` + `ConfirmDayButton`) is the bulk version of "log a block's real span": for each schedule block active on a day, if it's entirely uncovered by any existing log (the same `visibleBlockSegments` check used for clipping — full coverage, not partial, or the block is skipped), it materializes one ordinary `time_log` matching the block's exact times (overnight blocks become a single row, same as clicking the block manually). Blocks without a `category_id` are skipped (logs require one). There is no "confirmed" marker anywhere — re-running the action is naturally a no-op for blocks it already logged, since the overlap check now finds them covered.
 
 ---
 
@@ -146,11 +150,13 @@ midnight). Week and Month views are **not yet clipped** — a deliberate follow-
 
 Cloud-only. Flow:
 
-1. Component collects this week's `gaps`, the user's `activities`, and their `weekly_priorities`.
-2. Calls the `generate-weekly-plan` edge function.
-3. Edge function calls the **Gemini `generateContent` API** directly (`gemini-2.5-flash`, via the `GEMINI_API_KEY` Supabase secret) with a prompt asking for slot assignments.
+1. Component collects this week's `gaps`, the user's `activities` (including each activity's real `target_hours_per_week` and `is_active`), and their `weekly_priorities`. If every active activity has a `target_hours_per_week` of `0`, generation is blocked client-side with a localized message pointing to Activities — no request is sent.
+2. Calls the `generate-weekly-plan` edge function with the current UI locale (`en`/`es`) so generated rationale and summary text match it.
+3. Edge function calls the **Gemini `generateContent` API** directly (`gemini-2.5-flash`, via the `GEMINI_API_KEY` Supabase secret) with a prompt asking for slot assignments, instructed to respond in the request's locale (defaulting to English).
 4. Result is `upsert`ed into `weekly_plans` keyed on `(user_id, week_start)` — the unique constraint prevents race conditions from double-clicks.
 5. UI displays slots as dashed primary-colored ribbons over the week grid; clicking "Accept" inserts a corresponding `time_log` (also guarded with `useRef` against double-fires).
+
+The weekly review (`weekly-review` edge function) follows the same locale convention.
 
 **Why edge function and not client-side?** AI keys are server-only, and we want a single canonical prompt format that we can iterate on without shipping client builds.
 

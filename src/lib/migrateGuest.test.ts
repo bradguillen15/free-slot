@@ -148,6 +148,22 @@ describe("migrateGuestToCloud — happy path", () => {
   });
 });
 
+describe("migrateGuestToCloud — migrates all guest blocks and logs", () => {
+  it("inserts every guest schedule block and time log", async () => {
+    seedGuestData();
+    setupHappyPath();
+    await migrateGuestToCloud("u1");
+
+    const blockCalls = mockScheduleBlocks.insertMany.mock.calls as Array<[string, Array<{ name: string }>]>;
+    const blockRows = blockCalls.flatMap(([, items]) => items);
+    expect(blockRows.map((b) => b.name)).toEqual(["Sleep"]);
+
+    const logCalls = mockTimeLogs.insertMany.mock.calls as Array<[string, Array<{ id?: string }>]>;
+    const logRows = logCalls.flatMap(([, items]) => items);
+    expect(logRows).toHaveLength(2);
+  });
+});
+
 describe("migrateGuestToCloud — failures preserve guest data", () => {
   it("throws on categories.list failure and leaves localStorage untouched", async () => {
     seedGuestData();

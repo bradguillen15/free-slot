@@ -82,6 +82,43 @@ describe("SchedulePage — guest mode", () => {
     expect(container.querySelector('input[type="color"]')).toBeNull();
   });
 
+  it("shows the apply-suggested-schedule CTA in the empty state and applies the template after confirmation", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByTestId("apply-suggested-schedule"));
+    await user.click(await screen.findByTestId("apply-suggested-confirm"));
+
+    await waitFor(() => {
+      const blocks = listScheduleBlocks();
+      expect(blocks).toHaveLength(4);
+      expect(blocks.find((b) => b.name === "Sleep")).toMatchObject({
+        start_time: "23:00", end_time: "07:00", days_of_week: [0, 1, 2, 3, 4, 5, 6],
+      });
+      expect(blocks.filter((b) => b.name === "Work")).toHaveLength(2);
+      expect(blocks.find((b) => b.name === "Lunch")).toMatchObject({ start_time: "12:00", end_time: "13:00" });
+      // Every template block maps to a seeded default label so Confirm Day works out of the box.
+      expect(blocks.every((b) => b.category_id !== null)).toBe(true);
+    });
+  });
+
+  it("cancelling the apply-suggested dialog creates nothing", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByTestId("apply-suggested-schedule"));
+    await user.click(await screen.findByRole("button", { name: /^(Cancel|Cancelar)$/ }));
+
+    expect(listScheduleBlocks()).toHaveLength(0);
+  });
+
+  it("keeps the suggested-schedule action reachable when blocks already exist", async () => {
+    upsertScheduleBlock({ name: "Gym", start_time: "18:00", end_time: "19:00", days_of_week: [1] });
+    renderPage();
+    await waitFor(() => expect(screen.getByDisplayValue("Gym")).toBeInTheDocument());
+    expect(screen.getByTestId("apply-suggested-schedule")).toBeInTheDocument();
+  });
+
   it("offers presets and adds one on click", async () => {
     const user = userEvent.setup();
     renderPage();
