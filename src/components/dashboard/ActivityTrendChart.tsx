@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -18,6 +18,34 @@ export function isCategoryVisible(
   categoryId: string,
 ): boolean {
   return index < cap ? !hiddenIds.has(categoryId) : shownExtraIds.has(categoryId);
+}
+
+function isIsolatedPoint(data: TrendRow[], index: number, dataKey: string): boolean {
+  const value = data[index]?.[dataKey];
+  if (value === undefined || value === null) return false;
+  const prev = data[index - 1]?.[dataKey];
+  const next = data[index + 1]?.[dataKey];
+  return (prev === undefined || prev === null) && (next === undefined || next === null);
+}
+
+type DotRenderProps = { cx?: number; cy?: number; index?: number; key?: string };
+
+function renderIsolatedDot(dataKey: string, data: TrendRow[], color: string) {
+  return ({ cx, cy, index, key }: DotRenderProps) => {
+    if (cx === undefined || cy === undefined || index === undefined || !isIsolatedPoint(data, index, dataKey)) {
+      return <Fragment key={key} />;
+    }
+    return (
+      <circle
+        key={key}
+        data-testid={`isolated-dot-${dataKey}`}
+        cx={cx}
+        cy={cy}
+        r={4}
+        fill={color}
+      />
+    );
+  };
 }
 
 function mergeSeries(trendData: TrendRow[], plannedData: TrendRow[]): TrendRow[] {
@@ -90,7 +118,15 @@ export function ActivityTrendChart({ trendData, plannedData, categories }: Props
               formatter={(v: number) => fmtDuration(v)}
             />
             {visibleCategories.map((c) => (
-              <Line key={c.id} dataKey={c.id} name={c.name} stroke={c.color} dot={false} strokeWidth={2} />
+              <Line
+                key={c.id}
+                dataKey={c.id}
+                name={c.name}
+                stroke={c.color}
+                dot={renderIsolatedDot(c.id, chartData, c.color)}
+                isAnimationActive={false}
+                strokeWidth={2}
+              />
             ))}
             {showPlanned &&
               visibleCategories.map((c) => (

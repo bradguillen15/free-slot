@@ -11,6 +11,17 @@ The dashboard SHALL display a single full-width line chart with one line per act
 - **WHEN** there are no time logs for any label within the selected period (but schedule blocks exist, so the page is not in the empty state)
 - **THEN** the chart renders with an empty/flat series rather than erroring
 
+### Requirement: Isolated single-occurrence data point marker
+A label's line SHALL render a small dot marker at any data point that has no adjacent day with data for that label (i.e. a single-occurrence activity within the period), since Recharts draws no visible line segment for an isolated point.
+
+#### Scenario: A label has exactly one day of data in the period
+- **WHEN** a label has minutes logged on only one day within the selected period, with no data on the immediately preceding or following day
+- **THEN** the chart renders a small dot at that point in the label's color, instead of showing nothing
+
+#### Scenario: A label has continuous data across multiple days
+- **WHEN** a label has minutes logged on consecutive days
+- **THEN** no per-point dots are rendered for those days; only the connecting line is shown, per the existing `dot={false}` default
+
 ### Requirement: Interactive legend filters lines
 The chart's legend SHALL list every activity/label with a logged or scheduled minute in the period. Clicking a legend entry SHALL toggle that label's line(s) between visible and hidden. This toggle state SHALL be session-only and SHALL NOT be persisted.
 

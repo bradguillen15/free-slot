@@ -36,6 +36,9 @@
 - [x] 5.1 Write failing tests for `src/components/dashboard/ActivityTrendChart.tsx`: renders one line per category, legend click toggles visibility (session-only), "show planned" toggle adds/removes dashed lines, top-6 default cap with "show all" affordance
 - [x] 5.2 Implement `ActivityTrendChart` using Recharts `LineChart`/`Line`/`Legend` with `onClick` handling, dashed `strokeDasharray` for planned lines
 - [x] 5.3 Run `pnpm test src/components/dashboard/ActivityTrendChart.test.tsx` and confirm green
+- [x] 5.4 Write failing tests for an isolated single-occurrence data point rendering a dot marker (and a continuous multi-day series rendering none)
+- [x] 5.5 Implement isolated-point detection and a custom `dot` renderer on each actual-minutes `Line` in `ActivityTrendChart` — also set `isAnimationActive={false}` on these lines, since Recharts gates all dot rendering behind animation-finished state and dots would otherwise never appear on first paint (or in tests without a real animation frame loop)
+- [x] 5.6 Run `pnpm test src/components/dashboard/ActivityTrendChart.test.tsx` and confirm green
 
 ## 6. Period selector component — TDD
 

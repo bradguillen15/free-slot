@@ -79,6 +79,18 @@ describe("ActivityTrendChart", () => {
     expect(screen.getByText("Cat 0").closest("button")).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("renders a dot marker for a label with a single isolated data point", () => {
+    const categories = makeCategories(2);
+    const data: TrendRow[] = [
+      { date: "2026-06-14", c1: 30 },
+      { date: "2026-06-15", c0: 60, c1: 30 },
+      { date: "2026-06-16", c1: 30 },
+    ];
+    render(<ActivityTrendChart trendData={data} plannedData={[]} categories={categories} />);
+    expect(screen.getByTestId("isolated-dot-c0")).toBeInTheDocument();
+    expect(screen.queryByTestId("isolated-dot-c1")).not.toBeInTheDocument();
+  });
+
   it("toggles the show-planned switch", () => {
     const categories = makeCategories(1);
     render(<ActivityTrendChart trendData={trendData} plannedData={plannedData} categories={categories} />);
