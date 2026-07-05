@@ -216,10 +216,6 @@ describe("getDashboardPeriod / setDashboardPeriod", () => {
     expect(getDashboardPeriod()).toEqual({ kind: "month", anchorISO: "2026-06-15" });
   });
 
-  it("persists a custom range round-trip", () => {
-    setDashboardPeriod({ kind: "custom", custom: { start: "2026-06-01", end: "2026-06-10" } });
-    expect(getDashboardPeriod()).toEqual({ kind: "custom", custom: { start: "2026-06-01", end: "2026-06-10" } });
-  });
 });
 
 describe("recurring notes", () => {

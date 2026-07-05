@@ -162,13 +162,9 @@ const es: Translations = {
       day: "Día",
       week: "Semana",
       month: "Mes",
-      custom: "Personalizado",
       previous: "Período anterior",
       next: "Período siguiente",
       today: "Hoy",
-      rangeStart: "Fecha de inicio",
-      rangeEnd: "Fecha de fin",
-      rangeAdjusted: "Rango ajustado a un máximo de {{days}} días",
     },
     trend: {
       showPlanned: "Mostrar planificado",

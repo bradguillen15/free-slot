@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Period type selection
-The dashboard SHALL provide a control to select the scope of displayed data as one of: Day, Week, Month, or Custom range. The selected period type SHALL drive all data queries and charts on the page.
+The dashboard SHALL provide a control to select the scope of displayed data as one of: Day, Week, or Month. The selected period type SHALL drive all data queries and charts on the page.
 
 #### Scenario: Switching from Week to Day
 - **WHEN** the user selects "Day" while "Week" was active
@@ -22,19 +22,12 @@ For Day, Week, and Month period types, the dashboard SHALL provide previous/next
 - **WHEN** the user has navigated away from the current period and activates "jump to current"
 - **THEN** the anchor date resets to today and the period recomputes to contain today
 
-### Requirement: Custom range selection
-When the period type is "Custom", the dashboard SHALL let the user pick an explicit start and end date, and SHALL clamp the range to a maximum of 92 days.
-
-#### Scenario: Selecting a valid custom range
-- **WHEN** the user selects "Custom" and picks a start and end date within 92 days of each other
-- **THEN** the dashboard scopes all data to that exact date range
-
-#### Scenario: Selecting an oversized custom range
-- **WHEN** the user selects a custom start/end date range spanning more than 92 days
-- **THEN** the dashboard clamps the end date so the range does not exceed 92 days and indicates the range was adjusted
-
 ### Requirement: Period persistence
-The last-selected period (type, anchor date, and custom range if applicable) SHALL be persisted in `localStorage` and restored on the next visit to the dashboard.
+The last-selected period (type and anchor date) SHALL be persisted in `localStorage` and restored on the next visit to the dashboard.
+
+#### Scenario: A previously stored custom period is discarded
+- **WHEN** the dashboard reads a persisted period preference with `kind: "custom"` from a prior version of the app
+- **THEN** the dashboard falls back to the default "Week" period instead of crashing, since "Custom" is no longer a supported period type
 
 #### Scenario: Returning to the dashboard after selecting Month
 - **WHEN** the user selects "Month", navigates away from the app, and returns to the dashboard later

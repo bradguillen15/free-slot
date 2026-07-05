@@ -160,13 +160,9 @@ const en = {
       day: "Day",
       week: "Week",
       month: "Month",
-      custom: "Custom",
       previous: "Previous period",
       next: "Next period",
       today: "Today",
-      rangeStart: "Start date",
-      rangeEnd: "End date",
-      rangeAdjusted: "Range adjusted to {{days}} days maximum",
     },
     trend: {
       showPlanned: "Show planned",

@@ -38,7 +38,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
-import { ensureBootstrap, insertLog, upsertCategory } from "@/lib/localStore";
+import { ensureBootstrap, insertLog, setDashboardPeriod, upsertCategory } from "@/lib/localStore";
 import { addDaysISO, todayISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
 import { resetSupabaseMock, setTableResult } from "../../test/supabaseMock";
@@ -101,6 +101,16 @@ describe("DashboardPage — guest mode", () => {
     });
     expect(screen.getByRole("radio", { name: /week/i })).toBeInTheDocument();
     expect(screen.getByText("Music practice")).toBeInTheDocument();
+  });
+
+  it("falls back to Week when a previously persisted period is the removed Custom kind", async () => {
+    setDashboardPeriod({ kind: "custom", anchorISO: "2026-06-15" });
+    seedGuestDashboardLogs();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("radio", { name: /week/i })).toHaveAttribute("aria-checked", "true");
+    });
   });
 
   it("does not gate the dashboard on having an account", async () => {

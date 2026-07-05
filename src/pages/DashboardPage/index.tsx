@@ -7,37 +7,35 @@ import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { ActivityTrendChart } from "@/components/dashboard/ActivityTrendChart";
 import { fmtDuration, todayISO } from "@/lib/time";
 import { StatCard } from "@/components/StatCard";
-import { resolvePeriod, type PeriodKind, type CustomRange } from "@/lib/dashboardPeriod";
+import { resolvePeriod, type PeriodKind } from "@/lib/dashboardPeriod";
 import { getDashboardPeriod, setDashboardPeriod } from "@/lib/localStore";
 import { useDashboardStats } from "./useDashboardStats";
+
+function resolveStoredKind(kind: PeriodKind | "custom"): PeriodKind {
+  return kind === "custom" ? "week" : kind;
+}
 
 export default function DashboardPage() {
   const { t } = useTranslation();
   const stored = getDashboardPeriod();
-  const [kind, setKind] = useState<PeriodKind>(stored.kind);
+  const [kind, setKind] = useState<PeriodKind>(resolveStoredKind(stored.kind));
   const [anchorISO, setAnchorISO] = useState<string>(stored.anchorISO ?? todayISO());
-  const [custom, setCustom] = useState<CustomRange | undefined>(stored.custom);
 
-  const persist = (next: { kind: PeriodKind; anchorISO?: string; custom?: CustomRange }) => {
+  const persist = (next: { kind: PeriodKind; anchorISO?: string }) => {
     setDashboardPeriod(next);
   };
 
   const handleKindChange = (nextKind: PeriodKind) => {
     setKind(nextKind);
-    persist({ kind: nextKind, anchorISO, custom });
+    persist({ kind: nextKind, anchorISO });
   };
 
   const handleAnchorChange = (nextAnchor: string) => {
     setAnchorISO(nextAnchor);
-    persist({ kind, anchorISO: nextAnchor, custom });
+    persist({ kind, anchorISO: nextAnchor });
   };
 
-  const handleCustomChange = (nextCustom: CustomRange) => {
-    setCustom(nextCustom);
-    persist({ kind, anchorISO, custom: nextCustom });
-  };
-
-  const period = resolvePeriod(kind, anchorISO, custom);
+  const period = resolvePeriod(kind, anchorISO);
   const { trendData, plannedData, categories, isEmpty, totals, daysLogged } = useDashboardStats(period);
 
   return (
@@ -49,10 +47,8 @@ export default function DashboardPage() {
         <PeriodSelector
           kind={kind}
           anchorISO={anchorISO}
-          custom={custom}
           onKindChange={handleKindChange}
           onAnchorChange={handleAnchorChange}
-          onCustomChange={handleCustomChange}
         />
       </div>
 

@@ -614,9 +614,9 @@ export function setRecurringNoteCollapseState(collapsed: boolean): void {
 }
 
 export type DashboardPeriodPref = {
+  /** "custom" may still appear in previously persisted data from before that period type was removed. */
   kind: "day" | "week" | "month" | "custom";
   anchorISO?: string;
-  custom?: { start: string; end: string };
 };
 
 const DASHBOARD_PERIOD_KEY = `${PREFIX}.dashboard.period`;

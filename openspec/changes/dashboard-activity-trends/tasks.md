@@ -45,6 +45,10 @@
 - [x] 6.1 Write failing tests for a `PeriodSelector` component: Day/Week/Month/Custom switch, prev/next navigation, jump-to-current, custom date range inputs with clamp feedback
 - [x] 6.2 Implement `src/components/dashboard/PeriodSelector.tsx`
 - [x] 6.3 Run `pnpm test src/components/dashboard/PeriodSelector.test.tsx` and confirm green
+- [x] 6.4 Remove the "Custom" period type: `resolvePeriod("custom", ...)` throws when `custom` is undefined, and `DashboardPage` calls it synchronously on render right after the "Custom" toggle is clicked (before any date range is picked) — crashing the page. Not fixing the picker flow since Custom isn't needed right now; remove it outright: drop `"custom"` from `PeriodKind`, drop `CustomRange`/`MAX_CUSTOM_RANGE_DAYS` and the custom branch from `resolvePeriod` (`src/lib/dashboardPeriod.ts`); remove the Custom toggle item and date-range inputs from `PeriodSelector` (`src/components/dashboard/PeriodSelector.tsx`); remove `custom` state/handler and prop from `DashboardPage` (`src/pages/DashboardPage/index.tsx`) — kept `DashboardPeriodPref.kind` accepting a legacy `"custom"` value for reading old persisted data, with `DashboardPage` mapping it to `"week"` via `resolveStoredKind`
+- [x] 6.5 Update failing/obsolete tests: remove custom-range cases from `dashboardPeriod.test.ts`, `PeriodSelector.test.tsx`, `localStore.test.ts`; add a test that a persisted `kind: "custom"` preference (from a prior app version) falls back to the default "Week" period instead of crashing
+- [x] 6.6 Remove now-unused `dashboard.period.custom`/`rangeStart`/`rangeEnd`/`rangeAdjusted` i18n keys from `en.ts`/`es.ts`
+- [x] 6.7 Run `pnpm test src/lib/dashboardPeriod.test.ts src/components/dashboard/PeriodSelector.test.tsx src/lib/localStore.test.ts src/pages/DashboardPage/index.test.tsx` and confirm green — 47 tests passing; also ran full suite (596 tests, 74 files) and `pnpm lint` (0 errors, 3 pre-existing unrelated warnings) clean; manually verified in browser preview that the Custom option no longer renders and the dashboard loads without crashing or console errors
 
 ## 7. Rewrite `DashboardPage`
 

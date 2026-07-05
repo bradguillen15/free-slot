@@ -1,17 +1,13 @@
 import { addDaysISO, todayISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
 
-export type PeriodKind = "day" | "week" | "month" | "custom";
+export type PeriodKind = "day" | "week" | "month";
 
 export type Period = {
   kind: PeriodKind;
   start: string;
   end: string;
 };
-
-export type CustomRange = { start: string; end: string };
-
-export const MAX_CUSTOM_RANGE_DAYS = 92;
 
 function monthEndISO(iso: string): string {
   const [y, m] = iso.split("-").map(Number);
@@ -32,7 +28,7 @@ function diffDaysISO(start: string, end: string): number {
   return Math.round((b - a) / 86400000);
 }
 
-export function resolvePeriod(kind: PeriodKind, anchorISO: string = todayISO(), custom?: CustomRange): Period {
+export function resolvePeriod(kind: PeriodKind, anchorISO: string = todayISO()): Period {
   switch (kind) {
     case "day":
       return { kind, start: anchorISO, end: anchorISO };
@@ -42,12 +38,6 @@ export function resolvePeriod(kind: PeriodKind, anchorISO: string = todayISO(), 
     }
     case "month":
       return { kind, start: monthStartISO(anchorISO), end: monthEndISO(anchorISO) };
-    case "custom": {
-      if (!custom) throw new Error("Custom period requires a custom range");
-      const span = diffDaysISO(custom.start, custom.end);
-      const end = span > MAX_CUSTOM_RANGE_DAYS - 1 ? addDaysISO(custom.start, MAX_CUSTOM_RANGE_DAYS - 1) : custom.end;
-      return { kind, start: custom.start, end };
-    }
   }
 }
 
