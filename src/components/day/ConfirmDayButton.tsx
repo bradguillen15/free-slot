@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useConfirmDayMutation } from "@/lib/dataStore";
 import { useTour } from "@/components/tour/TourProvider";
-import { isoToWeekday, nowHHMM, todayISO } from "@/lib/time";
-import { buildConfirmDayRows, type ConfirmDayBlock, type ConfirmDayCategory, type ConfirmDayLog } from "@/lib/confirmDay";
+import { nowHHMM, todayISO } from "@/lib/time";
+import { buildConfirmDayRows, blockInstancesForDate, type ConfirmDayBlock, type ConfirmDayCategory, type ConfirmDayLog } from "@/lib/confirmDay";
 
 export function ConfirmDayButton({
   date,
@@ -30,7 +30,7 @@ export function ConfirmDayButton({
   );
 
   const activeBlockCount = useMemo(
-    () => blocks.filter((b) => b.days_of_week.includes(isoToWeekday(date))).length,
+    () => blockInstancesForDate(blocks, date).length,
     [blocks, date]
   );
 

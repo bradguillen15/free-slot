@@ -37,7 +37,7 @@ Environment variables (`.env` — copy from `.env.example`):
 | `weekly_plans` | `user_id`, `week_start`, `generated_at`, `slots jsonb` | AI-generated week plan. **`UNIQUE(user_id, week_start)`** to prevent duplicates. |
 | `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | One AI insight summary per completed week. |
 | `daily_notes` | `user_id`, `date`, `content jsonb`, `updated_at` | Per-day rich notes. |
-| `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | Week-view capture inbox used by AI planning. |
+| `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | **UI removed** — was a Week-view capture inbox (its only entry point); table retained pending a follow-up removal decision. |
 
 ### Trigger
 

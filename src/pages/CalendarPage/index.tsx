@@ -197,7 +197,7 @@ export default function CalendarPage() {
           <div className="flex items-center gap-2">
             <ConfirmDayButton
               date={date}
-              blocks={blocks as unknown as ConfirmDayBlock[]}
+              blocks={allBlocks as unknown as ConfirmDayBlock[]}
               logs={logs as unknown as ConfirmDayLog[]}
               categories={cats as unknown as ConfirmDayCategory[]}
             />

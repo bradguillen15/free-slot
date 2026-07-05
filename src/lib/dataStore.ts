@@ -39,7 +39,7 @@ import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
 import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys, type Mode } from "@/lib/queryKeys";
 import { buildConfirmDayRows, type ConfirmDayResult } from "@/lib/confirmDay";
-import { nowHHMM, todayISO } from "@/lib/time";
+import { addDaysISO, nowHHMM, todayISO } from "@/lib/time";
 
 export type { Mode };
 
@@ -373,11 +373,14 @@ export function useDeleteAccountMutation() {
 
 /** Materializes eligible schedule blocks for `date` into real time logs. See confirmDay.ts for the skip rules; today is elapsed-only. */
 export async function confirmDay(mode: Mode, userId: string | null, date: string): Promise<ConfirmDayResult> {
+  // Overnight blocks may be confirmed as a "tail" instance dated the previous day
+  // (see buildConfirmDayRows) — fetch that day's logs too so its overlap check works.
+  const prevDate = addDaysISO(date, -1);
   const [blocks, logs, categories] = mode === "guest"
-    ? [listScheduleBlocks(), listLogsInRange(date, date), listCategories()]
+    ? [listScheduleBlocks(), listLogsInRange(prevDate, date), listCategories()]
     : await Promise.all([
         resources.scheduleBlocks.list(userId!),
-        resources.timeLogs.listInRange(userId!, date, date),
+        resources.timeLogs.listInRange(userId!, prevDate, date),
         resources.categories.list(userId!),
       ]);
 

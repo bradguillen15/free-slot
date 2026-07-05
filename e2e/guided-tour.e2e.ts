@@ -35,11 +35,13 @@ test.describe("guided first-run tour", () => {
     await expect(page).toHaveURL(/\/app$/);
     await expect(page.getByTestId("tour-bubble-confirm-day")).toBeVisible();
 
-    // Elapsed-only: work (x2) and lunch are logged; tonight's sleep is not.
+    // Elapsed-only: work (x2) and lunch are logged for today; tonight's sleep
+    // has not started yet, but last night's sleep (ending this morning) has
+    // already elapsed and is confirmed too, dated yesterday.
     await page.getByTestId("confirm-day-button").click();
     const logs = await readGuestTimeLogs(page);
-    expect(logs).toHaveLength(3);
-    expect(logs.map((l: { title?: string | null }) => l.title).sort()).toEqual(["Lunch", "Work", "Work"]);
+    expect(logs).toHaveLength(4);
+    expect(logs.map((l: { title?: string | null }) => l.title).sort()).toEqual(["Lunch", "Sleep", "Work", "Work"]);
     await expect(page.getByTestId("tour-bubble-wrap-up")).toBeVisible();
 
     // Done dismisses and persists.
