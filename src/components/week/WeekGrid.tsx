@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { MIN_PER_DAY, fmtDisplayTime, fmtDisplayTimeFromMin, fmtDuration } from "@/lib/time";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { computeLaneLayout } from "@/lib/daySegments";
+import { useCategoryName } from "@/lib/categoryLabels";
 import { Surface } from "@/components/Surface";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -76,6 +77,7 @@ export function WeekGrid({
   notedDates?: Set<string>;
 }) {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const timeFormat = useTimeFormat();
   const isMobile = useIsMobile();
   const dayColumns = isMobile
@@ -128,7 +130,7 @@ export function WeekGrid({
               <div className="mx-auto mt-1 h-1 w-1 rounded-full bg-primary" aria-label={t("calendar.hasNote")} />
             )}
             <div className="text-[10px] text-muted-foreground font-mono-num mt-0.5">
-              {fmtDuration(d.totalFree)} free
+              {fmtDuration(d.totalFree)} {t("calendar.free")}
             </div>
           </Link>
         ))}
@@ -241,11 +243,11 @@ export function WeekGrid({
                     zIndex: 10 + i,
                   }}
                   onClick={onBlockClick ? (e) => { e.stopPropagation(); onBlockClick(d.iso, b); } : undefined}
-                  title={`${b.name} · ${fmtDisplayTimeFromMin(c.startMin, timeFormat)}–${fmtDisplayTimeFromMin(c.endMin, timeFormat)}`}
+                  title={`${categoryName(b.name)} · ${fmtDisplayTimeFromMin(c.startMin, timeFormat)}–${fmtDisplayTimeFromMin(c.endMin, timeFormat)}`}
                 >
                   <div className={timelinePlannedFillLayerClassName} style={{ backgroundColor: b.color }} />
                   <div className={timelineLabelRowClassName}>
-                    <span className={timelinePlannedLabelClassName}>{b.name}</span>
+                    <span className={timelinePlannedLabelClassName}>{categoryName(b.name)}</span>
                   </div>
                 </motion.div>
               );

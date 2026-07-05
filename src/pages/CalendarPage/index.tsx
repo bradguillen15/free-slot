@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/lib/time";
 import { logDefaultsFromBlock } from "@/lib/schedule";
+import { useCategoryName } from "@/lib/categoryLabels";
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
 import { ConfirmDayButton } from "@/components/day/ConfirmDayButton";
@@ -34,6 +35,7 @@ import { useAddBlockHereListener } from "./useAddBlockHereListener";
 
 export default function CalendarPage() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date") || todayISO();
@@ -125,14 +127,15 @@ export default function CalendarPage() {
       await refreshCats();
       sleepCat = created as Category;
     }
-    setLogDefaults({ start: "23:00", end: "07:00", defaultCategoryId: sleepCat?.id, defaultTitle: "Sleep" });
+    setLogDefaults({ start: "23:00", end: "07:00", defaultCategoryId: sleepCat?.id, defaultTitle: categoryName("Sleep") });
     setLogOpen(true);
-  }, [cats, user, refreshCats]);
+  }, [cats, user, refreshCats, categoryName]);
 
   const handleBlockClick = useCallback((block: ScheduleBlock) => {
-    setLogDefaults({ ...logDefaultsFromBlock(block), defaultCategoryId: undefined });
+    const defaults = logDefaultsFromBlock(block);
+    setLogDefaults({ ...defaults, defaultTitle: categoryName(defaults.defaultTitle), defaultCategoryId: undefined });
     setLogOpen(true);
-  }, []);
+  }, [categoryName]);
 
   const handleLogClick = useCallback((log: TimeLog) => {
     setLogDefaults({

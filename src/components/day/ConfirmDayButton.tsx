@@ -25,8 +25,8 @@ export function ConfirmDayButton({
 
   // The parent re-renders every minute (useNowMinute), keeping this fresh for today.
   const preview = useMemo(
-    () => buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined),
-    [date, blocks, logs, categories]
+    () => buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined, t),
+    [date, blocks, logs, categories, t]
   );
 
   const activeBlockCount = useMemo(

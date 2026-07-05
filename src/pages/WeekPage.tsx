@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addDaysISO, fmtDuration, fromMin, todayISO } from "@/lib/time";
 import { logDefaultsFromBlock } from "@/lib/schedule";
+import { useCategoryName } from "@/lib/categoryLabels";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { type GapWindow } from "@/lib/gaps";
 import { buildDayCells, type DayCellData, type DayCellBlock, type DayCellLog } from "@/lib/calendarDays";
@@ -48,6 +49,7 @@ function weekFromSearchParams(sp: URLSearchParams): string {
 export default function WeekPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const isGuest = !user;
   const [searchParams] = useSearchParams();
   const [weekStart, setWeekStart] = useState(() => weekFromSearchParams(searchParams));
@@ -115,8 +117,9 @@ export default function WeekPage() {
       profile: profile as unknown as Parameters<typeof buildDayCells>[0]["profile"],
       today,
       aiPlan,
+      t,
     }),
-    [days, blocks, logs, allCategories, profile, today, aiPlan]
+    [days, blocks, logs, allCategories, profile, today, aiPlan, t]
   );
 
   const flatGaps = useMemo(
@@ -156,7 +159,7 @@ export default function WeekPage() {
       start: "23:00",
       end: "07:00",
       defaultCategoryId: (sleepCat as { id: string }).id,
-      defaultTitle: "Sleep",
+      defaultTitle: categoryName("Sleep"),
     });
     setLogOpen(true);
   };
@@ -174,7 +177,8 @@ export default function WeekPage() {
   const onBlockClick = (iso: string, cellBlock: DayCellBlock) => {
     const full = cellBlock.id ? blockById[cellBlock.id] : undefined;
     if (!full) return;
-    setLogCtx({ date: iso, ...logDefaultsFromBlock(full) });
+    const defaults = logDefaultsFromBlock(full);
+    setLogCtx({ date: iso, ...defaults, defaultTitle: categoryName(defaults.defaultTitle) });
     setLogOpen(true);
   };
 

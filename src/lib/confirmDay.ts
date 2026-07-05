@@ -4,6 +4,8 @@
 // separate "confirmed" marker: idempotency falls out of the overlap check.
 import { addDaysISO, isoToWeekday, durationMinutes } from "@/lib/time";
 import { visibleBlockSegments } from "@/lib/daySegments";
+import { translateCategoryName } from "@/lib/categoryLabels";
+import type { TFunction } from "i18next";
 
 export type ConfirmDayBlock = {
   id: string;
@@ -98,7 +100,9 @@ export function buildConfirmDayRows(
   blocks: ConfirmDayBlock[],
   existingLogs: ConfirmDayLog[],
   categories: ConfirmDayCategory[],
-  now?: string
+  now?: string,
+  /** Translates a block's canonical default name for the created log's title. Omit outside a React/i18n context. */
+  t?: TFunction
 ): ConfirmDayResult {
   const instances = blockInstancesForDate(blocks, date);
   const categoryById = new Map(categories.map((c) => [c.id, c]));
@@ -143,7 +147,7 @@ export function buildConfirmDayRows(
       end_time: block.end_time,
       category_id: block.category_id,
       type: category.type,
-      title: block.name,
+      title: t ? translateCategoryName(block.name, t) : block.name,
     });
   }
 

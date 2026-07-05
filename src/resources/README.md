@@ -71,4 +71,4 @@ The Supabase provider is the default singleton. Tests that mock supabase directl
 - Phase 1: mutations migrated from `dataStore.ts` inline calls to `resources`.
 - Phase 2–3: feature-specific reads (weekly review, AI priorities) through resources.
 - Phase 4 ✅: onboarding / settings / migrateGuest — all direct supabase imports removed from those files.
-- Phase 5: ESLint enforcement (`no-restricted-imports`), full docs sweep.
+- Phase 5 ✅: ESLint enforcement — `no-restricted-imports` bans `@/integrations/supabase/client` in `src/pages/**` and `src/components/**` (except `Auth.tsx`); see `eslint.config.js`.

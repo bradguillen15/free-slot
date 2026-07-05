@@ -10,6 +10,7 @@ import { TimelineLogMobileDragHandle } from "@/components/calendar/TimelineLogMo
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { computeLaneLayout, segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
+import { useCategoryName } from "@/lib/categoryLabels";
 import {
   barHeightFromDuration,
   isCompactBar,
@@ -75,6 +76,7 @@ export function DayTimeline({
   onLogClick?: (log: TimeLog) => void;
 }) {
   const timeFormat = useTimeFormat();
+  const categoryName = useCategoryName();
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
     [categories]
@@ -247,7 +249,7 @@ export function DayTimeline({
                   key={key}
                   seg={seg}
                   color={b.color}
-                  name={b.name}
+                  name={categoryName(b.name)}
                   lane={0}
                   groupWidth={1}
                   onClick={onBlockClick ? () => onBlockClick(b) : undefined}
@@ -272,7 +274,7 @@ export function DayTimeline({
                   log={l}
                   seg={seg}
                   color={color}
-                  name={l.title || (cat?.name ?? l.type)}
+                  name={l.title || (cat ? categoryName(cat.name) : l.type)}
                   index={idx}
                   lane={lane}
                   groupWidth={groupWidth}

@@ -40,6 +40,8 @@ import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys, type Mode } from "@/lib/queryKeys";
 import { buildConfirmDayRows, type ConfirmDayResult } from "@/lib/confirmDay";
 import { addDaysISO, nowHHMM, todayISO } from "@/lib/time";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 export type { Mode };
 
@@ -372,7 +374,7 @@ export function useDeleteAccountMutation() {
 }
 
 /** Materializes eligible schedule blocks for `date` into real time logs. See confirmDay.ts for the skip rules; today is elapsed-only. */
-export async function confirmDay(mode: Mode, userId: string | null, date: string): Promise<ConfirmDayResult> {
+export async function confirmDay(mode: Mode, userId: string | null, date: string, t?: TFunction): Promise<ConfirmDayResult> {
   // Overnight blocks may be confirmed as a "tail" instance dated the previous day
   // (see buildConfirmDayRows) — fetch that day's logs too so its overlap check works.
   const prevDate = addDaysISO(date, -1);
@@ -384,7 +386,7 @@ export async function confirmDay(mode: Mode, userId: string | null, date: string
         resources.categories.list(userId!),
       ]);
 
-  const result = buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined);
+  const result = buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined, t);
 
   if (result.rows.length) {
     if (mode === "guest") {
@@ -403,8 +405,9 @@ export async function confirmDay(mode: Mode, userId: string | null, date: string
 
 export function useConfirmDayMutation() {
   const { mode, userId } = useAuthScope();
+  const { t } = useTranslation();
   return useMutation({
-    mutationFn: (date: string) => confirmDay(mode, userId, date),
+    mutationFn: (date: string) => confirmDay(mode, userId, date, t),
   });
 }
 
