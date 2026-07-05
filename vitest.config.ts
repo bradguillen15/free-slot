@@ -17,7 +17,7 @@ export default defineConfig({
       include: ["src/lib/**/*.ts"],
       // schedule.ts is data-only (preset constants, no logic).
       exclude: ["src/lib/schedule.ts"],
-      reporter: ["text", "html"],
+      reporter: ["text", "html", "lcov"],
       thresholds: { lines: 85 },
     },
   },

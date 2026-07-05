@@ -216,7 +216,17 @@ The app builds to a static SPA (`pnpm build` → `dist/`) and can be served from
 
 ---
 
-## 11. Where to extend
+## 11. Code quality (SonarQube Cloud)
+
+Every PR runs a SonarQube Cloud scan as a step in the CI `verify` job (`.github/workflows/ci.yml`), configured by `sonar-project.properties`. It reuses the `coverage/lcov.info` that `pnpm test:coverage` already emits (the `lcov` Vitest reporter), so no extra test run is added.
+
+- **Setup**: import the repo at [sonarcloud.io](https://sonarcloud.io), disable *Automatic Analysis* (it conflicts with this CI-based scan), and add a `SONAR_TOKEN` repo secret. The scan step self-skips when the secret is absent (forks/Dependabot).
+- **Scope**: analysis covers `src/`; generated types, `src/components/ui/**` (shadcn), and `*.d.ts` are excluded. Coverage is still scoped to `src/lib/**` (see `vitest.config.ts`), so the dashboard's coverage figure reflects library logic, not the whole tree.
+- **Gate**: prefer the *Clean as You Code* quality gate (gate on new code only) so the existing baseline doesn't block unrelated PRs.
+
+---
+
+## 12. Where to extend
 
 | You want to… | Edit |
 |---|---|
