@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { useCategories, useTimeLogsInRange, useWeeklyPlan } from "@/lib/dataStore";
+import { useCategories, useScheduleBlocks, useTimeLogsInRange, useWeeklyPlan } from "@/lib/dataStore";
 import { addDaysISO, durationMinutes as durMin } from "@/lib/time";
 import { weekDays } from "@/lib/week";
+import { buildScheduleVsActual, effectiveCategoryIds } from "@/lib/scheduleVsActual";
 
 const SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -9,24 +10,51 @@ type CatBreakdownEntry = { name: string; value: number; color: string; type: "pr
 
 /**
  * All derived dashboard statistics for a given week.
- * When `labelIds` is non-empty, log-based stats are scoped to those category IDs.
- * Plan slots are never filtered (they don't carry a category_id).
+ * `includedIds`/`excludedIds` apply three-state filter semantics to both logs
+ * and schedule blocks (see effectiveCategoryIds). The AI plan card is exempt:
+ * `planVsActual` keeps the original include-only log filtering and unfiltered
+ * plan slots (they don't carry a category_id).
  */
-export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
+export function useDashboardStats(weekStart: string, includedIds: string[] = [], excludedIds: string[] = []) {
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
 
   const { data: logs } = useTimeLogsInRange(weekStart, weekEnd);
   const { data: cats } = useCategories();
+  const { data: blocks } = useScheduleBlocks();
   const { slots: planSlots } = useWeeklyPlan(weekStart);
 
   const catMap = useMemo(() => Object.fromEntries(cats.map((c) => [c.id, c])), [cats]);
 
+  const effectiveIds = useMemo(
+    () => new Set(effectiveCategoryIds(cats.map((c) => c.id), includedIds, excludedIds)),
+    [cats, includedIds, excludedIds]
+  );
+
   const filteredLogs = useMemo(
-    () => labelIds.length === 0
+    () =>
+      logs.filter((l) =>
+        l.category_id === null ? includedIds.length === 0 : effectiveIds.has(l.category_id)
+      ),
+    [logs, includedIds.length, effectiveIds]
+  );
+
+  const filteredBlocks = useMemo(
+    () => blocks.filter((b) => b.category_id !== null && effectiveIds.has(b.category_id)),
+    [blocks, effectiveIds]
+  );
+
+  const scheduleVsActual = useMemo(
+    () => buildScheduleVsActual(weekStart, filteredBlocks, filteredLogs),
+    [weekStart, filteredBlocks, filteredLogs]
+  );
+
+  // AI plan card keeps its pre-three-state behavior: include-only, no exclusions.
+  const aiFilteredLogs = useMemo(
+    () => includedIds.length === 0
       ? logs
-      : logs.filter((l) => l.category_id !== null && labelIds.includes(l.category_id)),
-    [logs, labelIds]
+      : logs.filter((l) => l.category_id !== null && includedIds.includes(l.category_id)),
+    [logs, includedIds]
   );
 
   const perDay = useMemo(() => {
@@ -74,7 +102,7 @@ export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
       planned.set(s.activity_name, (planned.get(s.activity_name) ?? 0) + durMin(s.start, s.end));
     }
     const actualByCatName = new Map<string, number>();
-    for (const log of filteredLogs) {
+    for (const log of aiFilteredLogs) {
       const c = log.category_id ? catMap[log.category_id] : null;
       if (!c) continue;
       actualByCatName.set(c.name, (actualByCatName.get(c.name) ?? 0) + durMin(log.start_time, log.end_time));
@@ -85,7 +113,7 @@ export function useDashboardStats(weekStart: string, labelIds: string[] = []) {
       planned: Math.round(planned.get(name) ?? 0),
       actual: Math.round(actualByCatName.get(name) ?? 0),
     })).sort((a, b) => (b.planned + b.actual) - (a.planned + a.actual)).slice(0, 8);
-  }, [planSlots, filteredLogs, catMap]);
+  }, [planSlots, aiFilteredLogs, catMap]);
 
-  return { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount: planSlots.length };
+  return { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount: planSlots.length, scheduleVsActual };
 }

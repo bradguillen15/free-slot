@@ -21,6 +21,7 @@ export function CardVisibilityMenu({ visible, onChange }: Props) {
   };
 
   const cards: { key: CardKey; label: string }[] = [
+    { key: "scheduleVsActual", label: t("dashboard.visibility.scheduleVsActual") },
     { key: "perDay", label: t("dashboard.visibility.perDay") },
     { key: "byCategory", label: t("dashboard.visibility.byCategory") },
     { key: "planVsLogged", label: t("dashboard.visibility.planVsLogged") },

@@ -614,6 +614,7 @@ export function setRecurringNoteCollapseState(collapsed: boolean): void {
 }
 
 export type DashboardVisibleCards = {
+  scheduleVsActual: boolean;
   perDay: boolean;
   byCategory: boolean;
   planVsLogged: boolean;
@@ -623,6 +624,7 @@ export type DashboardVisibleCards = {
 const DASHBOARD_VISIBLE_CARDS_KEY = `${PREFIX}.dashboard.visible_cards`;
 
 const DEFAULT_VISIBLE_CARDS: DashboardVisibleCards = {
+  scheduleVsActual: true,
   perDay: true,
   byCategory: true,
   planVsLogged: true,
@@ -630,9 +632,20 @@ const DEFAULT_VISIBLE_CARDS: DashboardVisibleCards = {
 };
 
 export function getDashboardVisibleCards(): DashboardVisibleCards {
-  return read<DashboardVisibleCards>(DASHBOARD_VISIBLE_CARDS_KEY, DEFAULT_VISIBLE_CARDS);
+  // Spread over defaults so values stored before a card existed default it to visible.
+  return { ...DEFAULT_VISIBLE_CARDS, ...read<Partial<DashboardVisibleCards>>(DASHBOARD_VISIBLE_CARDS_KEY, {}) };
 }
 
 export function setDashboardVisibleCards(cards: DashboardVisibleCards): void {
   write(DASHBOARD_VISIBLE_CARDS_KEY, cards);
+}
+
+const DASHBOARD_EXCLUDED_LABELS_KEY = `${PREFIX}.dashboard.excluded_labels`;
+
+export function getDashboardExcludedLabels(): string[] {
+  return readArray<string>(DASHBOARD_EXCLUDED_LABELS_KEY);
+}
+
+export function setDashboardExcludedLabels(ids: string[]): void {
+  write(DASHBOARD_EXCLUDED_LABELS_KEY, ids);
 }

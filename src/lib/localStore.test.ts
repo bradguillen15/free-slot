@@ -24,6 +24,8 @@ import {
   upsertActivity,
   upsertScheduleBlock,
   getDashboardVisibleCards,
+  getDashboardExcludedLabels,
+  setDashboardExcludedLabels,
   setDashboardVisibleCards,
   getGuestRecurringNote,
   upsertGuestRecurringNote,
@@ -209,20 +211,46 @@ describe("weekly priorities", () => {
 describe("getDashboardVisibleCards / setDashboardVisibleCards", () => {
   it("returns all-true defaults when nothing is stored", () => {
     const cards = getDashboardVisibleCards();
-    expect(cards).toEqual({ perDay: true, byCategory: true, planVsLogged: true, agenda: true });
+    expect(cards).toEqual({ scheduleVsActual: true, perDay: true, byCategory: true, planVsLogged: true, agenda: true });
   });
 
   it("persists a partial toggle", () => {
-    setDashboardVisibleCards({ perDay: false, byCategory: true, planVsLogged: true, agenda: true });
+    setDashboardVisibleCards({ scheduleVsActual: true, perDay: false, byCategory: true, planVsLogged: true, agenda: true });
     const cards = getDashboardVisibleCards();
     expect(cards.perDay).toBe(false);
     expect(cards.byCategory).toBe(true);
   });
 
   it("survives a round-trip for all false", () => {
-    const allHidden = { perDay: false, byCategory: false, planVsLogged: false, agenda: false };
+    const allHidden = { scheduleVsActual: false, perDay: false, byCategory: false, planVsLogged: false, agenda: false };
     setDashboardVisibleCards(allHidden);
     expect(getDashboardVisibleCards()).toEqual(allHidden);
+  });
+});
+
+describe("getDashboardExcludedLabels / setDashboardExcludedLabels", () => {
+  it("defaults to an empty list and round-trips ids", () => {
+    expect(getDashboardExcludedLabels()).toEqual([]);
+    setDashboardExcludedLabels(["c1", "c2"]);
+    expect(getDashboardExcludedLabels()).toEqual(["c1", "c2"]);
+  });
+
+  it("survives clearing to empty", () => {
+    setDashboardExcludedLabels(["c1"]);
+    setDashboardExcludedLabels([]);
+    expect(getDashboardExcludedLabels()).toEqual([]);
+  });
+});
+
+describe("getDashboardVisibleCards migration", () => {
+  it("defaults cards missing from an older stored shape to visible", () => {
+    localStorage.setItem(
+      "freeslot.guest.dashboard.visible_cards",
+      JSON.stringify({ perDay: false, byCategory: true, planVsLogged: true, agenda: true })
+    );
+    const cards = getDashboardVisibleCards();
+    expect(cards.perDay).toBe(false);
+    expect(cards.scheduleVsActual).toBe(true);
   });
 });
 

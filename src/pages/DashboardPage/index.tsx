@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
 import { LabelFilter } from "@/components/dashboard/LabelFilter";
 import { CardVisibilityMenu } from "@/components/dashboard/CardVisibilityMenu";
+import { ScheduleVsActualCard } from "@/components/dashboard/ScheduleVsActualCard";
 import { AgendaCard } from "@/components/dashboard/AgendaCard";
 import {
   Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
@@ -18,10 +19,15 @@ import { addDaysISO, fmtDuration } from "@/lib/time";
 import { fmtWeekRange, weekStartISO } from "@/lib/week";
 import { StatCard } from "@/components/StatCard";
 import { Surface } from "@/components/Surface";
-import { useVisibleCategories } from "@/lib/dataStore";
+import { useScheduleBlocks, useVisibleCategories } from "@/lib/dataStore";
 import { useCategoryName } from "@/lib/categoryLabels";
 import { useCalendarDays } from "@/lib/calendarDays";
-import { getDashboardVisibleCards, setDashboardVisibleCards } from "@/lib/localStore";
+import {
+  getDashboardExcludedLabels,
+  getDashboardVisibleCards,
+  setDashboardExcludedLabels,
+  setDashboardVisibleCards,
+} from "@/lib/localStore";
 import type { DashboardVisibleCards } from "@/lib/localStore";
 import { useDashboardStats } from "./useDashboardStats";
 import { useWeeklyReviewPrompt } from "./useWeeklyReviewPrompt";
@@ -34,6 +40,7 @@ export default function DashboardPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewWeek, setReviewWeek] = useState<string>(weekStart);
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
+  const [excludedLabelIds, setExcludedLabelIdsState] = useState<string[]>(() => getDashboardExcludedLabels());
   const [visibleCards, setVisibleCardsState] = useState<DashboardVisibleCards>(() => getDashboardVisibleCards());
 
   const handleVisibilityChange = (cards: DashboardVisibleCards) => {
@@ -41,16 +48,23 @@ export default function DashboardPage() {
     setDashboardVisibleCards(cards);
   };
 
+  const handleExcludedChange = (ids: string[]) => {
+    setExcludedLabelIdsState(ids);
+    setDashboardExcludedLabels(ids);
+  };
+
   const isCurrentWeek = weekStart === weekStartISO();
 
-  const { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount } = useDashboardStats(weekStart, selectedLabelIds);
+  const { perDay, totals, daysLogged, catBreakdown, planVsActual, planSlotsCount, scheduleVsActual } =
+    useDashboardStats(weekStart, selectedLabelIds, excludedLabelIds);
+  const { data: scheduleBlocks } = useScheduleBlocks();
 
   // Translate default-label names for display (pie tooltip + legend). The stored
   // name stays canonical; only the shown label changes per locale.
   const categoryName = useCategoryName();
   const catBreakdownDisplay = catBreakdown.map((c) => ({ ...c, name: categoryName(c.name) }));
 
-  const { data: allCategories } = useVisibleCategories();
+  const { data: allCategories, all: allCategoriesIncludingHidden } = useVisibleCategories();
 
   const weekEnd = addDaysISO(weekStart, 6);
   const agendaDays = useCalendarDays(weekStart, weekEnd);
@@ -112,8 +126,20 @@ export default function DashboardPage() {
           <LabelFilter
             categories={allCategories.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
             selectedIds={selectedLabelIds}
+            excludedIds={excludedLabelIds}
             onChange={setSelectedLabelIds}
+            onExcludedChange={handleExcludedChange}
           />
+        )}
+
+        {visibleCards.scheduleVsActual && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+            <ScheduleVsActualCard
+              data={scheduleVsActual}
+              categories={allCategoriesIncludingHidden.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
+              hasScheduleBlocks={scheduleBlocks.length > 0}
+            />
+          </motion.div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">

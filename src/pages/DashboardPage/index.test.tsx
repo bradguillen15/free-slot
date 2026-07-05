@@ -48,7 +48,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
-import { ensureBootstrap, insertLog, upsertCategory } from "@/lib/localStore";
+import { ensureBootstrap, insertLog, upsertCategory, upsertScheduleBlock, getDashboardExcludedLabels, listCategories } from "@/lib/localStore";
 import { addDaysISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
 import { resetSupabaseMock, setTableResult } from "../../test/supabaseMock";
@@ -146,6 +146,90 @@ describe("DashboardPage — guest mode", () => {
     await waitFor(() => {
       expect(screen.getByText("Hidden label")).toBeInTheDocument();
     });
+  });
+});
+
+describe("DashboardPage — schedule vs actual card", () => {
+  it("shows an empty state pointing to the schedule when no blocks exist", async () => {
+    seedGuestDashboardLogs();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("sva-empty")).toBeInTheDocument();
+    });
+  });
+
+  it("renders a per-label comparison row with adherence when schedule and logs exist", async () => {
+    ensureBootstrap();
+    const weekStart = weekStartISO();
+    const cat = upsertCategory({ name: "Focus", type: "productive", color: "#3b82f6", hidden: false });
+    // Scheduled every day 09:00-11:00; Tuesday logged 09:00-10:00 as Focus.
+    upsertScheduleBlock({
+      name: "Focus block", start_time: "09:00", end_time: "11:00",
+      days_of_week: [0, 1, 2, 3, 4, 5, 6], category_id: cat.id,
+    });
+    insertLog({
+      date: addDaysISO(weekStart, 1), start_time: "09:00", end_time: "10:00",
+      type: "productive", category_id: cat.id,
+    });
+    renderPage();
+
+    const row = await screen.findByTestId(`sva-row-${cat.id}`);
+    expect(row).toHaveTextContent("Focus");
+    expect(row).toHaveTextContent("14h"); // scheduled 2h x 7
+    expect(row).toHaveTextContent("1h"); // logged
+    // 1h kept of 14h scheduled ≈ 7%
+    expect(screen.getByTestId("adherence-kpi")).toHaveTextContent("7%");
+  });
+
+  it("expands a row into the displacement breakdown", async () => {
+    ensureBootstrap();
+    const weekStart = weekStartISO();
+    const focus = upsertCategory({ name: "Focus", type: "productive", color: "#3b82f6", hidden: false });
+    const gaming = upsertCategory({ name: "Play", type: "unproductive", color: "#f97316", hidden: false });
+    upsertScheduleBlock({
+      name: "Focus block", start_time: "09:00", end_time: "11:00",
+      days_of_week: [1], category_id: focus.id,
+    });
+    insertLog({
+      date: addDaysISO(weekStart, 0), start_time: "09:00", end_time: "10:00",
+      type: "unproductive", category_id: gaming.id,
+    });
+    renderPage();
+
+    const row = await screen.findByTestId(`sva-row-${focus.id}`);
+    row.click();
+    const breakdown = await screen.findByTestId(`sva-displacement-${focus.id}`);
+    expect(breakdown).toHaveTextContent("Play");
+    expect(breakdown).toHaveTextContent(/Nothing logged/i);
+  });
+
+  it("excluding a label via the filter persists and removes it from the card", async () => {
+    ensureBootstrap();
+    const weekStart = weekStartISO();
+    const sleep = listCategories().find((c) => c.name === "Sleep")!;
+    upsertScheduleBlock({
+      name: "Sleep", start_time: "23:00", end_time: "07:00",
+      days_of_week: [0, 1, 2, 3, 4, 5, 6], category_id: sleep.id,
+    });
+    insertLog({
+      date: addDaysISO(weekStart, 1), start_time: "23:00", end_time: "07:00",
+      type: "essential", category_id: sleep.id,
+    });
+    renderPage();
+
+    await screen.findByTestId(`sva-row-${sleep.id}`);
+
+    // Cycle the chip: neutral -> included -> excluded.
+    const chip = screen.getByTestId(`label-filter-${sleep.id}`);
+    chip.click();
+    await waitFor(() => expect(chip).toHaveAttribute("data-state", "included"));
+    chip.click();
+    await waitFor(() => expect(chip).toHaveAttribute("data-state", "excluded"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(`sva-row-${sleep.id}`)).not.toBeInTheDocument();
+    });
+    expect(getDashboardExcludedLabels()).toEqual([sleep.id]);
   });
 });
 
