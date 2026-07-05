@@ -8,7 +8,6 @@ import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/li
 import { logDefaultsFromBlock } from "@/lib/schedule";
 import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
-import { SampleDataBanner } from "@/components/day/SampleDataBanner";
 import { ConfirmDayButton } from "@/components/day/ConfirmDayButton";
 import type { ConfirmDayBlock, ConfirmDayCategory, ConfirmDayLog } from "@/lib/confirmDay";
 import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
@@ -74,12 +73,6 @@ export default function CalendarPage() {
   const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const logsStart = useMemo(() => addDaysISO(date, -1), [date]);
   const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(logsStart, date);
-  const hasExampleData = useMemo(
-    () =>
-      (allBlocks ?? []).some((b) => (b as unknown as { is_example?: boolean }).is_example) ||
-      (dayLogs ?? []).some((l) => (l as unknown as { is_example?: boolean }).is_example),
-    [allBlocks, dayLogs]
-  );
 
   const blocks = useMemo(
     () => (allBlocks as unknown as ScheduleBlock[]).filter((x) => x.days_of_week?.includes(weekday)),
@@ -199,7 +192,7 @@ export default function CalendarPage() {
         <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4 mb-6">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">{t("calendar.dayView")}</div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">{heading}</h1>
+            <h1 className="font-display text-3xl font-semibold tracking-tight" data-tour="day-view">{heading}</h1>
           </div>
           <div className="flex items-center gap-2">
             <ConfirmDayButton
@@ -218,8 +211,6 @@ export default function CalendarPage() {
             />
           </div>
         </div>
-
-        <SampleDataBanner visible={hasExampleData} />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:flex-1 lg:min-h-0">
           <div className="relative lg:flex lg:flex-col lg:min-h-0">

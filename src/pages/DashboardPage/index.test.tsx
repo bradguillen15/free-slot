@@ -48,7 +48,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
-import { deleteLog, deleteScheduleBlock, ensureBootstrap, insertLog, listAllLogs, listScheduleBlocks, upsertCategory } from "@/lib/localStore";
+import { ensureBootstrap, insertLog, upsertCategory } from "@/lib/localStore";
 import { addDaysISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
 import { resetSupabaseMock, setTableResult } from "../../test/supabaseMock";
@@ -95,10 +95,6 @@ function renderPage() {
 beforeEach(async () => {
   localStorage.clear();
   ensureBootstrap();
-  // These tests assert exact KPI totals from their own fixture logs — clear the
-  // first-run sample schedule/logs so they don't skew the numbers.
-  listScheduleBlocks().filter((b) => b.is_example).forEach((b) => deleteScheduleBlock(b.id));
-  listAllLogs().filter((l) => l.is_example).forEach((l) => deleteLog(l.id));
   authState.user = null;
   resetSupabaseMock();
   await i18n.changeLanguage("en");

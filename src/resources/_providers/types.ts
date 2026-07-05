@@ -71,7 +71,6 @@ export interface ResourcesProvider {
     delete(userId: string, id: string): Promise<void>;
     reorder(userId: string, orderedIds: string[]): Promise<void>;
     insertMany(userId: string, items: Omit<LocalScheduleBlock, "id" | "created_at">[]): Promise<LocalScheduleBlock[]>;
-    deleteExamples(userId: string): Promise<void>;
   };
   timeLogs: {
     listInRange(userId: string, startISO: string, endISO: string): Promise<LocalTimeLog[]>;
@@ -79,7 +78,6 @@ export interface ResourcesProvider {
     update(userId: string, id: string, patch: TimeLogPatch): Promise<LocalTimeLog>;
     delete(userId: string, id: string): Promise<void>;
     insertMany(userId: string, items: Omit<LocalTimeLog, "id" | "created_at">[]): Promise<LocalTimeLog[]>;
-    deleteExamples(userId: string): Promise<void>;
   };
   profiles: {
     get(userId: string): Promise<LocalProfile | null>;

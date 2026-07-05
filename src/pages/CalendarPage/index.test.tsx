@@ -16,7 +16,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 import { resetSupabaseMock, setTableResult } from "@/test/supabaseMock";
-import { upsertScheduleBlock, ensureBootstrap, listScheduleBlocks, deleteScheduleBlock, listAllLogs, deleteLog } from "@/lib/localStore";
+import { upsertScheduleBlock, ensureBootstrap } from "@/lib/localStore";
 import { isoToWeekday, todayISO } from "@/lib/time";
 import CalendarPage from ".";
 
@@ -25,10 +25,6 @@ beforeEach(() => {
   resetSupabaseMock();
   authState.user = null;
   ensureBootstrap();
-  // These tests construct their own schedule blocks/logs with specific names/times —
-  // clear the first-run sample data so it doesn't collide (e.g. duplicate "Work" blocks).
-  listScheduleBlocks().filter((b) => b.is_example).forEach((b) => deleteScheduleBlock(b.id));
-  listAllLogs().filter((l) => l.is_example).forEach((l) => deleteLog(l.id));
   Element.prototype.scrollTo = vi.fn();
 });
 

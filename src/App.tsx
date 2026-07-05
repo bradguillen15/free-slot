@@ -9,12 +9,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { OnboardingGate } from "@/components/OnboardingGate";
+import { AuthLoadingGate } from "@/components/AuthLoadingGate";
+import { TourProvider } from "@/components/tour/TourProvider";
 import { AppLayoutOutlet } from "@/components/AppLayout";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
-import Onboarding from "./pages/Onboarding";
 import CalendarPage from "./pages/CalendarPage";
 import SchedulePage from "./pages/SchedulePage";
 import LabelsPage from "./pages/LabelsPage";
@@ -42,15 +42,15 @@ const App = () => (
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              {/* Onboarding works for both guests and signed-in users */}
-              <Route path="/onboarding" element={<OnboardingGate key="onboarding"><Onboarding /></OnboardingGate>} />
               {/* One AppLayout for all /app/* — child routes fade in/out on navigation */}
               <Route
                 path="/app"
                 element={
-                  <OnboardingGate key="app">
-                    <AppLayoutOutlet />
-                  </OnboardingGate>
+                  <AuthLoadingGate>
+                    <TourProvider>
+                      <AppLayoutOutlet />
+                    </TourProvider>
+                  </AuthLoadingGate>
                 }
               >
                 <Route index element={<CalendarPage />} />

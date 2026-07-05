@@ -91,6 +91,45 @@ describe("buildConfirmDayRows", () => {
     expect(second.rows).toHaveLength(0);
   });
 
+  it("skips blocks that have not fully elapsed when confirming today (now provided)", () => {
+    const blocks = [
+      block({ id: "work", name: "Work", start_time: "09:00", end_time: "17:00" }),
+      block({ id: "sleep", name: "Sleep", start_time: "23:00", end_time: "07:00", days_of_week: [0, 1, 2, 3, 4, 5, 6] }),
+    ];
+    const result = buildConfirmDayRows("2026-07-06", blocks, [], categories, "20:00");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].title).toBe("Work");
+    expect(result.skipped).toEqual([{ blockId: "sleep", reason: "not-elapsed" }]);
+  });
+
+  it("counts a block ending exactly now as elapsed", () => {
+    const result = buildConfirmDayRows("2026-07-06", [block({ end_time: "17:00" })], [], categories, "17:00");
+    expect(result.rows).toHaveLength(1);
+    expect(result.skipped).toHaveLength(0);
+  });
+
+  it("skips everything with not-elapsed before any block has ended", () => {
+    const result = buildConfirmDayRows("2026-07-06", [block()], [], categories, "10:00");
+    expect(result.rows).toHaveLength(0);
+    expect(result.skipped).toEqual([{ blockId: "b1", reason: "not-elapsed" }]);
+  });
+
+  it("treats an overnight block as not elapsed until its next-day end", () => {
+    const sleep = block({ id: "sleep", start_time: "23:00", end_time: "07:00", days_of_week: [0, 1, 2, 3, 4, 5, 6] });
+    const result = buildConfirmDayRows("2026-07-06", [sleep], [], categories, "23:30");
+    expect(result.rows).toHaveLength(0);
+    expect(result.skipped).toEqual([{ blockId: "sleep", reason: "not-elapsed" }]);
+  });
+
+  it("materializes every active block regardless of time when now is omitted (past dates)", () => {
+    const blocks = [
+      block({ id: "work" }),
+      block({ id: "sleep", name: "Sleep", start_time: "23:00", end_time: "07:00", days_of_week: [0, 1, 2, 3, 4, 5, 6] }),
+    ];
+    const result = buildConfirmDayRows("2026-07-06", blocks, [], categories);
+    expect(result.rows).toHaveLength(2);
+  });
+
   it("uses the category's type for the log's type", () => {
     const result = buildConfirmDayRows(
       "2026-07-06",

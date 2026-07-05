@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { BLOCK_PRESETS, applyPresetSegmentsAtomic, logDefaultsFromBlock, presetSegments } from "./schedule";
+import { BLOCK_PRESETS, SUGGESTED_SCHEDULE_TEMPLATE, applyPresetSegmentsAtomic, logDefaultsFromBlock, presetSegments } from "./schedule";
 import { findScheduleCollisions } from "./scheduleCollisions";
 
 describe("logDefaultsFromBlock", () => {
@@ -42,6 +42,34 @@ describe("BLOCK_PRESETS", () => {
     const lunch = BLOCK_PRESETS.find((p) => p.name === "Lunch");
     expect(lunch?.start).toBe("12:00");
     expect(lunch?.end).toBe("13:00");
+  });
+});
+
+describe("SUGGESTED_SCHEDULE_TEMPLATE", () => {
+  it("contains daily sleep plus weekday work split by lunch", () => {
+    expect(
+      SUGGESTED_SCHEDULE_TEMPLATE.map(({ name, start, end, days }) => ({ name, start, end, days }))
+    ).toEqual([
+      { name: "Sleep", start: "23:00", end: "07:00", days: [0, 1, 2, 3, 4, 5, 6] },
+      { name: "Work", start: "09:00", end: "12:00", days: [1, 2, 3, 4, 5] },
+      { name: "Lunch", start: "12:00", end: "13:00", days: [1, 2, 3, 4, 5] },
+      { name: "Work", start: "13:00", end: "17:00", days: [1, 2, 3, 4, 5] },
+    ]);
+  });
+
+  it("has no same-day overlaps between template blocks", () => {
+    const blocks = SUGGESTED_SCHEDULE_TEMPLATE.map((b, i) => ({
+      id: String(i),
+      name: b.name,
+      start_time: b.start,
+      end_time: b.end,
+      days_of_week: b.days,
+    }));
+    expect(findScheduleCollisions(blocks)).toEqual([]);
+  });
+
+  it("only uses the fixed block type", () => {
+    expect(SUGGESTED_SCHEDULE_TEMPLATE.every((b) => b.type === "fixed")).toBe(true);
   });
 });
 

@@ -4,7 +4,8 @@ import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useConfirmDayMutation } from "@/lib/dataStore";
-import { isoToWeekday } from "@/lib/time";
+import { useTour } from "@/components/tour/TourProvider";
+import { isoToWeekday, nowHHMM, todayISO } from "@/lib/time";
 import { buildConfirmDayRows, type ConfirmDayBlock, type ConfirmDayCategory, type ConfirmDayLog } from "@/lib/confirmDay";
 
 export function ConfirmDayButton({
@@ -20,9 +21,11 @@ export function ConfirmDayButton({
 }) {
   const { t } = useTranslation();
   const confirmMutation = useConfirmDayMutation();
+  const { notifyAction } = useTour();
 
+  // The parent re-renders every minute (useNowMinute), keeping this fresh for today.
   const preview = useMemo(
-    () => buildConfirmDayRows(date, blocks, logs, categories),
+    () => buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined),
     [date, blocks, logs, categories]
   );
 
@@ -33,7 +36,7 @@ export function ConfirmDayButton({
 
   if (activeBlockCount === 0) {
     return (
-      <Button variant="ghost" size="sm" disabled data-testid="confirm-day-nothing" className="text-muted-foreground">
+      <Button variant="ghost" size="sm" disabled data-testid="confirm-day-nothing" data-tour="confirm-day" className="text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 mr-1.5" />
         {t("day.nothingToConfirm")}
       </Button>
@@ -41,17 +44,26 @@ export function ConfirmDayButton({
   }
 
   if (preview.rows.length === 0) {
+    const allNotElapsed = preview.skipped.length > 0 && preview.skipped.every((s) => s.reason === "not-elapsed");
+    if (allNotElapsed) {
+      return (
+        <Button variant="ghost" size="sm" disabled data-testid="confirm-day-not-elapsed" data-tour="confirm-day" className="text-muted-foreground">
+          <CheckCircle2 className="h-4 w-4 mr-1.5" />
+          {t("day.nothingElapsedYet")}
+        </Button>
+      );
+    }
     const allNoCategory = preview.skipped.length > 0 && preview.skipped.every((s) => s.reason === "no-category");
     if (allNoCategory) {
       return (
-        <Button variant="ghost" size="sm" disabled data-testid="confirm-day-no-category" className="text-muted-foreground">
+        <Button variant="ghost" size="sm" disabled data-testid="confirm-day-no-category" data-tour="confirm-day" className="text-muted-foreground">
           <CheckCircle2 className="h-4 w-4 mr-1.5" />
           {t("day.confirmSkippedNoCategory", { count: preview.skipped.length })}
         </Button>
       );
     }
     return (
-      <Button variant="ghost" size="sm" disabled data-testid="confirm-day-already-logged" className="text-muted-foreground">
+      <Button variant="ghost" size="sm" disabled data-testid="confirm-day-already-logged" data-tour="confirm-day" className="text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 mr-1.5" />
         {t("day.alreadyLogged")}
       </Button>
@@ -65,6 +77,7 @@ export function ConfirmDayButton({
       toast.success(t("day.confirmedCount", { count: result.rows.length }), {
         description: noCategoryCount > 0 ? t("day.confirmSkippedNoCategory", { count: noCategoryCount }) : undefined,
       });
+      notifyAction("confirm-day");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t("common.somethingWrong"));
     }
@@ -77,6 +90,7 @@ export function ConfirmDayButton({
       onClick={handleConfirm}
       disabled={confirmMutation.isPending}
       data-testid="confirm-day-button"
+      data-tour="confirm-day"
       className="gap-1.5"
     >
       <CheckCircle2 className="h-4 w-4" />

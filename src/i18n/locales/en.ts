@@ -53,6 +53,42 @@ const en = {
     editBlockDesc: "Changes apply to every day this block repeats.",
     logTime: "Log time",
   },
+  tour: {
+    stepCounter: "Step {{current}} of {{total}}",
+    skip: "Skip tour",
+    next: "Next",
+    done: "Done",
+    replay: "Replay tour",
+    welcome: {
+      title: "Welcome to FreeSlot",
+      body: "FreeSlot tracks where your time actually goes. Let's set you up — it takes about a minute.",
+    },
+    applySchedule: {
+      title: "Start with a suggested schedule",
+      body: "This is your recurring week. Apply the suggested schedule — sleep, work, and lunch — then tweak it, or skip ahead and build your own.",
+    },
+    editSchedule: {
+      title: "Make it yours",
+      body: "Edit names, times, and days inline — changes apply to every day a block repeats.",
+    },
+    confirmDay: {
+      title: "Log your day in one click",
+      body: "Confirm Day turns the scheduled hours that already passed into real logs you can edit. You can also tap any scheduled block to log just that one.",
+    },
+    wrapUp: {
+      title: "That's the loop",
+      body: "Keep your schedule honest and confirm your day — the Dashboard will show where your time really goes. Replay this tour anytime from the help button.",
+    },
+  },
+  scheduleTemplate: {
+    cta: "Apply suggested schedule",
+    emptyIntro: "Start from a suggested week — sleep, work, and lunch — then tweak it to match your real routine.",
+    confirmTitle: "Apply the suggested schedule?",
+    confirmDesc: "This adds sleep (every day) plus work and lunch (weekdays) as regular blocks. You can edit or delete any of them afterwards.",
+    confirmApply: "Apply schedule",
+    cancel: "Cancel",
+    applied: "Suggested schedule applied",
+  },
   labels: {
     title: "Labels",
     subtitle: "Color-coded buckets for grouping activities on your dashboard. Hide defaults you don't use — your history stays intact.",
@@ -238,31 +274,6 @@ const en = {
       failed: "Migration failed",
     },
   },
-  onboarding: {
-    steps: { schedule: "Schedule", activities: "Activities", preferences: "Preferences" },
-    skip: "Skip for now",
-    schedule: {
-      title: "Map your week",
-      subtitle: "Add the things that already happen on repeat — work, sleep, meals, gym. We'll find the gaps in between.",
-      empty: "Pick a few presets above to get started.",
-      custom: "Custom",
-    },
-    activities: {
-      title: "What do you want time for?",
-      subtitle: "Pick activities you keep meaning to do. Set a weekly hour target. The plan will fit them into your gaps.",
-      empty: "Add at least one activity to keep going.",
-      hrsWk: "hrs/wk",
-    },
-    preferences: {
-      title: "A few preferences",
-      subtitle: "Tune how FreeSlot finds gaps and when it asks you to reflect.",
-      weekends: "Schedule on weekends",
-      weekendsHint: "Include Saturday and Sunday when planning",
-      reviewDay: "Weekly review day",
-      settingsHint: "You can change these anytime in Settings.",
-    },
-    allSet: "You're all set",
-  },
   notes: {
     tab: "Notes",
     dailyNote: "Daily note",
@@ -411,6 +422,7 @@ const en = {
     confirmedCount: "{{count}} logs confirmed",
     nothingToConfirm: "Nothing to confirm",
     alreadyLogged: "Day already logged",
+    nothingElapsedYet: "Nothing to confirm yet",
     confirmSkippedNoCategory: "{{count}} blocks skipped — assign them a category first",
   },
   quickLog: {
@@ -554,15 +566,6 @@ const en = {
     title: "Sign in required",
     message: "This page needs an account. Sign in to continue.",
     signIn: "Sign in",
-  },
-  sampleData: {
-    bannerText: "This is example data to show you how FreeSlot works.",
-    clearCta: "Clear examples",
-    confirmTitle: "Clear example data?",
-    confirmDesc: "This removes the sample schedule and logs that haven't been edited. Anything you've changed stays.",
-    confirmClear: "Clear examples",
-    cancel: "Cancel",
-    cleared: "Example data cleared",
   },
   validation: {
     titleRequired: "Title is required",

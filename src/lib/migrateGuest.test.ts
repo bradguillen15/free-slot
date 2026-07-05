@@ -148,44 +148,19 @@ describe("migrateGuestToCloud — happy path", () => {
   });
 });
 
-describe("migrateGuestToCloud — excludes untouched sample data", () => {
-  it("does not migrate is_example schedule blocks or time logs", async () => {
-    // seedGuestData() calls ensureBootstrap() first, which seeds is_example
-    // schedule blocks and logs — those must never reach insertMany.
+describe("migrateGuestToCloud — migrates all guest blocks and logs", () => {
+  it("inserts every guest schedule block and time log", async () => {
     seedGuestData();
     setupHappyPath();
-    await migrateGuestToCloud("u1");
-
-    const blockCalls = mockScheduleBlocks.insertMany.mock.calls as Array<[string, Array<{ name: string; is_example?: boolean }>]>;
-    const blockRows = blockCalls.flatMap(([, items]) => items);
-    expect(blockRows.every((b) => !b.is_example)).toBe(true);
-    expect(blockRows.map((b) => b.name)).toEqual(["Sleep"]); // only the factory's real block
-
-    const logCalls = mockTimeLogs.insertMany.mock.calls as Array<[string, Array<{ is_example?: boolean }>]>;
-    const logRows = logCalls.flatMap(([, items]) => items);
-    expect(logRows.every((l) => !l.is_example)).toBe(true);
-    expect(logRows).toHaveLength(2); // only the factory's 2 real logs
-  });
-
-  it("migrates a sample block/log that was edited (is_example cleared)", async () => {
-    seedGuestData();
-    setupHappyPath();
-
-    const { upsertScheduleBlock, updateLog, listScheduleBlocks: listBlocks, listAllLogs } = await import("./localStore");
-    const sampleBlock = listBlocks().find((b) => b.is_example)!;
-    upsertScheduleBlock({ id: sampleBlock.id, name: "Edited sample" });
-    const sampleLog = listAllLogs().find((l) => l.is_example)!;
-    updateLog(sampleLog.id, { notes: "edited" });
-
     await migrateGuestToCloud("u1");
 
     const blockCalls = mockScheduleBlocks.insertMany.mock.calls as Array<[string, Array<{ name: string }>]>;
     const blockRows = blockCalls.flatMap(([, items]) => items);
-    expect(blockRows.map((b) => b.name)).toContain("Edited sample");
+    expect(blockRows.map((b) => b.name)).toEqual(["Sleep"]);
 
     const logCalls = mockTimeLogs.insertMany.mock.calls as Array<[string, Array<{ id?: string }>]>;
     const logRows = logCalls.flatMap(([, items]) => items);
-    expect(logRows).toHaveLength(3); // 2 factory logs + the edited sample log
+    expect(logRows).toHaveLength(2);
   });
 });
 

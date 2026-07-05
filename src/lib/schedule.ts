@@ -54,10 +54,29 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   { name: "Dinner",  start: "19:30", end: "20:30", days: [0,1,2,3,4,5,6], color: LUNCH_COLOR, type: "fixed" },
 ];
 
+export type SuggestedScheduleBlock = {
+  name: string;
+  start: string;
+  end: string;
+  days: number[];
+  color: string;
+  type: "fixed";
+  /** Matching seeded default label (by name) so Confirm Day can materialize the block without a "no category" skip. */
+  categoryName: string;
+};
+
+/** Starter week offered on first run — the user must explicitly apply it. Lunch splits the work span so blocks never overlap. */
+export const SUGGESTED_SCHEDULE_TEMPLATE: SuggestedScheduleBlock[] = [
+  { name: "Sleep", start: "23:00", end: "07:00", days: [0, 1, 2, 3, 4, 5, 6], color: "#6366f1", type: "fixed", categoryName: "Sleep" },
+  { name: "Work",  start: "09:00", end: "12:00", days: WEEKDAYS, color: WORK_COLOR, type: "fixed", categoryName: "Deep work" },
+  { name: "Lunch", start: "12:00", end: "13:00", days: WEEKDAYS, color: LUNCH_COLOR, type: "fixed", categoryName: "Meals" },
+  { name: "Work",  start: "13:00", end: "17:00", days: WEEKDAYS, color: WORK_COLOR, type: "fixed", categoryName: "Deep work" },
+];
+
 /** Apply bundled preset segments atomically; rolls back prior inserts on failure. */
-export async function applyPresetSegmentsAtomic<T extends { id: string }>(
-  segments: BlockPresetSegment[],
-  createSegment: (seg: BlockPresetSegment) => Promise<T>,
+export async function applyPresetSegmentsAtomic<T extends { id: string }, S = BlockPresetSegment>(
+  segments: S[],
+  createSegment: (seg: S) => Promise<T>,
   deleteSegment: (id: string) => Promise<void>,
 ): Promise<T[]> {
   const created: T[] = [];

@@ -87,12 +87,12 @@ Defined in `src/App.tsx`.
 
 Two wrapper components:
 
-- **`OnboardingGate`** — no longer gates `/app/*` on onboarding state at all; new users land there directly. It only redirects *away* from `/onboarding` back to `/app` once `onboarding_completed` or `onboarding_skipped` is `true` — visiting `/onboarding` explicitly is always allowed otherwise. Two separate `key` props (`key="onboarding"` / `key="app"`) prevent React from reusing the same instance across the two route positions.
+- **`AuthLoadingGate`** — holds `/app/*` rendering behind a spinner until the auth session resolves, so signed-in users never flash guest-mode data. (The old `OnboardingGate` and the `/onboarding` wizard were removed — new-user orientation is now the guided tour.)
 - **`ProtectedRoute`** — redirects unauthenticated users to `/auth`. Used only on truly account-only pages.
 
 The mobile hamburger menu (top-right sheet, replaced the old bottom bar) and desktop sidebar show 🔒 next to gated entries for guests, and clicking them routes to `/auth` instead of the locked page.
 
-**First-run sample data.** Since `OnboardingGate` no longer blocks entry, new users need something on screen the first time they land in `/app` — a template weekly schedule (sleep, work, lunch) plus 2–3 sample time logs for today, all marked `is_example: true` (`src/lib/sampleData.ts` is the single template shared by both paths). Guests get this synchronously in `ensureBootstrap()` (`src/lib/localStore.ts`); cloud accounts get it lazily on first `useProfile()` load, gated by the `profiles.sample_data_seeded` flag (`seedCloudSampleData` in `src/lib/dataStore.ts`) rather than duplicating the seed in the `handle_new_user()` SQL trigger. Editing a sample row (via any existing edit path) clears its `is_example` flag; a banner (`SampleDataBanner`, Day view) offers a one-click, confirm-gated "Clear examples" action that removes whatever `is_example` rows remain. Untouched examples are excluded from guest→cloud migration (`migrateGuest.ts`).
+**Guided first-run tour.** New users land in an empty `/app` and a coach-mark tour auto-starts (gated by `profiles.tour_completed`; guests use the local profile field). The tour drives navigation itself — Day (welcome) → Schedule, where an **Apply suggested schedule** action inserts a non-overlapping starter week (sleep daily; work split by lunch on weekdays, each block mapped to a matching default label) after an explicit confirmation → back to Day, pointing at **Confirm Day**, which materializes only the blocks that have already elapsed today. Skip/Done persist `tour_completed`; a help button in the sidebar/mobile-sheet footer replays it. Implementation lives in `src/components/tour/` (`TourProvider` owns step state, route-driving, and persistence; `TourBubble` renders the anchored coach mark against `[data-tour=...]` anchors). There is no pre-seeded sample data — the tour walks the user into creating real data they own.
 
 ---
 

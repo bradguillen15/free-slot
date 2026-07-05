@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@/i18n";
 import { ConfirmDayButton } from "./ConfirmDayButton";
@@ -58,5 +58,46 @@ describe("ConfirmDayButton", () => {
     render(<ConfirmDayButton date={monday} blocks={[block()]} logs={[]} categories={[category]} />);
     fireEvent.click(screen.getByTestId("confirm-day-button"));
     await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith(monday));
+  });
+
+  describe("when the date is today", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const freezeToday = (hour: number) => {
+      vi.useFakeTimers();
+      const d = new Date();
+      d.setHours(hour, 0, 0, 0);
+      vi.setSystemTime(d);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return { iso, weekday: d.getDay() };
+    };
+
+    it("shows 'nothing elapsed yet' before any block has ended", () => {
+      const { iso, weekday } = freezeToday(8);
+      render(
+        <ConfirmDayButton
+          date={iso}
+          blocks={[block({ start_time: "09:00", end_time: "17:00", days_of_week: [weekday] })]}
+          logs={[]}
+          categories={[category]}
+        />
+      );
+      expect(screen.getByTestId("confirm-day-not-elapsed")).toBeDisabled();
+    });
+
+    it("offers the confirm action once a block has elapsed", () => {
+      const { iso, weekday } = freezeToday(20);
+      render(
+        <ConfirmDayButton
+          date={iso}
+          blocks={[block({ start_time: "09:00", end_time: "17:00", days_of_week: [weekday] })]}
+          logs={[]}
+          categories={[category]}
+        />
+      );
+      expect(screen.getByTestId("confirm-day-button")).not.toBeDisabled();
+    });
   });
 });

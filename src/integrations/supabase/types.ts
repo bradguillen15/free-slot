@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -162,8 +167,8 @@ export type Database = {
           onboarding_completed: boolean
           onboarding_skipped: boolean
           peak_hours: Json | null
-          sample_data_seeded: boolean
           time_format: string
+          tour_completed: boolean
           weekly_review_day: number
         }
         Insert: {
@@ -174,8 +179,8 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_skipped?: boolean
           peak_hours?: Json | null
-          sample_data_seeded?: boolean
           time_format?: string
+          tour_completed?: boolean
           weekly_review_day?: number
         }
         Update: {
@@ -186,8 +191,8 @@ export type Database = {
           onboarding_completed?: boolean
           onboarding_skipped?: boolean
           peak_hours?: Json | null
-          sample_data_seeded?: boolean
           time_format?: string
+          tour_completed?: boolean
           weekly_review_day?: number
         }
         Relationships: []
@@ -200,7 +205,6 @@ export type Database = {
           days_of_week: number[]
           end_time: string
           id: string
-          is_example: boolean
           name: string
           sort_order: number
           start_time: string
@@ -214,7 +218,6 @@ export type Database = {
           days_of_week?: number[]
           end_time: string
           id?: string
-          is_example?: boolean
           name: string
           sort_order?: number
           start_time: string
@@ -228,7 +231,6 @@ export type Database = {
           days_of_week?: number[]
           end_time?: string
           id?: string
-          is_example?: boolean
           name?: string
           sort_order?: number
           start_time?: string
@@ -252,7 +254,6 @@ export type Database = {
           date: string
           end_time: string
           id: string
-          is_example: boolean
           note_json: Json | null
           notes: string | null
           start_time: string
@@ -266,7 +267,6 @@ export type Database = {
           date: string
           end_time: string
           id?: string
-          is_example?: boolean
           note_json?: Json | null
           notes?: string | null
           start_time: string
@@ -280,7 +280,6 @@ export type Database = {
           date?: string
           end_time?: string
           id?: string
-          is_example?: boolean
           note_json?: Json | null
           notes?: string | null
           start_time?: string
@@ -526,4 +525,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -6,6 +6,11 @@ import { test, expect, seedGuest, pickDefaultLabel, readGuestTimeLogs } from "./
  */
 test.describe("guest confirm day", () => {
   test("confirming the day creates a log from the schedule block, and re-confirming does not duplicate it", async ({ page }) => {
+    // Confirm-day is elapsed-only for today — pin the clock to the evening so
+    // the default 09:00–10:00 block has already ended.
+    const evening = new Date();
+    evening.setHours(20, 0, 0, 0);
+    await page.clock.setFixedTime(evening);
     await seedGuest(page, { profile: { onboarding_skipped: true } });
     await page.goto("/app/schedule");
 

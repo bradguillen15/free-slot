@@ -7,8 +7,6 @@ import type { LocalActivity, LocalCategory, LocalDailyNote, LocalInboxItem, Loca
 import {
   addGuestInboxItem,
   archiveGuestInboxItem,
-  clearExampleScheduleBlocks,
-  clearExampleTimeLogs,
   deleteActivity as localDeleteActivity,
   deleteCategory as localDeleteCategory,
   deleteLog as localDeleteLog,
@@ -40,9 +38,8 @@ import { resources } from "@/resources";
 import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
 import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys, type Mode } from "@/lib/queryKeys";
-import { todayISO } from "@/lib/time";
-import { SAMPLE_SCHEDULE_BLOCKS, buildSampleTimeLogs } from "@/lib/sampleData";
 import { buildConfirmDayRows, type ConfirmDayResult } from "@/lib/confirmDay";
+import { nowHHMM, todayISO } from "@/lib/time";
 
 export type { Mode };
 
@@ -270,42 +267,13 @@ export function useTimeLogsInRange(startISO: string, endISO: string) {
   };
 }
 
-/**
- * Inserts the shared sample schedule/logs for a cloud account and marks
- * `sample_data_seeded`. Guests are seeded synchronously in ensureBootstrap();
- * cloud accounts are seeded lazily here, once, on first profile load — see
- * design.md in the first-run-sample-data change for why this isn't done in
- * the handle_new_user() SQL trigger instead.
- */
-export async function seedCloudSampleData(userId: string): Promise<void> {
-  const categories = await resources.categories.list(userId);
-  const categoryIdByName = new Map(categories.map((c) => [c.name, c.id]));
-  await resources.scheduleBlocks.insertMany(
-    userId,
-    SAMPLE_SCHEDULE_BLOCKS.map((b) => ({ ...b, category_id: null, is_example: true }))
-  );
-  const sampleLogs = buildSampleTimeLogs(todayISO(), categoryIdByName);
-  if (sampleLogs.length) {
-    await resources.timeLogs.insertMany(
-      userId,
-      sampleLogs.map((l) => ({ ...l, notes: null, note_json: null }))
-    );
-  }
-  await resources.profiles.update(userId, { sample_data_seeded: true });
-}
-
 export function useProfile() {
   const { mode, userId } = useAuthScope();
   const { query, fetchError, refresh } = useDataQuery({
     queryKey: queryKeys.profile(mode, userId),
     queryFn: async () => {
       if (mode === "guest") { ensureBootstrap(); return localGetProfile(); }
-      const profile = await resources.profiles.get(userId!);
-      if (profile && !profile.sample_data_seeded) {
-        await seedCloudSampleData(userId!);
-        return { ...profile, sample_data_seeded: true };
-      }
-      return profile;
+      return resources.profiles.get(userId!);
     },
     enabled: mode === "guest" || !!userId,
   });
@@ -403,7 +371,7 @@ export function useDeleteAccountMutation() {
   });
 }
 
-/** Materializes eligible schedule blocks for `date` into real time logs. See confirmDay.ts for the skip rules. */
+/** Materializes eligible schedule blocks for `date` into real time logs. See confirmDay.ts for the skip rules; today is elapsed-only. */
 export async function confirmDay(mode: Mode, userId: string | null, date: string): Promise<ConfirmDayResult> {
   const [blocks, logs, categories] = mode === "guest"
     ? [listScheduleBlocks(), listLogsInRange(date, date), listCategories()]
@@ -413,7 +381,7 @@ export async function confirmDay(mode: Mode, userId: string | null, date: string
         resources.categories.list(userId!),
       ]);
 
-  const result = buildConfirmDayRows(date, blocks, logs, categories);
+  const result = buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined);
 
   if (result.rows.length) {
     if (mode === "guest") {
@@ -577,28 +545,6 @@ export async function deleteScheduleBlock(mode: Mode, userId: string | null, id:
     await resources.scheduleBlocks.delete(userId!, id);
   }
   invalidateScheduleBlocks(mode, userId);
-}
-
-/** Removes all remaining first-run sample schedule blocks and time logs (is_example: true). */
-export async function clearExampleData(mode: Mode, userId: string | null) {
-  if (mode === "guest") {
-    clearExampleScheduleBlocks();
-    clearExampleTimeLogs();
-  } else {
-    await Promise.all([
-      resources.scheduleBlocks.deleteExamples(userId!),
-      resources.timeLogs.deleteExamples(userId!),
-    ]);
-  }
-  invalidateScheduleBlocks(mode, userId);
-  invalidateTimeLogs(mode, userId);
-}
-
-export function useClearExampleDataMutation() {
-  const { mode, userId } = useAuthScope();
-  return useMutation({
-    mutationFn: () => clearExampleData(mode, userId),
-  });
 }
 
 export async function reorderScheduleBlocks(mode: Mode, userId: string | null, orderedIds: string[]) {

@@ -73,9 +73,8 @@ export async function migrateGuestToCloud(userId: string) {
   }
 
   // 3. Schedule blocks — dedupe on (name, start, end) for retry safety.
-  // Untouched first-run sample blocks (is_example) never migrate.
   let blocksCount = 0;
-  const migratableBlocks = snap.schedule_blocks.filter((b) => !b.is_example);
+  const migratableBlocks = snap.schedule_blocks;
   if (migratableBlocks.length) {
     const existingBlocks = await resources.scheduleBlocks.list(userId);
     const blockKey = (b: { name: string; start_time: string; end_time: string }) =>
@@ -99,9 +98,8 @@ export async function migrateGuestToCloud(userId: string) {
   }
 
   // 4. Time logs (chunked) — dedupe on (date, start, end) for retry safety.
-  // Untouched first-run sample logs (is_example) never migrate.
   let logsCount = 0;
-  const migratableLogs = snap.time_logs.filter((l) => !l.is_example);
+  const migratableLogs = snap.time_logs;
   if (migratableLogs.length) {
     const dates = migratableLogs.map((l) => l.date).sort();
     const existingLogs = await resources.timeLogs.listInRange(userId, dates[0], dates[dates.length - 1]);

@@ -28,11 +28,11 @@ Environment variables (`.env` — copy from `.env.example`):
 
 | Table | Key columns | Purpose |
 |---|---|---|
-| `profiles` | `id (= auth.uid)`, `email`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped`, `sample_data_seeded` | Per-user preferences. Created by trigger on signup. `email` is denormalized from auth for operational lookup. `OnboardingGate` no longer gates on `onboarding_completed`/`onboarding_skipped` — `/onboarding` is reachable on demand. `sample_data_seeded` guards the one-time first-run sample data seed. |
+| `profiles` | `id (= auth.uid)`, `email`, `peak_hours jsonb`, `include_weekends`, `weekly_review_day`, `onboarding_completed`, `onboarding_skipped`, `tour_completed` | Per-user preferences. Created by trigger on signup. `email` is denormalized from auth for operational lookup. `onboarding_completed`/`onboarding_skipped` are legacy (the wizard was removed; kept for historical data). `tour_completed` gates the guided first-run tour's auto-start. |
 | `categories` | `id`, `user_id`, `name`, `type` (productive/unproductive/essential), `color`, `is_default`, `hidden`, `sort_order` | Tags for activities and logs. Defaults are seeded per user. |
 | `activities` | `id`, `user_id`, `name`, `category_id`, `target_hours_per_week`, `is_active` | What the user wants to spend time on. |
-| `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week int[]`, `type`, `color`, `category_id`, `sort_order`, `is_example` | Recurring fixed time. `is_example` marks unedited first-run sample rows (cleared on any edit). |
-| `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes`, `note_json`, `is_example` | What actually happened, including optional rich inline notes. `is_example` marks unedited first-run sample rows (cleared on any edit). |
+| `schedule_blocks` | `id`, `user_id`, `name`, `start_time`, `end_time`, `days_of_week int[]`, `type`, `color`, `category_id`, `sort_order` | Recurring fixed time. |
+| `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes`, `note_json` | What actually happened, including optional rich inline notes. |
 | `weekly_priorities` | `user_id`, `week_start`, `activity_id`, `rank` | Drag-ranked focus per week — drives AI planning. |
 | `weekly_plans` | `user_id`, `week_start`, `generated_at`, `slots jsonb` | AI-generated week plan. **`UNIQUE(user_id, week_start)`** to prevent duplicates. |
 | `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | One AI insight summary per completed week. |

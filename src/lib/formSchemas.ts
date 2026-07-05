@@ -49,7 +49,7 @@ export const makeChangePasswordSchema = (t: TFunction) => z
 
 export type ChangePasswordValues = z.infer<ReturnType<typeof makeChangePasswordSchema>>;
 
-/** Planner preferences — shared by SettingsPage and Onboarding step 3. */
+/** Planner preferences — used by SettingsPage. */
 export const plannerPrefsSchema = z.object({
   includeWeekends: z.boolean(),
   weeklyReviewDay: z.number().int().min(0).max(6),

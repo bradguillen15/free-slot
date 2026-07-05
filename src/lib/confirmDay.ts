@@ -36,7 +36,7 @@ export type ConfirmDayRow = {
 
 export type ConfirmDaySkip = {
   blockId: string;
-  reason: "no-category" | "overlaps-existing";
+  reason: "no-category" | "overlaps-existing" | "not-elapsed";
 };
 
 export type ConfirmDayResult = {
@@ -44,11 +44,26 @@ export type ConfirmDayResult = {
   skipped: ConfirmDaySkip[];
 };
 
+/** A block is elapsed once its end has passed; overnight blocks end on the next day, so they never count as elapsed on their start day. */
+function hasBlockElapsed(block: Pick<ConfirmDayBlock, "start_time" | "end_time">, now: string): boolean {
+  // DB times can be HH:mm:ss — normalize to HH:mm before comparing.
+  const start = block.start_time.slice(0, 5);
+  const end = block.end_time.slice(0, 5);
+  const isOvernight = end < start;
+  if (isOvernight) return false;
+  return end <= now.slice(0, 5);
+}
+
+/**
+ * `now` (HH:mm) makes the confirm elapsed-only — pass it when `date` is today
+ * so blocks that haven't ended yet are skipped. Omit it for past dates.
+ */
 export function buildConfirmDayRows(
   date: string,
   blocks: ConfirmDayBlock[],
   existingLogs: ConfirmDayLog[],
-  categories: ConfirmDayCategory[]
+  categories: ConfirmDayCategory[],
+  now?: string
 ): ConfirmDayResult {
   const weekday = isoToWeekday(date);
   const active = blocks.filter((b) => b.days_of_week.includes(weekday));
@@ -58,6 +73,10 @@ export function buildConfirmDayRows(
   const skipped: ConfirmDaySkip[] = [];
 
   for (const block of active) {
+    if (now !== undefined && !hasBlockElapsed(block, now)) {
+      skipped.push({ blockId: block.id, reason: "not-elapsed" });
+      continue;
+    }
     if (!block.category_id) {
       skipped.push({ blockId: block.id, reason: "no-category" });
       continue;

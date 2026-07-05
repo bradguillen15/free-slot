@@ -40,7 +40,6 @@ export function createMockResourcesProvider(
       delete: vi.fn().mockResolvedValue(undefined),
       reorder: vi.fn().mockResolvedValue(undefined),
       insertMany: vi.fn().mockResolvedValue([]),
-      deleteExamples: vi.fn().mockResolvedValue(undefined),
       ...overrides.scheduleBlocks,
     },
     timeLogs: {
@@ -49,7 +48,6 @@ export function createMockResourcesProvider(
       update: vi.fn().mockResolvedValue(stub),
       delete: vi.fn().mockResolvedValue(undefined),
       insertMany: vi.fn().mockResolvedValue([]),
-      deleteExamples: vi.fn().mockResolvedValue(undefined),
       ...overrides.timeLogs,
     },
     profiles: {

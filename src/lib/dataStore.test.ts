@@ -53,8 +53,6 @@ import {
   useGenerateWeeklyPlanMutation,
   useDeleteWeeklyPlanMutation,
   useDeleteAccountMutation,
-  clearExampleData,
-  useClearExampleDataMutation,
   confirmDay,
   useConfirmDayMutation,
 } from "./dataStore";
@@ -245,30 +243,13 @@ describe("remaining hooks — same error contract", () => {
     await waitFor(() => expect(guest.current.data?.peak_hours).toEqual({ start: "09:00", end: "12:00" }));
   });
 
-  it("useProfile seeds cloud sample data once when sample_data_seeded is false", async () => {
+  it("useProfile does not touch other tables on profile load", async () => {
     queueTableResult("profiles", {
-      data: { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: true, weekly_review_day: 0, time_format: "24h", onboarding_completed: false, onboarding_skipped: false, sample_data_seeded: false },
-    });
-    queueTableResult("categories", { data: [{ id: "c1", name: "Deep work", type: "productive", color: "#000", is_default: true, hidden: false, created_at: "" }] });
-    queueTableResult("schedule_blocks", { data: [] });
-    queueTableResult("time_logs", { data: [] });
-    queueTableResult("profiles", { data: null });
-
-    const { result } = renderDataHook(() => useProfile());
-    await waitFor(() => expect(result.current.data?.sample_data_seeded).toBe(true));
-
-    expect(callsFor("schedule_blocks").some((c) => c.methods.some(([m]) => m === "insert"))).toBe(true);
-    expect(callsFor("time_logs").some((c) => c.methods.some(([m]) => m === "insert"))).toBe(true);
-    expect(callsFor("profiles").some((c) => c.methods.some(([m]) => m === "update"))).toBe(true);
-  });
-
-  it("useProfile does not reseed when sample_data_seeded is already true", async () => {
-    queueTableResult("profiles", {
-      data: { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: true, weekly_review_day: 0, time_format: "24h", onboarding_completed: false, onboarding_skipped: false, sample_data_seeded: true },
+      data: { peak_hours: { start: "09:00", end: "12:00" }, include_weekends: true, weekly_review_day: 0, time_format: "24h", onboarding_completed: false, onboarding_skipped: false },
     });
 
     const { result } = renderDataHook(() => useProfile());
-    await waitFor(() => expect(result.current.data?.sample_data_seeded).toBe(true));
+    await waitFor(() => expect(result.current.data?.time_format).toBe("24h"));
 
     expect(callsFor("categories")).toHaveLength(0);
     expect(callsFor("schedule_blocks")).toHaveLength(0);
@@ -505,55 +486,6 @@ describe("useDeleteAccountMutation", () => {
       await result.current.mutateAsync();
     });
     expect(vi.mocked(supabase.functions.invoke)).toHaveBeenCalledWith("delete-account");
-  });
-});
-
-describe("clearExampleData", () => {
-  it("guest mode filters is_example rows out of localStorage", async () => {
-    authState.user = null;
-    ensureBootstrap();
-    expect(listCategories().length).toBeGreaterThan(0); // sanity: bootstrap ran
-
-    await act(async () => {
-      await clearExampleData("guest", null);
-    });
-
-    const { listScheduleBlocks: listBlocks, listAllLogs } = await import("./localStore");
-    expect(listBlocks().every((b) => !b.is_example)).toBe(true);
-    expect(listAllLogs().every((l) => !l.is_example)).toBe(true);
-  });
-
-  it("cloud mode deletes example rows via resources", async () => {
-    queueTableResult("schedule_blocks", { data: null });
-    queueTableResult("time_logs", { data: null });
-
-    await act(async () => {
-      await clearExampleData("cloud", "u1");
-    });
-
-    expect(
-      callsFor("schedule_blocks").some((c) =>
-        c.methods.some(([m]) => m === "delete") && c.methods.some(([m, args]) => m === "eq" && args[0] === "is_example")
-      )
-    ).toBe(true);
-    expect(
-      callsFor("time_logs").some((c) =>
-        c.methods.some(([m]) => m === "delete") && c.methods.some(([m, args]) => m === "eq" && args[0] === "is_example")
-      )
-    ).toBe(true);
-  });
-});
-
-describe("useClearExampleDataMutation", () => {
-  it("clears guest sample data via the mutation", async () => {
-    authState.user = null;
-    ensureBootstrap();
-    const { result } = renderDataHook(() => useClearExampleDataMutation());
-    await act(async () => {
-      await result.current.mutateAsync();
-    });
-    const { listScheduleBlocks: listBlocks } = await import("./localStore");
-    expect(listBlocks().every((b) => !b.is_example)).toBe(true);
   });
 });
 
