@@ -72,4 +72,12 @@ describe("useDashboardStats", () => {
     expect(result.current.totals.total).toBe(90);
     expect(result.current.daysLogged).toBe(2);
   });
+
+  it("includes categories that only appear in planned data", () => {
+    state.logs = [];
+    const period = resolvePeriod("week", "2026-06-15");
+    const { result } = renderHook(() => useDashboardStats(period));
+    expect(result.current.categories.map((c) => c.id)).toEqual(["work"]);
+    state.logs = logs;
+  });
 });

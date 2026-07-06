@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import "@/i18n";
 
@@ -48,5 +49,30 @@ describe("WeekPage — Confirm Day", () => {
     await waitFor(() => {
       expect(document.querySelector('[data-tour="confirm-day"]')).toBeInTheDocument();
     });
+  });
+});
+
+describe("WeekPage — layout", () => {
+  it("renders free-time stats and week navigation for a guest", async () => {
+    renderWithProviders(<WeekPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("page-week")).toBeInTheDocument();
+      expect(screen.getByText(/total free time|tiempo libre total/i)).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /previous week|semana anterior/i })).toBeInTheDocument();
+  });
+
+  it("shows the guest AI upsell banner", () => {
+    renderWithProviders(<WeekPage />);
+    expect(screen.getByText(/create account|crear cuenta/i)).toBeInTheDocument();
+  });
+
+  it("navigates to the next week when next is clicked", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<WeekPage />, { route: "/app/week?week=2026-06-08" });
+    const title = await screen.findByRole("heading", { level: 1 });
+    const before = title.textContent;
+    await user.click(screen.getByRole("button", { name: /next week|semana siguiente/i }));
+    await waitFor(() => expect(title.textContent).not.toBe(before));
   });
 });

@@ -59,6 +59,22 @@ describe("PeriodSelector", () => {
     expect(onAnchorChange).toHaveBeenCalled();
   });
 
+  it("navigates by calendar month when kind is month", () => {
+    const onAnchorChange = vi.fn();
+    render(
+      <PeriodSelector
+        kind="month"
+        anchorISO="2026-06-15"
+        onKindChange={vi.fn()}
+        onAnchorChange={onAnchorChange}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: /previous/i }));
+    expect(onAnchorChange).toHaveBeenCalledWith("2026-05-15");
+    fireEvent.click(screen.getByRole("button", { name: /^next/i }));
+    expect(onAnchorChange).toHaveBeenCalledWith("2026-07-15");
+  });
+
   it("does not render a Custom option", () => {
     render(
       <PeriodSelector

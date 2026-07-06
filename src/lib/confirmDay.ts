@@ -95,6 +95,16 @@ export function blockInstancesForDate(blocks: ConfirmDayBlock[], date: string): 
  * `now` (HH:mm) makes the confirm elapsed-only — pass it when the confirmed date is
  * today so instances that haven't ended yet are skipped. Omit it for past dates.
  */
+function isInstanceElapsed(
+  block: Pick<ConfirmDayBlock, "start_time" | "end_time">,
+  isTail: boolean,
+  now?: string,
+): boolean {
+  if (now === undefined) return true;
+  if (isTail) return block.end_time.slice(0, 5) <= now.slice(0, 5);
+  return hasBlockElapsed(block, now);
+}
+
 export function buildConfirmDayRows(
   date: string,
   blocks: ConfirmDayBlock[],
@@ -112,13 +122,7 @@ export function buildConfirmDayRows(
 
   for (const { block, date: instanceDate } of instances) {
     const isTail = instanceDate !== date;
-    const elapsed =
-      now === undefined
-        ? true
-        : isTail
-          ? block.end_time.slice(0, 5) <= now.slice(0, 5)
-          : hasBlockElapsed(block, now);
-    if (!elapsed) {
+    if (!isInstanceElapsed(block, isTail, now)) {
       skipped.push({ blockId: block.id, reason: "not-elapsed" });
       continue;
     }

@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { GripVertical, Flame, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { weekStartISO, fmtWeekRange } from "@/lib/week";
 import { addDaysISO } from "@/lib/time";
 import { useUpsertWeeklyPrioritiesMutation } from "@/lib/dataStore";

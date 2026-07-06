@@ -212,4 +212,15 @@ describe("buildConfirmDayRows", () => {
     );
     expect(result.rows[0].type).toBe("unproductive");
   });
+
+  it("skips a block whose category_id is missing from the category list", () => {
+    const result = buildConfirmDayRows(
+      "2026-07-06",
+      [block({ category_id: "stale-id" })],
+      [],
+      categories,
+    );
+    expect(result.rows).toHaveLength(0);
+    expect(result.skipped).toEqual([{ blockId: "b1", reason: "no-category" }]);
+  });
 });

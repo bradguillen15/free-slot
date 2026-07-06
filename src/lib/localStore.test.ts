@@ -139,7 +139,7 @@ describe("activity / block upserts", () => {
 
   it("reorders categories by id list, ignoring unknown ids and trailing missing ones", () => {
     const a = upsertCategory({ name: "A", type: "productive" });
-    const b = upsertCategory({ name: "B", type: "productive" });
+    upsertCategory({ name: "B", type: "productive" });
     const c = upsertCategory({ name: "C", type: "essential" });
     reorderCategories([c.id, a.id, "does-not-exist"]);
     expect(listCategories().map((x) => x.name)).toEqual(["C", "A", "B"]);
@@ -180,7 +180,7 @@ describe("clearGuestData", () => {
     localStorage.setItem("freeslot:bestRatio", "42");
     localStorage.setItem("unrelated.key", "keep");
     const listener = vi.fn();
-    window.addEventListener("freeslot:guest-change", listener);
+    globalThis.addEventListener("freeslot:guest-change", listener);
 
     clearGuestData();
 
@@ -188,7 +188,7 @@ describe("clearGuestData", () => {
     expect(localStorage.getItem("unrelated.key")).toBe("keep");
     expect(listLogsForMonth("2026-06")).toEqual([]);
     expect(listener).toHaveBeenCalled();
-    window.removeEventListener("freeslot:guest-change", listener);
+    globalThis.removeEventListener("freeslot:guest-change", listener);
   });
 });
 

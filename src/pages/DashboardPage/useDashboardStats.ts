@@ -39,7 +39,7 @@ export function useDashboardStats(period: Period) {
       }
     }
     for (const row of plannedData) {
-      for (const [key, value] of Object.entries(row)) {
+      for (const key of Object.keys(row)) {
         if (key === "date") continue;
         if (!totals.has(key)) totals.set(key, 0);
       }

@@ -98,7 +98,7 @@ describe("TourProvider", () => {
   it("advancing past the last step completes and persists", async () => {
     renderTour();
     await waitFor(() => expect(screen.getByTestId("probe-step")).toHaveTextContent("welcome"));
-    for (let i = 0; i < TOUR_STEPS.length; i++) {
+    for (const _ of TOUR_STEPS) {
       fireEvent.click(screen.getByText("probe-next"));
     }
     await waitFor(() => expect(screen.getByTestId("probe-step")).toHaveTextContent("none"));

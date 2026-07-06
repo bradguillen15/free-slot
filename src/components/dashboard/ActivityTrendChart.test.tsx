@@ -1,7 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { cloneElement } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { isCategoryVisible, DEFAULT_VISIBLE_CAP } from "./ActivityTrendChart";
+import {
+  ActivityTrendChart,
+  isCategoryVisible,
+  DEFAULT_VISIBLE_CAP,
+} from "./ActivityTrendChart";
+import type { CategoryMeta, TrendRow } from "@/pages/DashboardPage/useDashboardStats";
 
 vi.mock("recharts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("recharts")>();
@@ -11,9 +16,6 @@ vi.mock("recharts", async (importOriginal) => {
       cloneElement(children, { width: 800, height: 400 } as never),
   };
 });
-
-import { ActivityTrendChart } from "./ActivityTrendChart";
-import type { CategoryMeta, TrendRow } from "@/pages/DashboardPage/useDashboardStats";
 
 function makeCategories(n: number): CategoryMeta[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -98,5 +100,14 @@ describe("ActivityTrendChart", () => {
     expect(toggle).toHaveAttribute("aria-checked", "false");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("reveals a category beyond the default cap when its legend entry is clicked", () => {
+    const categories = makeCategories(8);
+    render(<ActivityTrendChart trendData={trendData} plannedData={plannedData} categories={categories} />);
+    const button = screen.getByText("Cat 7").closest("button")!;
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "true");
   });
 });

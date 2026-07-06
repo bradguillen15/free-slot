@@ -1,9 +1,9 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient, setQueryClientForTests } from "@/lib/queryClient";
 import { MemoryRouter } from "react-router-dom";
-import "@/i18n";
+import i18n from "@/i18n";
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), {
@@ -38,11 +38,10 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
-import { ensureBootstrap, insertLog, setDashboardPeriod, upsertCategory } from "@/lib/localStore";
+import { ensureBootstrap, insertLog, setDashboardPeriod, upsertCategory, getDashboardPeriod } from "@/lib/localStore";
 import { addDaysISO, todayISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
 import { resetSupabaseMock, setTableResult } from "../../test/supabaseMock";
-import i18n from "@/i18n";
 import DashboardPage from ".";
 
 function seedGuestDashboardLogs() {
@@ -185,5 +184,23 @@ describe("DashboardPage — signed-in mode", () => {
       expect(screen.getByText(/Total tracked|Tiempo registrado/i)).toBeInTheDocument();
       expect(screen.getByText("Deep work")).toBeInTheDocument();
     });
+  });
+});
+
+describe("DashboardPage — period selector", () => {
+  beforeEach(() => {
+    seedGuestDashboardLogs();
+  });
+
+  it("persists period kind and anchor when the user changes period", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("radio", { name: /day/i })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("radio", { name: /day/i }));
+    fireEvent.click(screen.getByRole("button", { name: /previous/i }));
+
+    const stored = getDashboardPeriod();
+    expect(stored.kind).toBe("day");
+    expect(stored.anchorISO).toBeTruthy();
   });
 });

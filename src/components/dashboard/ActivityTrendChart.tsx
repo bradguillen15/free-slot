@@ -62,11 +62,11 @@ function mergeSeries(trendData: TrendRow[], plannedData: TrendRow[]): TrendRow[]
   });
 }
 
-type Props = {
+type Props = Readonly<{
   trendData: TrendRow[];
   plannedData: TrendRow[];
   categories: CategoryMeta[];
-};
+}>;
 
 export function ActivityTrendChart({ trendData, plannedData, categories }: Props) {
   const { t } = useTranslation();

@@ -11,12 +11,12 @@ const NAV_DELTA_DAYS: Record<PeriodKind, number> = {
   month: 30,
 };
 
-type Props = {
+type Props = Readonly<{
   kind: PeriodKind;
   anchorISO: string;
   onKindChange: (kind: PeriodKind) => void;
   onAnchorChange: (anchorISO: string) => void;
-};
+}>;
 
 export function PeriodSelector({ kind, anchorISO, onKindChange, onAnchorChange }: Props) {
   const { t } = useTranslation();
