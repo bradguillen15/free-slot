@@ -21,7 +21,6 @@ vi.mock("@/lib/dataStore", () => ({
   insertTimeLog: vi.fn(),
   invalidateTimeLogs: vi.fn(),
   useDailyNotesForWeek: () => ({ data: [] }),
-  useInboxItems: () => ({ data: [] }),
 }));
 
 vi.mock("@/resources", () => ({

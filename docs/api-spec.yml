@@ -11,7 +11,7 @@ paths:
   /functions/v1/generate-weekly-plan:
     post:
       summary: Generate AI weekly plan
-      description: Calls the Gemini API with gaps, activities, and priorities; upserts weekly_plans.
+      description: Calls the Gemini API with gaps, activities, priorities, and capped daily notes; upserts weekly_plans. Structural arrays are size-capped (gaps 200, activities 100, priorities 100).
       security:
         - bearerAuth: []
       requestBody:
@@ -33,6 +33,17 @@ paths:
                   type: array
                 priorities:
                   type: array
+                daily_notes:
+                  type: array
+                  description: Optional week notes as {date, text}; server caps at 14 notes / 500 chars each before prompting.
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        format: date
+                      text:
+                        type: string
                 locale:
                   type: string
                   enum: [en, es]
@@ -40,32 +51,8 @@ paths:
       responses:
         "200":
           description: Plan generated and stored
-        "401":
-          description: Unauthorized
-
-  /functions/v1/weekly-review:
-    post:
-      summary: Generate weekly review
-      description: Aggregates planned-vs-actual and writes weekly_reviews with AI insights.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                week_start:
-                  type: string
-                  format: date
-                locale:
-                  type: string
-                  enum: [en, es]
-                  description: UI language; AI-generated review insights are written in this language. Defaults to en when omitted or unsupported.
-      responses:
-        "200":
-          description: Review created
+        "400":
+          description: Missing week_start or payload exceeds size caps
         "401":
           description: Unauthorized
 

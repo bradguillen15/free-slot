@@ -41,7 +41,6 @@ Each entity resource exposes `insertMany(userId, rows[])` for bulk cloud writes.
 
 | Method | Edge function | Notes |
 |--------|--------------|-------|
-| `generateWeeklyReview(body)` | `weekly-review` | Returns `{ review }` |
 | `generateWeeklyPlan(body)` | `generate-weekly-plan` | Returns `{ plan, summary }` |
 | `deleteAccount(userId)` | `delete-account` | Deletes all user data server-side |
 

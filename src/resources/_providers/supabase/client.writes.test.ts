@@ -269,16 +269,4 @@ describe("createSupabaseProvider — writes", () => {
     });
   });
 
-  // ---------- inboxItems ----------
-  describe("inboxItems.insert", () => {
-    it("inserts inbox_items with user_id", async () => {
-      queueTableResult("inbox_items", {
-        data: { id: "i1", user_id: USER_ID, content: "Capture this", created_at: "", archived_at: null },
-      });
-      await provider.inboxItems.insert(USER_ID, "Capture this");
-      const call = fromCalls.find((c) => c.table === "inbox_items");
-      const insertArgs = call?.methods.find(([m]) => m === "insert")?.[1][0];
-      expect(insertArgs).toMatchObject({ user_id: USER_ID, content: "Capture this" });
-    });
-  });
 });

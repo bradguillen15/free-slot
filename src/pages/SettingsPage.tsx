@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Form, FormControl, FormField, FormItem,
 } from "@/components/ui/form";
@@ -31,7 +30,6 @@ const deleteAccountSchema = z.object({ confirmText: z.literal("DELETE") });
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const { t } = useTranslation();
-  const days = t("settings.days", { returnObjects: true }) as string[];
   const navigate = useNavigate();
 
   const { data: profileRaw } = useProfile();
@@ -39,7 +37,7 @@ export default function SettingsPage() {
 
   const form = useForm<PlannerPrefsValues>({
     resolver: zodResolver(plannerPrefsSchema),
-    defaultValues: { includeWeekends: true, weeklyReviewDay: 0, timeFormat: "24h" },
+    defaultValues: { includeWeekends: true, timeFormat: "24h" },
   });
   const { isDirty } = useFormState({ control: form.control });
   const timeFormat = form.watch("timeFormat");
@@ -50,7 +48,6 @@ export default function SettingsPage() {
     if (!profileRaw || isDirty) return;
     form.reset({
       includeWeekends: profileRaw.include_weekends ?? true,
-      weeklyReviewDay: profileRaw.weekly_review_day ?? 0,
       timeFormat: profileRaw.time_format === "12h" ? "12h" : "24h",
     });
   }, [profileRaw, isDirty, form]);
@@ -78,7 +75,6 @@ export default function SettingsPage() {
     try {
       await updateProfileMutation.mutateAsync({
         include_weekends: values.includeWeekends,
-        weekly_review_day: values.weeklyReviewDay,
         time_format: values.timeFormat,
       });
       form.reset(values);
@@ -172,24 +168,6 @@ export default function SettingsPage() {
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="weeklyReviewDay"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <Label>{t("settings.weeklyReviewDay")}</Label>
-                    <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {days.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
 
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div>

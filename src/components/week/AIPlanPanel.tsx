@@ -17,7 +17,6 @@ import {
   insertTimeLog,
   invalidateTimeLogs,
   useDailyNotesForWeek,
-  useInboxItems,
 } from "@/lib/dataStore";
 import { resources } from "@/resources";
 import { tiptapToText } from "@/lib/tiptapText";
@@ -74,7 +73,6 @@ export function AIPlanPanel({
   const { data: planData } = useWeeklyPlan(weekStart);
   const { data: priorities } = useWeeklyPriorities(weekStart);
   const { data: rawDailyNotes } = useDailyNotesForWeek(weekStart, weekEnd);
-  const { data: rawInboxItems } = useInboxItems();
   const generateMutation = useGenerateWeeklyPlanMutation();
   const deleteMutation = useDeleteWeeklyPlanMutation();
 
@@ -84,11 +82,6 @@ export function AIPlanPanel({
         .map((n) => ({ date: n.date, text: tiptapToText(n.content as object) }))
         .filter((n) => n.text.length > 0),
     [rawDailyNotes]
-  );
-
-  const inboxItems = useMemo(
-    () => (rawInboxItems ?? []).map((i) => i.content),
-    [rawInboxItems]
   );
 
   const [summary, setSummary] = useState<string>("");
@@ -142,7 +135,6 @@ export function AIPlanPanel({
         })),
         priorities,
         daily_notes: dailyNotes.length ? dailyNotes : undefined,
-        inbox_items: inboxItems.length ? inboxItems : undefined,
         locale: toSupportedLocale(i18n.language),
       });
 

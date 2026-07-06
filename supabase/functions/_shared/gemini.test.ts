@@ -2,12 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   GEMINI_MODEL,
   buildPlanGeminiBody,
-  buildReviewGeminiBody,
   formatGeminiApiError,
   geminiFailureHttpStatus,
   geminiGenerateContentUrl,
   parseGeminiFunctionCall,
-  parseGeminiText,
   sanitizeGeminiMessage,
   type GeminiResponse,
 } from "./gemini.ts";
@@ -33,41 +31,6 @@ describe("buildPlanGeminiBody", () => {
     });
     const tools = body.tools as Array<{ functionDeclarations: Array<{ name: string }> }>;
     expect(tools[0].functionDeclarations[0].name).toBe("propose_plan");
-  });
-});
-
-describe("buildReviewGeminiBody", () => {
-  it("includes system instruction without tools", () => {
-    const body = buildReviewGeminiBody("sys", "user");
-    expect(body.systemInstruction).toEqual({ parts: [{ text: "sys" }] });
-    expect(body.tools).toBeUndefined();
-    expect(body.generationConfig).toEqual({ maxOutputTokens: 512 });
-  });
-});
-
-describe("parseGeminiText", () => {
-  it("extracts trimmed text from the first text part", () => {
-    const response: GeminiResponse = {
-      candidates: [
-        {
-          content: {
-            parts: [{ text: "  Hello week.  " }],
-          },
-        },
-      ],
-    };
-    expect(parseGeminiText(response)).toBe("Hello week.");
-  });
-
-  it("returns null when no text part exists", () => {
-    expect(parseGeminiText({ candidates: [{ content: { parts: [] } }] })).toBeNull();
-  });
-
-  it("returns null for whitespace-only text", () => {
-    const response: GeminiResponse = {
-      candidates: [{ content: { parts: [{ text: "   \n\t  " }] } }],
-    };
-    expect(parseGeminiText(response)).toBeNull();
   });
 });
 

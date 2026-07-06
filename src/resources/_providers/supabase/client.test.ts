@@ -126,54 +126,6 @@ describe("createSupabaseProvider", () => {
     });
   });
 
-  describe("weeklyReviews.getForWeek", () => {
-    it("queries weekly_reviews filtered by user_id and week_start", async () => {
-      const review = { id: "r1", week_start: "2024-06-03", insights: "Great week!", completed_at: "2024-06-09T10:00:00Z" };
-      queueTableResult("weekly_reviews", { data: review });
-      const result = await provider.weeklyReviews.getForWeek(USER_ID, "2024-06-03");
-      expect(result?.id).toBe("r1");
-      expect(result?.insights).toBe("Great week!");
-      const call = fromCalls.find((c) => c.table === "weekly_reviews");
-      expect(call?.methods.some(([m, args]) => m === "eq" && args[0] === "week_start")).toBe(true);
-    });
-
-    it("returns null when no review found", async () => {
-      queueTableResult("weekly_reviews", { data: null });
-      const result = await provider.weeklyReviews.getForWeek(USER_ID, "2024-06-03");
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("functions.generateWeeklyReview", () => {
-    it("invokes the weekly-review edge function and returns the result", async () => {
-      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
-        data: { review: { insights: "Productive week!" } },
-        error: null,
-      });
-      const body = { week_start: "2024-06-03", planned: [], actual: [], productive_ratio: 80, total_tracked: 300 };
-      const result = await provider.functions.generateWeeklyReview(body);
-      expect(result.review.insights).toBe("Productive week!");
-      expect(supabase.functions.invoke).toHaveBeenCalledWith("weekly-review", { body });
-    });
-
-    it("throws when the edge function returns an error", async () => {
-      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: new Error("Function failed") });
-      await expect(
-        provider.functions.generateWeeklyReview({ week_start: "2024-06-03", planned: [], actual: [], productive_ratio: 0, total_tracked: 0 })
-      ).rejects.toThrow("Function failed");
-    });
-
-    it("prefers the error message from the response body when invoke fails", async () => {
-      vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
-        data: { error: "Gemini API key is invalid or missing. Set GEMINI_API_KEY in Supabase secrets and redeploy edge functions." },
-        error: new Error("Edge Function returned a non-2xx status code"),
-      } as Awaited<ReturnType<typeof supabase.functions.invoke>>);
-      await expect(
-        provider.functions.generateWeeklyReview({ week_start: "2024-06-03", planned: [], actual: [], productive_ratio: 0, total_tracked: 0 })
-      ).rejects.toThrow("Gemini API key is invalid or missing");
-    });
-  });
-
   describe("weeklyPriorities.listForWeek", () => {
     it("queries weekly_priorities filtered by user_id and week_start ordered by rank", async () => {
       queueTableResult("weekly_priorities", {

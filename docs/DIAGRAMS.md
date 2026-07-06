@@ -31,7 +31,7 @@ flowchart TD
     end
 
     Supa --> DB[("Supabase Postgres<br/>(RLS: auth.uid() = user_id)")]
-    Supa --> Edge["Edge functions (Deno)<br/>generate-weekly-plan · weekly-review · delete-account"]
+    Supa --> Edge["Edge functions (Deno)<br/>generate-weekly-plan · delete-account"]
     Edge --> Gemini["Gemini API<br/>(GEMINI_API_KEY secret)"]
 
     classDef store fill:#eef,stroke:#557;

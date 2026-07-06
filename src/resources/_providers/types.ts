@@ -1,6 +1,5 @@
-import type { LocalActivity, LocalCategory, LocalDailyNote, LocalInboxItem, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
+import type { LocalActivity, LocalCategory, LocalDailyNote, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
-import type { WeeklyReview } from "@/resources/types/weeklyReview";
 import type { WeeklyPriority } from "@/resources/types/weeklyPriority";
 
 export type TimeLogInput = {
@@ -87,9 +86,6 @@ export interface ResourcesProvider {
     getForWeek(userId: string, weekStart: string): Promise<WeeklyPlan | null>;
     delete(userId: string, weekStart: string): Promise<void>;
   };
-  weeklyReviews: {
-    getForWeek(userId: string, weekStart: string): Promise<WeeklyReview | null>;
-  };
   weeklyPriorities: {
     listForWeek(userId: string, weekStart: string): Promise<WeeklyPriority[]>;
     upsertMany(userId: string, weekStart: string, priorities: { activity_id: string; rank: number }[]): Promise<WeeklyPriority[]>;
@@ -101,29 +97,13 @@ export interface ResourcesProvider {
     listDates(userId: string): Promise<string[]>;
     insertMany(userId: string, rows: LocalDailyNote[]): Promise<void>;
   };
-  inboxItems: {
-    list(userId: string): Promise<LocalInboxItem[]>;
-    insert(userId: string, content: string): Promise<LocalInboxItem>;
-    archive(userId: string, id: string): Promise<void>;
-    insertMany(userId: string, rows: Omit<LocalInboxItem, "id">[]): Promise<LocalInboxItem[]>;
-  };
   functions: {
-    generateWeeklyReview(body: {
-      week_start: string;
-      planned: { name: string; minutes: number }[];
-      actual: { name: string; minutes: number }[];
-      productive_ratio: number;
-      total_tracked: number;
-      daily_notes?: { date: string; text: string }[];
-      locale?: "en" | "es";
-    }): Promise<{ review: { insights: string } }>;
     generateWeeklyPlan(body: {
       week_start: string;
       gaps: unknown[];
       activities: unknown[];
       priorities?: unknown[];
       daily_notes?: { date: string; text: string }[];
-      inbox_items?: string[];
       locale?: "en" | "es";
     }): Promise<{ slots: unknown[] }>;
     deleteAccount(userId: string): Promise<void>;

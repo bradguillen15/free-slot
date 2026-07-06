@@ -70,20 +70,12 @@ export type GuestDailyNote = {
   updated_at?: string;
 };
 
-export type GuestInboxItem = {
-  id: string;
-  content: string;
-  created_at?: string;
-  archived_at?: string | null;
-};
-
 export type GuestSeed = {
   profile?: GuestProfile;
   scheduleBlocks?: GuestScheduleBlock[];
   activities?: GuestActivity[];
   timeLogs?: GuestTimeLog[];
   dailyNotes?: GuestDailyNote[];
-  inboxItems?: GuestInboxItem[];
 };
 
 const DEFAULT_PROFILE = {
@@ -170,11 +162,6 @@ export async function seedGuest(page: Page, seed: GuestSeed): Promise<void> {
           );
         }
       }
-      if (data.inboxItems) {
-        localStorage.setItem(`${prefix}.inbox_items`, JSON.stringify(
-          data.inboxItems.map((item) => ({ archived_at: null, created_at: now, ...item })),
-        ));
-      }
     },
     { prefix: PREFIX, defaultProfile: DEFAULT_PROFILE, data: seed },
   );
@@ -248,16 +235,6 @@ export async function pickDefaultLabel(page: Page, labelName = "Deep work"): Pro
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("combobox").click();
   await page.getByRole("option", { name: labelName }).click();
-}
-
-/** Read all (non-archived) guest inbox items from localStorage. */
-export async function readGuestInboxItems(page: Page): Promise<GuestInboxItem[]> {
-  return page.evaluate((prefix) => {
-    const raw = localStorage.getItem(`${prefix}.inbox_items`);
-    if (!raw) return [];
-    const items: GuestInboxItem[] = JSON.parse(raw);
-    return items.filter((i) => !i.archived_at);
-  }, PREFIX);
 }
 
 export const test = base.extend({
