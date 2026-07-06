@@ -500,7 +500,8 @@ describe("confirmDay", () => {
       days_of_week: [1, 2, 3, 4, 5], type: "fixed", color: "#000", category_id: cat.id,
     });
 
-    const monday = "2026-07-06";
+    // Past Monday — must not equal `todayISO()` or confirmDay flips to elapsed-only behavior.
+    const monday = "2025-07-07";
     const result = await confirmDay("guest", null, monday);
 
     expect(result.rows).toHaveLength(1);
@@ -519,7 +520,7 @@ describe("confirmDay", () => {
       days_of_week: [1, 2, 3, 4, 5], type: "fixed", color: "#000", category_id: cat.id,
     });
 
-    const monday = "2026-07-06";
+    const monday = "2025-07-07";
     await confirmDay("guest", null, monday);
     await confirmDay("guest", null, monday);
 
@@ -538,8 +539,8 @@ describe("confirmDay", () => {
       days_of_week: [0], type: "fixed", color: "#000", category_id: cat.id,
     });
 
-    const sunday = "2026-07-05";
-    const monday = "2026-07-06";
+    const sunday = "2025-07-06";
+    const monday = "2025-07-07";
     const result = await confirmDay("guest", null, monday);
 
     expect(result.rows).toHaveLength(1);
@@ -555,9 +556,9 @@ describe("confirmDay", () => {
     });
     queueTableResult("time_logs", { data: [] });
     queueTableResult("categories", { data: [{ id: "c1", name: "Deep work", type: "productive", color: "#000", is_default: true, hidden: false, created_at: "" }] });
-    queueTableResult("time_logs", { data: [{ id: "l1", date: "2026-07-06", start_time: "09:00:00", end_time: "17:00:00", category_id: "c1", type: "productive", title: "Work", notes: null, note_json: null, created_at: "" }] });
+    queueTableResult("time_logs", { data: [{ id: "l1", date: "2025-07-07", start_time: "09:00:00", end_time: "17:00:00", category_id: "c1", type: "productive", title: "Work", notes: null, note_json: null, created_at: "" }] });
 
-    const result = await confirmDay("cloud", "u1", "2026-07-06");
+    const result = await confirmDay("cloud", "u1", "2025-07-07");
 
     expect(result.rows).toHaveLength(1);
     expect(
@@ -579,7 +580,7 @@ describe("useConfirmDayMutation", () => {
 
     const { result } = renderDataHook(() => useConfirmDayMutation());
     await act(async () => {
-      const confirmResult = await result.current.mutateAsync("2026-07-06");
+      const confirmResult = await result.current.mutateAsync("2025-07-07");
       expect(confirmResult.rows).toHaveLength(1);
     });
   });
