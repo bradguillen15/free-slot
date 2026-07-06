@@ -1,17 +1,82 @@
 name: CI
 
-# CI gates pull requests: lint, typecheck, unit tests, build, and the guest
-# E2E suite all run on every PR, so a change can't merge unless they pass.
-# It is also exposed as a reusable workflow (workflow_call) so the CD pipeline
-# can re-run the exact same checks on main before deploying.
+# CI gates pull requests with fast checks (lint, typecheck, unit tests, build).
+# The guest E2E suite is intentionally skipped on PRs — the pre-push git hook
+# already runs it locally, and CD runs it again on the merge commit as a hard
+# deploy gate — so the expensive suite only runs once per merged change.
+# This workflow is also exposed as a reusable workflow (workflow_call) so the
+# CD pipeline can run the full suite (checks + E2E) on main before deploying.
 on:
   pull_request:
   workflow_call:
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
+  checks:
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so SonarQube can attribute new-code and blame data.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests (with coverage)
+        run: pnpm test:coverage
+
+      - name: Build
+        run: pnpm build
+
+      # Runs after verify so coverage/lcov.info exists and a scan hiccup can't
+      # mask a real test failure. Skipped automatically on forks/Dependabot,
+      # which have no access to the SONAR_TOKEN secret.
+      - name: SonarQube scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+  e2e:
+    # Skip on pull_request: local pre-push hook covers E2E before the PR, and
+    # CD (via workflow_call, where the event is `push`) covers it before deploy.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -27,8 +92,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Cache the Playwright browser binaries, keyed by the resolved version
-      # in the lockfile so the cache invalidates when @playwright/test updates.
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
@@ -37,21 +100,15 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Verify (lint, typecheck, unit tests, build, guest E2E)
-        run: pnpm verify:ci
-        env:
-          VITE_SUPABASE_URL: https://placeholder.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
 
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 14
+      - name: Guest E2E
+        run: pnpm test:e2e
 
       - name: Upload Playwright report
         if: failure()

@@ -71,8 +71,8 @@ flow** end to end. Key facts:
 
 - **While implementing:** use `pnpm test` (and `pnpm lint` / `pnpm typecheck` as needed). Do **not** run the full E2E suite after every small change — it is slow.
 - **Final verification (once):** `pnpm verify` runs lint, typecheck, unit tests, **and** guest E2E. Run this when you believe the change is done, before archive or PR.
-- **PR CI:** `.github/workflows/ci.yml` runs `pnpm verify:ci` on every pull request (same gate, plus build and coverage).
-- **CD:** merge to `main` reuses `ci.yml` before deploy.
+- **PR CI:** `.github/workflows/ci.yml` runs fast checks (lint, typecheck, unit tests with coverage, build) on every pull request. The E2E job is skipped on PRs — the pre-push hook and CD cover it.
+- **CD:** merge to `main` reuses `ci.yml` with the E2E job enabled, so the full suite (checks + guest E2E) gates every deploy.
 - **Optional local pre-push:** `.githooks/pre-push` runs `pnpm test:e2e` before push if you want an extra guard; bypass with `git push --no-verify`. Agents should rely on one `pnpm verify` at completion instead of re-running E2E repeatedly.
 - **One-time setup:** `pnpm install` and `pnpm exec playwright install chromium`.
 - `pnpm test:e2e:ui` is for interactive debugging only.

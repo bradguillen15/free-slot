@@ -11,7 +11,8 @@ vi.mock("@/lib/dataStore", () => ({
 }));
 
 const category = { id: "c1", type: "productive" as const };
-const monday = "2026-07-06";
+/** Past Monday — must not equal `todayISO()` or tests flip to "not elapsed" behavior. */
+const monday = "2025-07-07";
 const block = (overrides: Record<string, unknown> = {}) => ({
   id: "b1", name: "Work", start_time: "09:00", end_time: "17:00",
   days_of_week: [1, 2, 3, 4, 5], category_id: "c1", ...overrides,
@@ -93,6 +94,20 @@ describe("ConfirmDayButton", () => {
         <ConfirmDayButton
           date={iso}
           blocks={[block({ start_time: "09:00", end_time: "17:00", days_of_week: [weekday] })]}
+          logs={[]}
+          categories={[category]}
+        />
+      );
+      expect(screen.getByTestId("confirm-day-button")).not.toBeDisabled();
+    });
+
+    it("offers the confirm action for an overnight block that ended earlier today, even with nothing elapsed on today's own schedule", () => {
+      const { iso, weekday } = freezeToday(8);
+      const prevWeekday = (weekday + 6) % 7;
+      render(
+        <ConfirmDayButton
+          date={iso}
+          blocks={[block({ id: "sleep", name: "Sleep", start_time: "23:00", end_time: "07:00", days_of_week: [prevWeekday] })]}
           logs={[]}
           categories={[category]}
         />

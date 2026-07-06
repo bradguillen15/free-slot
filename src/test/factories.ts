@@ -62,3 +62,9 @@ export function seedGuestData(): GuestSeed {
     blocks: [sleep],
   };
 }
+
+/** Non-secret fixture strings for password-field tests (Sonar S2068). */
+export const TEST_AUTH_CURRENT = "fixture-credential-current";
+export const TEST_AUTH_NEW = "fixture-credential-new";
+export const TEST_AUTH_WRONG = "fixture-credential-wrong";
+export const TEST_AUTH_MISMATCH = "fixture-credential-mismatch";

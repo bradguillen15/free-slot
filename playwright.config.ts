@@ -35,7 +35,7 @@ export default defineConfig({
   // occasional timing-sensitive drag-and-drop flake under parallel load; CI
   // gets two. A genuine failure still fails every attempt.
   retries: isCI ? 2 : 1,
-  workers: isCI || isUIMode ? 1 : undefined,
+  workers: isUIMode ? 1 : isCI ? 2 : undefined,
   reporter: isCI ? [["html", { open: "never" }], ["list"]] : "list",
   use: {
     baseURL: BASE_URL,

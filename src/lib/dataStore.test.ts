@@ -526,6 +526,29 @@ describe("confirmDay", () => {
     expect(localListLogs(monday, monday)).toHaveLength(1);
   });
 
+  it("guest mode confirms an overnight block's tail instance, dated the previous day", async () => {
+    authState.user = null;
+    ensureBootstrap();
+    const { upsertScheduleBlock: localUpsertBlock, listLogsInRange: localListLogs } = await import("./localStore");
+    const cat = listCategories()[0];
+    // Sleep scheduled Sunday night (weekday 0); confirming Monday should find its
+    // tail (ending Monday morning) and date the log Sunday — not Monday.
+    localUpsertBlock({
+      name: "Sleep", start_time: "23:00", end_time: "07:00",
+      days_of_week: [0], type: "fixed", color: "#000", category_id: cat.id,
+    });
+
+    const sunday = "2026-07-05";
+    const monday = "2026-07-06";
+    const result = await confirmDay("guest", null, monday);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].date).toBe(sunday);
+    const sundayLogs = localListLogs(sunday, sunday);
+    expect(sundayLogs).toHaveLength(1);
+    expect(sundayLogs[0]).toMatchObject({ start_time: "23:00", end_time: "07:00", category_id: cat.id });
+  });
+
   it("cloud mode inserts rows via resources.timeLogs.insertMany", async () => {
     queueTableResult("schedule_blocks", {
       data: [{ id: "b1", name: "Work", start_time: "09:00:00", end_time: "17:00:00", days_of_week: [1, 2, 3, 4, 5], category_id: "c1", color: "#000", type: "fixed", created_at: "" }],

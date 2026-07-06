@@ -24,10 +24,12 @@ pages / components
 
 | From | May import | Must NOT import |
 |------|-----------|-----------------|
-| pages/components | `@/resources` types only (via `dataStore` hooks) | `_providers` internals |
+| pages/components | `@/resources` types, `dataStore` hooks (`use*` reads and `use*Mutation` writes) | `_providers` internals; `dataStore` free functions with `(mode, userId)` — mode derivation lives only in `dataStore` |
 | `dataStore` | `@/resources` (reads), `@/lib/localStore` (guest branch) | `@/integrations/supabase/client` directly |
 | `resources/index.ts` | `_providers/types`, `_providers/supabase` | supabase client directly |
 | `_providers/supabase/*` | `@/integrations/supabase/client` | localStore, hooks |
+
+`dataStore` mutation functions return the concrete entity types (`LocalScheduleBlock`, `LocalTimeLog`, …) in both guest and cloud branches — never `unknown`. Known exception: `AIPlanPanel` (account-only) still calls `insertTimeLog`/`resources.timeLogs.insertMany` directly pending a batch-insert hook.
 
 ## Batch inserts (`insertMany`)
 
@@ -71,4 +73,4 @@ The Supabase provider is the default singleton. Tests that mock supabase directl
 - Phase 1: mutations migrated from `dataStore.ts` inline calls to `resources`.
 - Phase 2–3: feature-specific reads (weekly review, AI priorities) through resources.
 - Phase 4 ✅: onboarding / settings / migrateGuest — all direct supabase imports removed from those files.
-- Phase 5: ESLint enforcement (`no-restricted-imports`), full docs sweep.
+- Phase 5 ✅: ESLint enforcement — `no-restricted-imports` bans `@/integrations/supabase/client` in `src/pages/**` and `src/components/**` (except `Auth.tsx`); see `eslint.config.js`.

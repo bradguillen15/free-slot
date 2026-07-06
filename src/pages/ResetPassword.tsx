@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { toast } from "sonner";
 import { makePasswordSchema, type PasswordValues } from "@/lib/formSchemas";
+import { toastError } from "@/lib/toastError";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function ResetPassword() {
       toast.success(t("auth.reset.done"));
       navigate("/app", { replace: true });
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("settings.password.failed"));
+      toastError(err, t, "settings.password.failed");
     }
   };
 

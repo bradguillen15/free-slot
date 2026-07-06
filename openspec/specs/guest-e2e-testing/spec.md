@@ -123,17 +123,17 @@ The suite SHALL verify that switching the interface language updates visible cop
 - **WHEN** a guest switches the language to Spanish via the language switcher
 - **THEN** representative interface copy renders in Spanish and the preference persists across reload
 
-### Requirement: Guest E2E runs on every pull request and before push
+### Requirement: Guest E2E gates deploys and runs before push
 
-The guest E2E suite SHALL run headless on every pull-request CI run and again via CD (reusable `ci.yml` on merge to `main`). It SHALL publish diagnostic artifacts when a run fails. A local pre-push git hook SHALL run the suite before code is pushed so regressions are caught locally, and the hook MUST be bypassable for exceptional cases. UI changes that affect user-visible flows SHALL update the matching `e2e/*.e2e.ts` specs in the same change.
+The guest E2E suite SHALL run headless once per merged change, in CD (reusable `ci.yml` on merge to `main`) as a hard prerequisite for deploy. Pull-request CI SHALL run fast checks (lint, typecheck, unit tests with coverage, build) and SHALL skip the E2E job. It SHALL publish diagnostic artifacts when a run fails. A local pre-push git hook SHALL run the suite before code is pushed so regressions are caught locally, and the hook MUST be bypassable for exceptional cases. UI changes that affect user-visible flows SHALL update the matching `e2e/*.e2e.ts` specs in the same change.
 
-#### Scenario: PR CI runs the guest E2E suite
+#### Scenario: PR CI runs fast checks without E2E
 - **WHEN** a commit is pushed to a pull-request branch
-- **THEN** CI runs `pnpm verify:ci` (lint, typecheck, unit tests with coverage, build, and guest E2E) and fails if any E2E test fails
+- **THEN** CI runs lint, typecheck, unit tests with coverage, and build, and the E2E job is skipped
 
-#### Scenario: CD re-runs the same verify gate on merge to main
+#### Scenario: CD runs the guest E2E suite before deploying
 - **WHEN** code is merged to the main branch
-- **THEN** the CD workflow reuses `ci.yml`, which includes the guest E2E suite, before deploying
+- **THEN** the CD workflow reuses `ci.yml` with the E2E job enabled, and deploy proceeds only if the guest E2E suite passes
 
 #### Scenario: Failure artifacts are available
 - **WHEN** an E2E test fails in CI

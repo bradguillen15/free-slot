@@ -16,8 +16,10 @@ import {
 } from "@/components/ui/form";
 import { toast } from "sonner";
 import { ACTIVITY_PRESETS } from "@/lib/schedule";
-import { upsertActivity, deleteActivity } from "@/lib/dataStore";
+import { useUpsertActivityMutation, useDeleteActivityMutation } from "@/lib/dataStore";
 import { Surface } from "@/components/Surface";
+import { toastError } from "@/lib/toastError";
+import type { Activity as DomainActivity, Category as DomainCategory } from "@/resources";
 
 const makeActivityDraftSchema = (t: TFunction) => z.object({
   name: z.string().trim().min(1, t("validation.nameRequiredShort")),
@@ -26,28 +28,21 @@ const makeActivityDraftSchema = (t: TFunction) => z.object({
 });
 type ActivityDraftValues = z.infer<ReturnType<typeof makeActivityDraftSchema>>;
 
-type Category = { id: string; name: string; color: string; type: "productive" | "unproductive" | "essential" };
-type Activity = {
-  id: string;
-  name: string;
-  category_id: string | null;
-  target_hours_per_week: number;
-  is_active: boolean;
-};
+type Category = Pick<DomainCategory, "id" | "name" | "color" | "type">;
+type Activity = Pick<DomainActivity, "id" | "name" | "category_id" | "target_hours_per_week" | "is_active">;
 
 export function ActivityEditor({
-  userId,
   categories,
   activities,
   onChange,
 }: {
-  userId: string | null;
   categories: Category[];
   activities: Activity[];
   onChange: () => void;
 }) {
   const { t } = useTranslation();
-  const mode = userId ? "cloud" : "guest";
+  const upsertActivityMutation = useUpsertActivityMutation();
+  const deleteActivityMutation = useDeleteActivityMutation();
   const [local, setLocal] = useState<Activity[]>(activities);
 
   const activityDraftSchema = useMemo(() => makeActivityDraftSchema(t), [t]);
@@ -63,7 +58,7 @@ export function ActivityEditor({
 
   const addActivity = async (values: ActivityDraftValues) => {
     try {
-      await upsertActivity(mode, userId, {
+      await upsertActivityMutation.mutateAsync({
         name: values.name,
         category_id: values.categoryId || null,
         target_hours_per_week: values.target,
@@ -73,7 +68,7 @@ export function ActivityEditor({
       form.reset({ name: "", categoryId: "", target: 3 });
       onChange();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("activities.couldNotAdd"));
+      toastError(err, t, "activities.couldNotAdd");
     }
   };
 
@@ -81,7 +76,7 @@ export function ActivityEditor({
     const prevLocal = local; // pre-update snapshot for the revert in catch
     setLocal((prev) => prev.map((x) => (x.id === a.id ? { ...x, ...patch } : x)));
     try {
-      await upsertActivity(mode, userId, {
+      await upsertActivityMutation.mutateAsync({
         id: a.id,
         name: patch.name ?? a.name,
         category_id: patch.category_id !== undefined ? patch.category_id : a.category_id,
@@ -90,18 +85,18 @@ export function ActivityEditor({
       });
       onChange();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("activities.couldNotUpdate"));
+      toastError(err, t, "activities.couldNotUpdate");
       setLocal(prevLocal); // revert to the state before this specific edit
     }
   };
 
   const removeActivity = async (id: string) => {
     try {
-      await deleteActivity(mode, userId, id);
+      await deleteActivityMutation.mutateAsync(id);
       toast.success(t("activities.removed"));
       onChange();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("activities.couldNotRemove"));
+      toastError(err, t, "activities.couldNotRemove");
     }
   };
 

@@ -1,25 +1,15 @@
-// Guest dashboard — local-data analytics (see docs/guest-dashboard-plan.md).
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient, setQueryClientForTests } from "@/lib/queryClient";
 import { MemoryRouter } from "react-router-dom";
-import "@/i18n";
+import i18n from "@/i18n";
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), {
     success: vi.fn(),
     error: vi.fn(),
   }),
-}));
-
-vi.mock("@/lib/celebrate", () => ({
-  celebrateIfPersonalBest: vi.fn(() => false),
-  getBestRatio: vi.fn(() => 0),
-}));
-
-vi.mock("@/components/dashboard/WeeklyReviewModal", () => ({
-  WeeklyReviewModal: () => null,
 }));
 
 vi.mock("recharts", async (importOriginal) => {
@@ -48,11 +38,10 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
-import { ensureBootstrap, insertLog, upsertCategory } from "@/lib/localStore";
-import { addDaysISO } from "@/lib/time";
+import { ensureBootstrap, insertLog, setDashboardPeriod, upsertCategory, getDashboardPeriod } from "@/lib/localStore";
+import { addDaysISO, todayISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
 import { resetSupabaseMock, setTableResult } from "../../test/supabaseMock";
-import i18n from "@/i18n";
 import DashboardPage from ".";
 
 function seedGuestDashboardLogs() {
@@ -101,50 +90,65 @@ beforeEach(async () => {
 });
 
 describe("DashboardPage — guest mode", () => {
-  it("renders KPIs from seeded localStorage logs", async () => {
+  it("renders KPIs and the period selector from seeded localStorage logs", async () => {
     seedGuestDashboardLogs();
     renderPage();
 
     await waitFor(() => {
       expect(screen.getByText(/Total tracked|Tiempo registrado/i)).toBeInTheDocument();
       expect(screen.getByText(/Days logged|Días registrados/i)).toBeInTheDocument();
-      expect(screen.getAllByText("2h 30m").length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.queryByText(/AI slots|Slots de IA/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /week/i })).toBeInTheDocument();
+    expect(screen.getByText("Music practice")).toBeInTheDocument();
   });
 
-  it("shows the AI upsell card and hides Review week", async () => {
+  it("falls back to Week when a previously persisted period is the removed Custom kind", async () => {
+    setDashboardPeriod({ kind: "custom", anchorISO: "2026-06-15" });
     seedGuestDashboardLogs();
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: /Sign in/i })).toHaveAttribute("href", "/auth");
+      expect(screen.getByRole("radio", { name: /week/i })).toHaveAttribute("aria-checked", "true");
     });
-    expect(screen.queryByRole("button", { name: /Review week/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/AI plan vs logged/i)).not.toBeInTheDocument();
   });
 
-  it("still shows hidden categories in the category breakdown", async () => {
-    ensureBootstrap();
-    const weekStart = weekStartISO();
-    const hidden = upsertCategory({
-      name: "Hidden label",
-      type: "productive",
-      color: "#111111",
-      hidden: true,
-    });
-    insertLog({
-      date: addDaysISO(weekStart, 1),
-      start_time: "14:00",
-      end_time: "15:00",
-      type: "productive",
-      category_id: hidden.id,
-    });
+  it("does not gate the dashboard on having an account", async () => {
+    seedGuestDashboardLogs();
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Hidden label")).toBeInTheDocument();
+      expect(screen.queryByTestId("dashboard-empty")).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe("DashboardPage — empty state", () => {
+  it("shows the empty state with nothing logged or scheduled", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("dashboard-empty")).toBeInTheDocument();
+    });
+  });
+
+  it("clears the empty state once time is logged for the selected period", async () => {
+    const first = renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("dashboard-empty")).toBeInTheDocument();
+    });
+    first.unmount();
+
+    insertLog({
+      date: todayISO(),
+      start_time: "09:00",
+      end_time: "10:00",
+      type: "productive",
+      category_id: null,
+    });
+
+    // Re-render to pick up the newly inserted guest log (simulates navigating back to the dashboard).
+    renderPage();
+    await waitFor(() => {
+      expect(screen.queryByTestId("dashboard-empty")).not.toBeInTheDocument();
     });
   });
 });
@@ -170,29 +174,33 @@ describe("DashboardPage — signed-in mode", () => {
         { id: "cat-1", name: "Deep work", color: "#3b82f6", type: "productive", is_default: false, hidden: false },
       ],
     });
-    setTableResult("weekly_plans", {
-      data: {
-        slots: [
-          {
-            day: addDaysISO(weekStart, 1),
-            start: "09:00",
-            end: "10:00",
-            activity_id: "act-1",
-            activity_name: "Deep work",
-          },
-        ],
-      },
-    });
+    setTableResult("schedule_blocks", { data: [] });
   });
 
-  it("shows Review week and the AI plan vs logged card", async () => {
+  it("renders KPIs and the trend chart for a signed-in user", async () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Review week|Revisar semana/i })).toBeInTheDocument();
-      expect(screen.getByText(/AI plan vs logged|Plan IA vs registrado/i)).toBeInTheDocument();
-      expect(screen.getByText(/AI slots|Slots de IA/i)).toBeInTheDocument();
+      expect(screen.getByText(/Total tracked|Tiempo registrado/i)).toBeInTheDocument();
+      expect(screen.getByText("Deep work")).toBeInTheDocument();
     });
-    expect(screen.queryByText(/AI weekly plans|Planes semanales con IA/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("DashboardPage — period selector", () => {
+  beforeEach(() => {
+    seedGuestDashboardLogs();
+  });
+
+  it("persists period kind and anchor when the user changes period", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("radio", { name: /day/i })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("radio", { name: /day/i }));
+    fireEvent.click(screen.getByRole("button", { name: /previous/i }));
+
+    const stored = getDashboardPeriod();
+    expect(stored.kind).toBe("day");
+    expect(stored.anchorISO).toBeTruthy();
   });
 });

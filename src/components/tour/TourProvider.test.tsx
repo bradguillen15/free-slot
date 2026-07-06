@@ -8,12 +8,9 @@ import { TOUR_STEPS } from "./tourSteps";
 const mockUpdateProfile = vi.fn().mockResolvedValue(undefined);
 let mockProfile: { tour_completed: boolean } | null = { tour_completed: false };
 
-vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
-}));
 vi.mock("@/lib/dataStore", () => ({
   useProfile: () => ({ data: mockProfile, isLoading: false }),
-  updateProfile: (...args: unknown[]) => mockUpdateProfile(...args),
+  useUpdateProfileMutation: () => ({ mutateAsync: (...args: unknown[]) => mockUpdateProfile(...args) }),
 }));
 
 function Probe() {
@@ -95,17 +92,17 @@ describe("TourProvider", () => {
     await waitFor(() => expect(screen.getByTestId("probe-step")).toHaveTextContent("welcome"));
     fireEvent.click(screen.getByText("probe-skip"));
     expect(screen.getByTestId("probe-step")).toHaveTextContent("none");
-    expect(mockUpdateProfile).toHaveBeenCalledWith("guest", null, { tour_completed: true });
+    expect(mockUpdateProfile).toHaveBeenCalledWith({ tour_completed: true });
   });
 
   it("advancing past the last step completes and persists", async () => {
     renderTour();
     await waitFor(() => expect(screen.getByTestId("probe-step")).toHaveTextContent("welcome"));
-    for (let i = 0; i < TOUR_STEPS.length; i++) {
+    for (const _ of TOUR_STEPS) {
       fireEvent.click(screen.getByText("probe-next"));
     }
     await waitFor(() => expect(screen.getByTestId("probe-step")).toHaveTextContent("none"));
-    expect(mockUpdateProfile).toHaveBeenCalledWith("guest", null, { tour_completed: true });
+    expect(mockUpdateProfile).toHaveBeenCalledWith({ tour_completed: true });
   });
 
   it("start restarts the tour even after completion", async () => {

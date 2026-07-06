@@ -6,12 +6,12 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { GripVertical, Flame, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { weekStartISO, fmtWeekRange } from "@/lib/week";
 import { addDaysISO } from "@/lib/time";
 import { useUpsertWeeklyPrioritiesMutation } from "@/lib/dataStore";
 import { usePriorityData, type Activity, type RankItem } from "./usePriorityData";
 import { Surface } from "@/components/Surface";
+import { toastError } from "@/lib/toastError";
 
 type Category = { id: string; name: string; color: string; type: string };
 
@@ -76,7 +76,7 @@ export function PriorityRanker({
         items: next.map((it, i) => ({ activity_id: it.id, rank: i })),
       });
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("activities.couldNotSavePriorities"));
+      toastError(e, t, "activities.couldNotSavePriorities");
     }
   };
 

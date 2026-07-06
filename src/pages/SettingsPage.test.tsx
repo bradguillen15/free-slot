@@ -2,6 +2,12 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import {
+  TEST_AUTH_CURRENT,
+  TEST_AUTH_MISMATCH,
+  TEST_AUTH_NEW,
+  TEST_AUTH_WRONG,
+} from "@/test/factories";
 import "@/i18n";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -28,7 +34,7 @@ const refreshProfile = vi.hoisted(() => vi.fn());
 const updateProfileMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/dataStore", () => ({
   useProfile: () => ({ data: profileData.data, refresh: refreshProfile }),
-  updateProfile: updateProfileMock,
+  useUpdateProfileMutation: () => ({ mutateAsync: updateProfileMock }),
   useDeleteAccountMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -74,7 +80,7 @@ describe("SettingsPage planner preferences", () => {
     await user.click(screen.getByRole("switch", { name: "Switch to 12-hour AM/PM" }));
 
     await waitFor(() =>
-      expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", { time_format: "12h" }),
+      expect(updateProfileMock).toHaveBeenCalledWith({ time_format: "12h" }),
     );
   });
 
@@ -86,7 +92,7 @@ describe("SettingsPage planner preferences", () => {
     await user.click(screen.getByRole("button", { name: /Save preferences/ }));
 
     await waitFor(() =>
-      expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", {
+      expect(updateProfileMock).toHaveBeenCalledWith({
         include_weekends: false,
         weekly_review_day: 2,
         time_format: "24h",
@@ -101,15 +107,15 @@ describe("SettingsPage change password", () => {
     updateUserMock.mockResolvedValue({ error: null });
     renderWithProviders(<SettingsPage />);
 
-    await user.type(screen.getByTestId("settings-current-password"), "oldsecret1");
-    await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
-    await user.type(screen.getByTestId("settings-confirm-password"), "newsecret1");
+    await user.type(screen.getByTestId("settings-current-password"), TEST_AUTH_CURRENT);
+    await user.type(screen.getByTestId("settings-new-password"), TEST_AUTH_NEW);
+    await user.type(screen.getByTestId("settings-confirm-password"), TEST_AUTH_NEW);
     await user.click(screen.getByTestId("settings-password-submit"));
 
     await waitFor(() =>
-      expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "oldsecret1" }),
+      expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: TEST_AUTH_CURRENT }),
     );
-    await waitFor(() => expect(updateUserMock).toHaveBeenCalledWith({ password: "newsecret1" }));
+    await waitFor(() => expect(updateUserMock).toHaveBeenCalledWith({ password: TEST_AUTH_NEW }));
   });
 
   it("blocks the update and shows an error when the current password is wrong", async () => {
@@ -117,9 +123,9 @@ describe("SettingsPage change password", () => {
     signInWithPasswordMock.mockResolvedValue({ error: { status: 400, message: "Invalid login credentials" } });
     renderWithProviders(<SettingsPage />);
 
-    await user.type(screen.getByTestId("settings-current-password"), "wrongpass1");
-    await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
-    await user.type(screen.getByTestId("settings-confirm-password"), "newsecret1");
+    await user.type(screen.getByTestId("settings-current-password"), TEST_AUTH_WRONG);
+    await user.type(screen.getByTestId("settings-new-password"), TEST_AUTH_NEW);
+    await user.type(screen.getByTestId("settings-confirm-password"), TEST_AUTH_NEW);
     await user.click(screen.getByTestId("settings-password-submit"));
 
     expect(await screen.findByText("Your current password is incorrect.")).toBeInTheDocument();
@@ -130,9 +136,9 @@ describe("SettingsPage change password", () => {
     const user = userEvent.setup();
     renderWithProviders(<SettingsPage />);
 
-    await user.type(screen.getByTestId("settings-current-password"), "oldsecret1");
-    await user.type(screen.getByTestId("settings-new-password"), "newsecret1");
-    await user.type(screen.getByTestId("settings-confirm-password"), "different1");
+    await user.type(screen.getByTestId("settings-current-password"), TEST_AUTH_CURRENT);
+    await user.type(screen.getByTestId("settings-new-password"), TEST_AUTH_NEW);
+    await user.type(screen.getByTestId("settings-confirm-password"), TEST_AUTH_MISMATCH);
     await user.click(screen.getByTestId("settings-password-submit"));
 
     expect(await screen.findByText("Passwords don't match")).toBeInTheDocument();

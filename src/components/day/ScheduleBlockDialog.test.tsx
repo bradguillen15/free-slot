@@ -3,17 +3,18 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UserEvent } from "@testing-library/user-event";
 
+const upsertScheduleBlockMock = vi.hoisted(() => vi.fn());
+const deleteScheduleBlockMock = vi.hoisted(() => vi.fn());
+const upsertCategoryMock = vi.hoisted(() => vi.fn());
+
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/dataStore", () => ({
-  upsertScheduleBlock: vi.fn(),
-  deleteScheduleBlock: vi.fn(),
+  useUpsertScheduleBlockMutation: () => ({ mutateAsync: upsertScheduleBlockMock }),
+  useDeleteScheduleBlockMutation: () => ({ mutateAsync: deleteScheduleBlockMock }),
+  useUpsertCategoryMutation: () => ({ mutateAsync: upsertCategoryMock }),
   useProfile: () => ({ data: { time_format: "24h" } }),
 }));
-vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
-}));
 
-import { upsertScheduleBlock } from "@/lib/dataStore";
 import { ScheduleBlockDialog } from "./ScheduleBlockDialog";
 import type { PickerCategory } from "@/components/CategoryPicker";
 
@@ -37,7 +38,7 @@ describe("ScheduleBlockDialog validation", () => {
     render(<ScheduleBlockDialog {...baseProps} />);
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByText("Name is required")).toBeInTheDocument();
-    expect(upsertScheduleBlock).not.toHaveBeenCalled();
+    expect(upsertScheduleBlockMock).not.toHaveBeenCalled();
   });
 
   it("rejects submit when no label is selected", async () => {
@@ -46,7 +47,7 @@ describe("ScheduleBlockDialog validation", () => {
     await user.type(screen.getByPlaceholderText(/e\.g\. Work/), "Focus");
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByText("Pick a label")).toBeInTheDocument();
-    expect(upsertScheduleBlock).not.toHaveBeenCalled();
+    expect(upsertScheduleBlockMock).not.toHaveBeenCalled();
   });
 
   it("rejects equal start and end times on submit", async () => {
@@ -59,12 +60,12 @@ describe("ScheduleBlockDialog validation", () => {
 
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByText("End time must differ from start time")).toBeInTheDocument();
-    expect(upsertScheduleBlock).not.toHaveBeenCalled();
+    expect(upsertScheduleBlockMock).not.toHaveBeenCalled();
   });
 
   it("accepts an overnight block (end before start)", async () => {
     const user = userEvent.setup();
-    vi.mocked(upsertScheduleBlock).mockResolvedValue({ id: "b1" } as never);
+    upsertScheduleBlockMock.mockResolvedValue({ id: "b1" });
     render(<ScheduleBlockDialog {...baseProps} />);
     await user.type(screen.getByPlaceholderText(/e\.g\. Work/), "Sleep");
     await selectLabel(user);
@@ -75,9 +76,7 @@ describe("ScheduleBlockDialog validation", () => {
 
     await user.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() =>
-      expect(upsertScheduleBlock).toHaveBeenCalledWith(
-        "guest",
-        null,
+      expect(upsertScheduleBlockMock).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "Sleep",
           start_time: "22:00",
@@ -98,6 +97,6 @@ describe("ScheduleBlockDialog validation", () => {
     }
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByText("Select at least one day")).toBeInTheDocument();
-    expect(upsertScheduleBlock).not.toHaveBeenCalled();
+    expect(upsertScheduleBlockMock).not.toHaveBeenCalled();
   });
 });

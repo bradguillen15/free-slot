@@ -14,10 +14,15 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
-      include: ["src/lib/**/*.ts"],
+      include: [
+        "src/lib/**/*.ts",
+        "src/components/dashboard/**/*.{ts,tsx}",
+        "src/pages/DashboardPage/**/*.{ts,tsx}",
+        "src/pages/WeekPage.tsx",
+      ],
       // schedule.ts is data-only (preset constants, no logic).
-      exclude: ["src/lib/schedule.ts"],
-      reporter: ["text", "html"],
+      exclude: ["src/lib/schedule.ts", "**/*.{test,spec}.{ts,tsx}"],
+      reporter: ["text", "html", "lcov"],
       thresholds: { lines: 85 },
     },
   },

@@ -23,8 +23,8 @@ import {
   updateProfile,
   upsertActivity,
   upsertScheduleBlock,
-  getDashboardVisibleCards,
-  setDashboardVisibleCards,
+  getDashboardPeriod,
+  setDashboardPeriod,
   getGuestRecurringNote,
   upsertGuestRecurringNote,
   findMostRecentRecurringNote,
@@ -139,7 +139,7 @@ describe("activity / block upserts", () => {
 
   it("reorders categories by id list, ignoring unknown ids and trailing missing ones", () => {
     const a = upsertCategory({ name: "A", type: "productive" });
-    const b = upsertCategory({ name: "B", type: "productive" });
+    upsertCategory({ name: "B", type: "productive" });
     const c = upsertCategory({ name: "C", type: "essential" });
     reorderCategories([c.id, a.id, "does-not-exist"]);
     expect(listCategories().map((x) => x.name)).toEqual(["C", "A", "B"]);
@@ -180,7 +180,7 @@ describe("clearGuestData", () => {
     localStorage.setItem("freeslot:bestRatio", "42");
     localStorage.setItem("unrelated.key", "keep");
     const listener = vi.fn();
-    window.addEventListener("freeslot:guest-change", listener);
+    globalThis.addEventListener("freeslot:guest-change", listener);
 
     clearGuestData();
 
@@ -188,7 +188,7 @@ describe("clearGuestData", () => {
     expect(localStorage.getItem("unrelated.key")).toBe("keep");
     expect(listLogsForMonth("2026-06")).toEqual([]);
     expect(listener).toHaveBeenCalled();
-    window.removeEventListener("freeslot:guest-change", listener);
+    globalThis.removeEventListener("freeslot:guest-change", listener);
   });
 });
 
@@ -206,24 +206,16 @@ describe("weekly priorities", () => {
   });
 });
 
-describe("getDashboardVisibleCards / setDashboardVisibleCards", () => {
-  it("returns all-true defaults when nothing is stored", () => {
-    const cards = getDashboardVisibleCards();
-    expect(cards).toEqual({ perDay: true, byCategory: true, planVsLogged: true, agenda: true });
+describe("getDashboardPeriod / setDashboardPeriod", () => {
+  it("defaults to the current week when nothing is stored", () => {
+    expect(getDashboardPeriod()).toEqual({ kind: "week" });
   });
 
-  it("persists a partial toggle", () => {
-    setDashboardVisibleCards({ perDay: false, byCategory: true, planVsLogged: true, agenda: true });
-    const cards = getDashboardVisibleCards();
-    expect(cards.perDay).toBe(false);
-    expect(cards.byCategory).toBe(true);
+  it("persists a period kind and anchor round-trip", () => {
+    setDashboardPeriod({ kind: "month", anchorISO: "2026-06-15" });
+    expect(getDashboardPeriod()).toEqual({ kind: "month", anchorISO: "2026-06-15" });
   });
 
-  it("survives a round-trip for all false", () => {
-    const allHidden = { perDay: false, byCategory: false, planVsLogged: false, agenda: false };
-    setDashboardVisibleCards(allHidden);
-    expect(getDashboardVisibleCards()).toEqual(allHidden);
-  });
 });
 
 describe("recurring notes", () => {

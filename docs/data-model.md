@@ -15,7 +15,7 @@ Canonical detail also lives in `docs/CLOUD.md`. Update this file when entities o
 | WeeklyPlan | `weekly_plans` | `user_id`, `week_start`, `generated_at`, `slots` | AI-generated plan (`UNIQUE(user_id, week_start)`) |
 | WeeklyReview | `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | Completed week AI insights |
 | DailyNote | `daily_notes` | `user_id`, `date`, `content`, `updated_at` | Per-day rich notes |
-| InboxItem | `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | Week-view capture inbox |
+| InboxItem | `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | **UI removed** — was a Week-view capture inbox (its only entry point); table retained pending follow-up |
 
 ## Guest Mode Mirror
 

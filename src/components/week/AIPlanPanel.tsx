@@ -21,6 +21,7 @@ import {
 } from "@/lib/dataStore";
 import { resources } from "@/resources";
 import { tiptapToText } from "@/lib/tiptapText";
+import { errorMessage } from "@/lib/toastError";
 
 export type AISlot = {
   activity_id: string;
@@ -159,7 +160,7 @@ export function AIPlanPanel({
           : t("aiPanel.emptyPlanDesc"),
       });
     } catch (e: unknown) {
-      toast.error(t("aiPanel.generateFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
+      toast.error(t("aiPanel.generateFailTitle"), { description: errorMessage(e, t("aiPanel.tryAgain")) });
     } finally {
       generatingRef.current = false;
     }
@@ -172,7 +173,7 @@ export function AIPlanPanel({
       setSummary("");
       setAccepted(new Set());
     } catch (e: unknown) {
-      toast.error(t("aiPanel.clearFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
+      toast.error(t("aiPanel.clearFailTitle"), { description: errorMessage(e, t("aiPanel.tryAgain")) });
     }
   };
 
@@ -199,7 +200,7 @@ export function AIPlanPanel({
       setAccepted((s) => new Set(s).add(key));
       onSlotAccepted();
     } catch (e: unknown) {
-      toast.error(t("aiPanel.acceptSlotFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
+      toast.error(t("aiPanel.acceptSlotFailTitle"), { description: errorMessage(e, t("aiPanel.tryAgain")) });
     } finally {
       acceptingKeysRef.current.delete(key);
     }
@@ -241,7 +242,7 @@ export function AIPlanPanel({
       });
       onSlotAccepted();
     } catch (e: unknown) {
-      toast.error(t("aiPanel.acceptPlanFailTitle"), { description: e instanceof Error ? e.message : t("aiPanel.tryAgain") });
+      toast.error(t("aiPanel.acceptPlanFailTitle"), { description: errorMessage(e, t("aiPanel.tryAgain")) });
     } finally {
       setAcceptingAll(false);
     }

@@ -53,23 +53,6 @@ export default tseslint.config(
     },
   },
   {
-    files: [
-      "src/pages/DashboardPage.tsx",
-      "src/pages/DashboardPage/**/*.{ts,tsx}",
-      "src/pages/SettingsPage.tsx",
-      "src/pages/Onboarding.tsx",
-      "src/components/OnboardingGate.tsx",
-      "src/components/dashboard/WeeklyReviewModal.tsx",
-      "src/components/dashboard/WeeklyReviewModal/**/*.{ts,tsx}",
-      "src/components/week/AIPlanPanel.tsx",
-      "src/components/activities/PriorityRanker.tsx",
-      "src/components/activities/PriorityRanker/**/*.{ts,tsx}",
-    ],
-    rules: {
-      "no-restricted-imports": "off",
-    },
-  },
-  {
     // Test files legitimately import the Supabase client to mock and assert against it;
     // the "use dataStore in guest-capable views" guard only applies to production code.
     files: ["**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],

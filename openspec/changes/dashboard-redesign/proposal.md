@@ -1,3 +1,5 @@
+> **Superseded.** This change's implemented capabilities (`dashboard-agenda-view`, `dashboard-card-visibility`, `dashboard-label-filter`) were removed by `dashboard-activity-trends`, which replaced the card-grid dashboard with a single period-scoped trend chart. Not archived into main specs — do not sync.
+
 ## Why
 
 The dashboard currently shows a fixed weekly summary with no way to filter by activity/label, no agenda view for what was actually scheduled vs logged, and no user control over which cards appear. Power users with many categories can't focus on what matters to them, and the chart layout is one-size-fits-all.

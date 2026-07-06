@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, Sparkles, CalendarRange, Lock, Inbox } from "lucide-react";
+import { CalendarDays, Sparkles, CalendarRange, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { EmptyState } from "@/components/EmptyState";
@@ -12,14 +12,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addDaysISO, fmtDuration, fromMin, todayISO } from "@/lib/time";
 import { logDefaultsFromBlock } from "@/lib/schedule";
+import { useCategoryName } from "@/lib/categoryLabels";
 import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { type GapWindow } from "@/lib/gaps";
 import { buildDayCells, type DayCellData, type DayCellBlock, type DayCellLog } from "@/lib/calendarDays";
 import { WeekGrid } from "@/components/week/WeekGrid";
-import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
+import { QuickLogDialog } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
-import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
-import { AIPlanPanel, type WeeklyPlan, type ActivityLite } from "@/components/week/AIPlanPanel";
+import { ConfirmDayButton } from "@/components/day/ConfirmDayButton";
+import type { ScheduleBlock } from "@/resources";
+import { AIPlanPanel, type WeeklyPlan } from "@/components/week/AIPlanPanel";
 import {
   useActivities,
   useVisibleCategories,
@@ -27,14 +29,12 @@ import {
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
-  updateTimeLog,
-  upsertCategory,
+  useUpdateTimeLogMutation,
+  useUpsertCategoryMutation,
   useDailyNotesForWeek,
-  useInboxItems,
 } from "@/lib/dataStore";
-import { InboxPanel } from "@/components/notes/InboxPanel";
-import { motion, AnimatePresence } from "framer-motion";
 import { StatCard } from "@/components/StatCard";
+import { toastError } from "@/lib/toastError";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -49,6 +49,7 @@ function weekFromSearchParams(sp: URLSearchParams): string {
 export default function WeekPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const isGuest = !user;
   const [searchParams] = useSearchParams();
   const [weekStart, setWeekStart] = useState(() => weekFromSearchParams(searchParams));
@@ -65,26 +66,21 @@ export default function WeekPage() {
   }>({});
 
   const [aiPlan, setAiPlan] = useState<WeeklyPlan | null>(null);
-  const [inboxOpen, setInboxOpen] = useState(false);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const today = todayISO();
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
   const logsStart = useMemo(() => addDaysISO(weekStart, -1), [weekStart]);
 
-  const { data: blocksRaw, refresh: refreshBlocks } = useScheduleBlocks();
-  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(logsStart, weekEnd);
-  const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
+  const { data: blocks, refresh: refreshBlocks } = useScheduleBlocks();
+  const { data: logs, refresh: refreshLogs } = useTimeLogsInRange(logsStart, weekEnd);
+  const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw } = useActivities();
   const { data: weekNotes = [] } = useDailyNotesForWeek(weekStart, weekEnd);
   const notedDates = useMemo(() => new Set(weekNotes.map((n) => n.date)), [weekNotes]);
-  const { data: inboxItems = [] } = useInboxItems();
-  const { data: profileRaw } = useProfile();
-
-  const blocks = blocksRaw as unknown as ScheduleBlock[];
-  const logs = logsRaw as unknown as TimeLog[];
-  const allCategories = allCategoriesRaw as unknown as Category[];
-  const visibleCategories = visibleCategoriesRaw as unknown as Category[];
+  const { data: profile } = useProfile();
+  const updateTimeLogMutation = useUpdateTimeLogMutation();
+  const upsertCategoryMutation = useUpsertCategoryMutation();
   const logPickerCategories = useMemo(
     () => pickerCategories(visibleCategories, allCategories, logCtx.defaultCategoryId),
     [visibleCategories, allCategories, logCtx.defaultCategoryId]
@@ -94,10 +90,9 @@ export default function WeekPage() {
     [visibleCategories, allCategories, blockDialogTarget.block?.category_id]
   );
   const activities = useMemo(
-    () => (activitiesRaw ?? []).filter((a) => (a as { is_active?: boolean }).is_active),
+    () => (activitiesRaw ?? []).filter((a) => a.is_active),
     [activitiesRaw]
   );
-  const profile = profileRaw as unknown as { peak_hours: { start: string; end: string } | null } | null;
 
   const blockById = useMemo(
     () => Object.fromEntries(blocks.map((b) => [b.id, b])),
@@ -110,16 +105,8 @@ export default function WeekPage() {
   );
 
   const dayCells: DayCellData[] = useMemo(
-    () => buildDayCells({
-      days,
-      blocks: blocks as unknown as Parameters<typeof buildDayCells>[0]["blocks"],
-      logs: logs as unknown as Parameters<typeof buildDayCells>[0]["logs"],
-      categories: allCategories as unknown as Parameters<typeof buildDayCells>[0]["categories"],
-      profile: profile as unknown as Parameters<typeof buildDayCells>[0]["profile"],
-      today,
-      aiPlan,
-    }),
-    [days, blocks, logs, allCategories, profile, today, aiPlan]
+    () => buildDayCells({ days, blocks, logs, categories: allCategories, profile, today, aiPlan, t }),
+    [days, blocks, logs, allCategories, profile, today, aiPlan, t]
   );
 
   const flatGaps = useMemo(
@@ -145,21 +132,20 @@ export default function WeekPage() {
   const openSleepLog = async () => {
     const inWeek = today >= weekStart && today <= addDaysISO(weekStart, 6);
     const targetDate = inWeek ? today : weekStart;
-    let sleepCat = allCategories.find((c) => (c as { name?: string }).name === "Sleep");
+    let sleepCat = allCategories.find((c) => c.name === "Sleep");
     if (!sleepCat) {
-      const mode = isGuest ? "guest" as const : "cloud" as const;
-      const created = await upsertCategory(mode, user?.id ?? null, {
+      const created = await upsertCategoryMutation.mutateAsync({
         name: "Sleep", type: "productive", color: "#6366f1",
       });
       await refreshCats();
-      sleepCat = created as typeof allCategories[0];
+      sleepCat = created;
     }
     setLogCtx({
       date: targetDate,
       start: "23:00",
       end: "07:00",
-      defaultCategoryId: (sleepCat as { id: string }).id,
-      defaultTitle: "Sleep",
+      defaultCategoryId: sleepCat.id,
+      defaultTitle: categoryName("Sleep"),
     });
     setLogOpen(true);
   };
@@ -177,7 +163,8 @@ export default function WeekPage() {
   const onBlockClick = (iso: string, cellBlock: DayCellBlock) => {
     const full = cellBlock.id ? blockById[cellBlock.id] : undefined;
     if (!full) return;
-    setLogCtx({ date: iso, ...logDefaultsFromBlock(full) });
+    const defaults = logDefaultsFromBlock(full);
+    setLogCtx({ date: iso, ...defaults, defaultTitle: categoryName(defaults.defaultTitle) });
     setLogOpen(true);
   };
 
@@ -187,27 +174,29 @@ export default function WeekPage() {
     newStartMin: number,
     newEndMin: number,
   ) => {
-    const log = (logsRaw ?? []).find((l) => (l as { id?: string }).id === logId);
-    if (!(log as { category_id?: string | null } | undefined)?.category_id) {
+    const log = logs.find((l) => l.id === logId);
+    if (!log?.category_id) {
       toast.error(t("week.assignCategory"));
       return;
     }
     try {
-      const mode = isGuest ? "guest" as const : "cloud" as const;
-      await updateTimeLog(mode, user?.id ?? null, logId, {
-        date: newDate,
-        start_time: fromMin(newStartMin),
-        end_time: fromMin(newEndMin),
-        category_id: (log as { category_id: string }).category_id,
-        type: (log as { type: "productive" | "unproductive" | "essential" }).type,
-        title: (log as { title?: string | null }).title ?? null,
-        notes: (log as { notes: string | null }).notes,
-        note_json: (log as { note_json?: object | null }).note_json ?? null,
+      await updateTimeLogMutation.mutateAsync({
+        id: logId,
+        input: {
+          date: newDate,
+          start_time: fromMin(newStartMin),
+          end_time: fromMin(newEndMin),
+          category_id: log.category_id,
+          type: log.type,
+          title: log.title ?? null,
+          notes: log.notes,
+          note_json: log.note_json ?? null,
+        },
       });
       toast.success(t("week.rescheduled"));
       await refreshLogs();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("week.couldNotReschedule"));
+      toastError(e, t, "week.couldNotReschedule");
     }
   };
 
@@ -234,14 +223,24 @@ export default function WeekPage() {
         label={t("calendar.weekView")}
         title={fmtWeekRange(weekStart)}
         actions={
-          <CalendarNav
-            onToday={() => setWeekStart(weekStartISO())}
-            onPrev={() => setWeekStart(addDaysISO(weekStart, -7))}
-            onNext={() => setWeekStart(addDaysISO(weekStart, 7))}
-            todayLabel={t("calendar.today")}
-            prevLabel={t("calendar.prevWeek")}
-            nextLabel={t("calendar.nextWeek")}
-          />
+          <div className="flex items-center gap-2">
+            {today >= weekStart && today <= weekEnd && (
+              <ConfirmDayButton
+                date={today}
+                blocks={blocks}
+                logs={logs}
+                categories={allCategories}
+              />
+            )}
+            <CalendarNav
+              onToday={() => setWeekStart(weekStartISO())}
+              onPrev={() => setWeekStart(addDaysISO(weekStart, -7))}
+              onNext={() => setWeekStart(addDaysISO(weekStart, 7))}
+              todayLabel={t("calendar.today")}
+              prevLabel={t("calendar.prevWeek")}
+              nextLabel={t("calendar.nextWeek")}
+            />
+          </div>
         }
       />
 
@@ -281,7 +280,7 @@ export default function WeekPage() {
         <AIPlanPanel
           weekStart={weekStart}
           gaps={flatGaps}
-          activities={activities as ActivityLite[]}
+          activities={activities}
           categories={allCategories}
           onPlanChange={setAiPlan}
           onSlotAccepted={refreshLogs}
@@ -293,51 +292,19 @@ export default function WeekPage() {
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-primary/40" /> {t("week.planned")}</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-productive" /> {t("week.logged")}</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm border border-primary/70 bg-primary/20" /> {t("week.aiSuggestion")}</span>
-          <span className="ml-auto flex items-center gap-3">
-            <span className="hidden lg:inline">{t("week.clickToEdit")}</span>
-            <button
-              type="button"
-              aria-label={t("week.toggleInbox")}
-              onClick={() => setInboxOpen((v) => !v)}
-              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Inbox className="h-3.5 w-3.5" />
-              <span>{t("week.inbox")}</span>
-              {inboxItems.length > 0 && (
-                <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full gradient-primary px-1 text-[10px] font-medium text-primary-foreground">
-                  {inboxItems.length}
-                </span>
-              )}
-            </button>
-          </span>
+          <span className="ml-auto hidden lg:inline">{t("week.clickToEdit")}</span>
         </div>
 
-        <div className="flex gap-4">
-          <div className="overflow-x-auto flex-1 min-w-0">
-            <WeekGrid
-                days={dayCells}
-                onGapClick={onGapClick}
-                onSlotClick={onSlotClick}
-                onBlockClick={onBlockClick}
-                onLogClick={onLogClick}
-                onLogReschedule={handleLogReschedule}
-                notedDates={notedDates}
-              />
-          </div>
-
-          <AnimatePresence>
-            {inboxOpen && (
-              <motion.div
-                initial={{ opacity: 0, x: 24, width: 0 }}
-                animate={{ opacity: 1, x: 0, width: 280 }}
-                exit={{ opacity: 0, x: 24, width: 0 }}
-                transition={{ duration: 0.2 }}
-                className="shrink-0 overflow-hidden"
-              >
-                <InboxPanel className="w-[280px] rounded-xl border border-border bg-surface p-4" />
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="overflow-x-auto">
+          <WeekGrid
+              days={dayCells}
+              onGapClick={onGapClick}
+              onSlotClick={onSlotClick}
+              onBlockClick={onBlockClick}
+              onLogClick={onLogClick}
+              onLogReschedule={handleLogReschedule}
+              notedDates={notedDates}
+            />
         </div>
       </div>
 
