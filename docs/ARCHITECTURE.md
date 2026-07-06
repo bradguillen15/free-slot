@@ -218,7 +218,7 @@ The app builds to a static SPA (`pnpm build` → `dist/`) and can be served from
 
 ## 11. Code quality (SonarQube Cloud)
 
-Every PR runs a SonarQube Cloud scan as a step in the CI `verify` job (`.github/workflows/ci.yml`), configured by `sonar-project.properties`. It reuses the `coverage/lcov.info` that `pnpm test:coverage` already emits (the `lcov` Vitest reporter), so no extra test run is added.
+Every PR runs a SonarQube Cloud scan as a step in the CI `checks` job (`.github/workflows/ci.yml`), configured by `sonar-project.properties`. It reuses the `coverage/lcov.info` that `pnpm test:coverage` already emits (the `lcov` Vitest reporter), so no extra test run is added. `main` gets the same scan on every merge: `cd.yml` invokes the reusable CI workflow with `secrets: inherit`, so `SONAR_TOKEN` is available there too — this keeps the new-code baseline fresh.
 
 - **Setup**: import the repo at [sonarcloud.io](https://sonarcloud.io), disable *Automatic Analysis* (it conflicts with this CI-based scan), and add a `SONAR_TOKEN` repo secret. The scan step self-skips when the secret is absent (forks/Dependabot).
 - **Scope**: analysis covers `src/`; generated types, `src/components/ui/**` (shadcn), and `*.d.ts` are excluded. Coverage is still scoped to `src/lib/**` (see `vitest.config.ts`), so the dashboard's coverage figure reflects library logic, not the whole tree.

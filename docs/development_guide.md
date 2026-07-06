@@ -71,8 +71,9 @@ flow** end to end. Key facts:
 
 - **While implementing:** use `pnpm test` (and `pnpm lint` / `pnpm typecheck` as needed). Do **not** run the full E2E suite after every small change — it is slow.
 - **Final verification (once):** `pnpm verify` runs lint, typecheck, unit tests, **and** guest E2E. Run this when you believe the change is done, before archive or PR.
-- **PR CI:** `.github/workflows/ci.yml` runs fast checks (lint, typecheck, unit tests with coverage, build) on every pull request. The E2E job is skipped on PRs — the pre-push hook and CD cover it.
-- **CD:** merge to `main` reuses `ci.yml` with the E2E job enabled, so the full suite (checks + guest E2E) gates every deploy.
+- **PR CI:** `.github/workflows/ci.yml` runs fast checks (lint, typecheck, unit tests with coverage, build) on every pull request. Check steps use `!cancelled()` so one failure doesn't hide the others — a red run reports every failing check. Docs-only PRs (`**.md`, `openspec/**`) skip CI entirely. The E2E job is skipped on PRs — the pre-push hook and CD cover it.
+- **CD:** merge to `main` reuses `ci.yml` (with `secrets: inherit`, so the Sonar scan also runs on `main`) with the E2E job enabled, so the full suite (checks + guest E2E) gates every deploy. All jobs carry `timeout-minutes` caps so a hung run can't burn hours of Actions time.
+- **Portability note:** all pipeline logic lives in `pnpm` scripts (`verify`, `verify:fast`, `test:e2e`); the workflows are thin callers. If GitHub Actions pricing ever changes, point any other runner at the same scripts.
 - **Optional local pre-push:** `.githooks/pre-push` runs `pnpm test:e2e` before push if you want an extra guard; bypass with `git push --no-verify`. Agents should rely on one `pnpm verify` at completion instead of re-running E2E repeatedly.
 - **One-time setup:** `pnpm install` and `pnpm exec playwright install chromium`.
 - `pnpm test:e2e:ui` is for interactive debugging only.

@@ -15,6 +15,9 @@ on:
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
+    # Without this, SONAR_TOKEN is empty inside the reusable workflow and the
+    # Sonar step silently skips — main would never get CI-based analysis.
+    secrets: inherit
 
   # Detect whether this push actually touched anything under supabase/. Without
   # this gate, `supabase functions deploy` re-bundles every edge function on
@@ -22,6 +25,7 @@ jobs:
   # on a transient edge-runtime bundling crash that has nothing to do with it.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       supabase: ${{ steps.filter.outputs.supabase }}
     steps:
@@ -39,6 +43,7 @@ jobs:
     needs: [ci, changes]
     if: ${{ needs.changes.outputs.supabase == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # SUPABASE_ACCESS_TOKEN — personal access token from supabase.com/dashboard/account/tokens
     # SUPABASE_DB_PASSWORD — database password set when the project was created
     # SUPABASE_PROJECT_ID — project ref slug (same value as VITE_SUPABASE_PROJECT_ID)
@@ -73,6 +78,7 @@ jobs:
     # supabase didn't fail (success or skipped both qualify).
     if: ${{ always() && needs.ci.result == 'success' && (needs.supabase.result == 'success' || needs.supabase.result == 'skipped') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # ORG/PROJECT ids tell the Vercel CLI which project to deploy; the token
     # authenticates it. All three are stored as repo secrets.
     env:
@@ -95,8 +101,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Pinned major — an unvetted CLI release must not be able to change deploys.
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: npm install --global vercel@54
 
       # Pull the project's production env (incl. VITE_SUPABASE_* vars) from
       # Vercel so the build matches a normal Vercel production build.
