@@ -12,6 +12,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { makeChangePasswordSchema, type ChangePasswordValues } from "@/lib/formSchemas";
+import { toastError } from "@/lib/toastError";
 
 export function ChangePasswordCard() {
   const { t } = useTranslation();
@@ -32,7 +33,7 @@ export function ChangePasswordCard() {
         form.setError("currentPassword", { message: t("settings.password.currentIncorrect") });
         return;
       }
-      toast.error(err instanceof Error ? err.message : t("settings.password.failed"));
+      toastError(err, t, "settings.password.failed");
     }
   };
 

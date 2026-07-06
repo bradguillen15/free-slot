@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useConfirmDayMutation } from "@/lib/dataStore";
 import { useTour } from "@/components/tour/TourProvider";
-import { isoToWeekday, nowHHMM, todayISO } from "@/lib/time";
-import { buildConfirmDayRows, type ConfirmDayBlock, type ConfirmDayCategory, type ConfirmDayLog } from "@/lib/confirmDay";
+import { nowHHMM, todayISO } from "@/lib/time";
+import { buildConfirmDayRows, blockInstancesForDate, type ConfirmDayBlock, type ConfirmDayCategory, type ConfirmDayLog } from "@/lib/confirmDay";
+import { toastError } from "@/lib/toastError";
 
 export function ConfirmDayButton({
   date,
@@ -25,12 +26,12 @@ export function ConfirmDayButton({
 
   // The parent re-renders every minute (useNowMinute), keeping this fresh for today.
   const preview = useMemo(
-    () => buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined),
-    [date, blocks, logs, categories]
+    () => buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined, t),
+    [date, blocks, logs, categories, t]
   );
 
   const activeBlockCount = useMemo(
-    () => blocks.filter((b) => b.days_of_week.includes(isoToWeekday(date))).length,
+    () => blockInstancesForDate(blocks, date).length,
     [blocks, date]
   );
 
@@ -79,7 +80,7 @@ export function ConfirmDayButton({
       });
       notifyAction("confirm-day");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("common.somethingWrong"));
+      toastError(e, t);
     }
   };
 

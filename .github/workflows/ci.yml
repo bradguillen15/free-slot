@@ -21,8 +21,12 @@ jobs:
     env:
       VITE_SUPABASE_URL: https://placeholder.supabase.co
       VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so SonarQube can attribute new-code and blame data.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -47,6 +51,15 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # Runs after verify so coverage/lcov.info exists and a scan hiccup can't
+      # mask a real test failure. Skipped automatically on forks/Dependabot,
+      # which have no access to the SONAR_TOKEN secret.
+      - name: SonarQube scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
 
       - name: Upload coverage report
         if: always()

@@ -2,8 +2,10 @@
 // time_logs rows. See openspec/changes/archive/*-confirm-your-day-logging/design.md
 // for why overlap = whole-block skip (no partial fill) and why there is no
 // separate "confirmed" marker: idempotency falls out of the overlap check.
-import { isoToWeekday, durationMinutes } from "@/lib/time";
+import { addDaysISO, isoToWeekday, durationMinutes } from "@/lib/time";
 import { visibleBlockSegments } from "@/lib/daySegments";
+import { translateCategoryName } from "@/lib/categoryLabels";
+import type { TFunction } from "i18next";
 
 export type ConfirmDayBlock = {
   id: string;
@@ -54,26 +56,69 @@ function hasBlockElapsed(block: Pick<ConfirmDayBlock, "start_time" | "end_time">
   return end <= now.slice(0, 5);
 }
 
+export type ConfirmDayBlockInstance = {
+  block: ConfirmDayBlock;
+  /** The calendar date this occurrence of the block belongs to — see module doc. */
+  date: string;
+};
+
 /**
- * `now` (HH:mm) makes the confirm elapsed-only — pass it when `date` is today
- * so blocks that haven't ended yet are skipped. Omit it for past dates.
+ * Every schedule-block occurrence relevant to confirming `date`:
+ * - a **same-day** instance for any block whose `days_of_week` includes `date`'s weekday
+ *   (this is the block's own scheduled start day, dated `date`).
+ * - additionally, for **overnight** blocks (end time earlier than start time) whose
+ *   `days_of_week` includes the *previous* day's weekday, a **tail** instance dated
+ *   that previous day — the occurrence that started the night before and ends during
+ *   `date`'s daytime. A block active every day of the week yields both instances,
+ *   since they represent two distinct real-world occurrences (last night's and
+ *   tonight's), not a duplicate.
+ */
+export function blockInstancesForDate(blocks: ConfirmDayBlock[], date: string): ConfirmDayBlockInstance[] {
+  const weekday = isoToWeekday(date);
+  const prevDate = addDaysISO(date, -1);
+  const prevWeekday = isoToWeekday(prevDate);
+
+  const instances: ConfirmDayBlockInstance[] = [];
+  for (const block of blocks) {
+    if (block.days_of_week.includes(weekday)) {
+      instances.push({ block, date });
+    }
+    const isOvernight = block.end_time.slice(0, 5) < block.start_time.slice(0, 5);
+    if (isOvernight && block.days_of_week.includes(prevWeekday)) {
+      instances.push({ block, date: prevDate });
+    }
+  }
+  return instances;
+}
+
+/**
+ * `now` (HH:mm) makes the confirm elapsed-only — pass it when the confirmed date is
+ * today so instances that haven't ended yet are skipped. Omit it for past dates.
  */
 export function buildConfirmDayRows(
   date: string,
   blocks: ConfirmDayBlock[],
   existingLogs: ConfirmDayLog[],
   categories: ConfirmDayCategory[],
-  now?: string
+  now?: string,
+  /** Translates a block's canonical default name for the created log's title. Omit outside a React/i18n context. */
+  t?: TFunction
 ): ConfirmDayResult {
-  const weekday = isoToWeekday(date);
-  const active = blocks.filter((b) => b.days_of_week.includes(weekday));
+  const instances = blockInstancesForDate(blocks, date);
   const categoryById = new Map(categories.map((c) => [c.id, c]));
 
   const rows: ConfirmDayRow[] = [];
   const skipped: ConfirmDaySkip[] = [];
 
-  for (const block of active) {
-    if (now !== undefined && !hasBlockElapsed(block, now)) {
+  for (const { block, date: instanceDate } of instances) {
+    const isTail = instanceDate !== date;
+    const elapsed =
+      now === undefined
+        ? true
+        : isTail
+          ? block.end_time.slice(0, 5) <= now.slice(0, 5)
+          : hasBlockElapsed(block, now);
+    if (!elapsed) {
       skipped.push({ blockId: block.id, reason: "not-elapsed" });
       continue;
     }
@@ -83,7 +128,7 @@ export function buildConfirmDayRows(
     }
 
     const totalDuration = durationMinutes(block.start_time, block.end_time);
-    const visible = visibleBlockSegments(block, existingLogs, date);
+    const visible = visibleBlockSegments(block, existingLogs, instanceDate);
     const visibleDuration = visible.reduce((sum, s) => sum + (s.endMin - s.startMin), 0);
     if (visibleDuration < totalDuration) {
       skipped.push({ blockId: block.id, reason: "overlaps-existing" });
@@ -97,12 +142,12 @@ export function buildConfirmDayRows(
     }
 
     rows.push({
-      date,
+      date: instanceDate,
       start_time: block.start_time,
       end_time: block.end_time,
       category_id: block.category_id,
       type: category.type,
-      title: block.name,
+      title: t ? translateCategoryName(block.name, t) : block.name,
     });
   }
 

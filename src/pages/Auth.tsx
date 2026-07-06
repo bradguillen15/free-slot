@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PublicHeader } from "@/components/PublicHeader";
 import { useTranslation } from "react-i18next";
+import { toastError } from "@/lib/toastError";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -170,7 +171,7 @@ export default function Auth() {
       await prefetchCloudData(pendingUserId);
       navigate("/app", { replace: true });
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("auth.migrate.failed"));
+      toastError(e, t, "auth.migrate.failed");
     } finally {
       setMigrating(false);
     }

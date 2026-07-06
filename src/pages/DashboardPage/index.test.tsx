@@ -1,4 +1,3 @@
-// Guest dashboard — local-data analytics (see docs/guest-dashboard-plan.md).
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -11,15 +10,6 @@ vi.mock("sonner", () => ({
     success: vi.fn(),
     error: vi.fn(),
   }),
-}));
-
-vi.mock("@/lib/celebrate", () => ({
-  celebrateIfPersonalBest: vi.fn(() => false),
-  getBestRatio: vi.fn(() => 0),
-}));
-
-vi.mock("@/components/dashboard/WeeklyReviewModal", () => ({
-  WeeklyReviewModal: () => null,
 }));
 
 vi.mock("recharts", async (importOriginal) => {
@@ -48,8 +38,8 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
-import { ensureBootstrap, insertLog, upsertCategory, upsertScheduleBlock, getDashboardExcludedLabels, listCategories } from "@/lib/localStore";
-import { addDaysISO } from "@/lib/time";
+import { ensureBootstrap, insertLog, setDashboardPeriod, upsertCategory } from "@/lib/localStore";
+import { addDaysISO, todayISO } from "@/lib/time";
 import { weekStartISO } from "@/lib/week";
 import { resetSupabaseMock, setTableResult } from "../../test/supabaseMock";
 import i18n from "@/i18n";
@@ -101,135 +91,66 @@ beforeEach(async () => {
 });
 
 describe("DashboardPage — guest mode", () => {
-  it("renders KPIs from seeded localStorage logs", async () => {
+  it("renders KPIs and the period selector from seeded localStorage logs", async () => {
     seedGuestDashboardLogs();
     renderPage();
 
     await waitFor(() => {
       expect(screen.getByText(/Total tracked|Tiempo registrado/i)).toBeInTheDocument();
       expect(screen.getByText(/Days logged|Días registrados/i)).toBeInTheDocument();
-      expect(screen.getAllByText("2h 30m").length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.queryByText(/AI slots|Slots de IA/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /week/i })).toBeInTheDocument();
+    expect(screen.getByText("Music practice")).toBeInTheDocument();
   });
 
-  it("shows the AI upsell card and hides Review week", async () => {
+  it("falls back to Week when a previously persisted period is the removed Custom kind", async () => {
+    setDashboardPeriod({ kind: "custom", anchorISO: "2026-06-15" });
     seedGuestDashboardLogs();
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: /Sign in/i })).toHaveAttribute("href", "/auth");
+      expect(screen.getByRole("radio", { name: /week/i })).toHaveAttribute("aria-checked", "true");
     });
-    expect(screen.queryByRole("button", { name: /Review week/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/AI plan vs logged/i)).not.toBeInTheDocument();
   });
 
-  it("still shows hidden categories in the category breakdown", async () => {
-    ensureBootstrap();
-    const weekStart = weekStartISO();
-    const hidden = upsertCategory({
-      name: "Hidden label",
-      type: "productive",
-      color: "#111111",
-      hidden: true,
-    });
-    insertLog({
-      date: addDaysISO(weekStart, 1),
-      start_time: "14:00",
-      end_time: "15:00",
-      type: "productive",
-      category_id: hidden.id,
-    });
+  it("does not gate the dashboard on having an account", async () => {
+    seedGuestDashboardLogs();
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Hidden label")).toBeInTheDocument();
+      expect(screen.queryByTestId("dashboard-empty")).not.toBeInTheDocument();
     });
   });
 });
 
-describe("DashboardPage — schedule vs actual card", () => {
-  it("shows an empty state pointing to the schedule when no blocks exist", async () => {
-    seedGuestDashboardLogs();
+describe("DashboardPage — empty state", () => {
+  it("shows the empty state with nothing logged or scheduled", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("sva-empty")).toBeInTheDocument();
+      expect(screen.getByTestId("dashboard-empty")).toBeInTheDocument();
     });
   });
 
-  it("renders a per-label comparison row with adherence when schedule and logs exist", async () => {
-    ensureBootstrap();
-    const weekStart = weekStartISO();
-    const cat = upsertCategory({ name: "Focus", type: "productive", color: "#3b82f6", hidden: false });
-    // Scheduled every day 09:00-11:00; Tuesday logged 09:00-10:00 as Focus.
-    upsertScheduleBlock({
-      name: "Focus block", start_time: "09:00", end_time: "11:00",
-      days_of_week: [0, 1, 2, 3, 4, 5, 6], category_id: cat.id,
-    });
-    insertLog({
-      date: addDaysISO(weekStart, 1), start_time: "09:00", end_time: "10:00",
-      type: "productive", category_id: cat.id,
-    });
-    renderPage();
-
-    const row = await screen.findByTestId(`sva-row-${cat.id}`);
-    expect(row).toHaveTextContent("Focus");
-    expect(row).toHaveTextContent("14h"); // scheduled 2h x 7
-    expect(row).toHaveTextContent("1h"); // logged
-    // 1h kept of 14h scheduled ≈ 7%
-    expect(screen.getByTestId("adherence-kpi")).toHaveTextContent("7%");
-  });
-
-  it("expands a row into the displacement breakdown", async () => {
-    ensureBootstrap();
-    const weekStart = weekStartISO();
-    const focus = upsertCategory({ name: "Focus", type: "productive", color: "#3b82f6", hidden: false });
-    const gaming = upsertCategory({ name: "Play", type: "unproductive", color: "#f97316", hidden: false });
-    upsertScheduleBlock({
-      name: "Focus block", start_time: "09:00", end_time: "11:00",
-      days_of_week: [1], category_id: focus.id,
-    });
-    insertLog({
-      date: addDaysISO(weekStart, 0), start_time: "09:00", end_time: "10:00",
-      type: "unproductive", category_id: gaming.id,
-    });
-    renderPage();
-
-    const row = await screen.findByTestId(`sva-row-${focus.id}`);
-    row.click();
-    const breakdown = await screen.findByTestId(`sva-displacement-${focus.id}`);
-    expect(breakdown).toHaveTextContent("Play");
-    expect(breakdown).toHaveTextContent(/Nothing logged/i);
-  });
-
-  it("excluding a label via the filter persists and removes it from the card", async () => {
-    ensureBootstrap();
-    const weekStart = weekStartISO();
-    const sleep = listCategories().find((c) => c.name === "Sleep")!;
-    upsertScheduleBlock({
-      name: "Sleep", start_time: "23:00", end_time: "07:00",
-      days_of_week: [0, 1, 2, 3, 4, 5, 6], category_id: sleep.id,
-    });
-    insertLog({
-      date: addDaysISO(weekStart, 1), start_time: "23:00", end_time: "07:00",
-      type: "essential", category_id: sleep.id,
-    });
-    renderPage();
-
-    await screen.findByTestId(`sva-row-${sleep.id}`);
-
-    // Cycle the chip: neutral -> included -> excluded.
-    const chip = screen.getByTestId(`label-filter-${sleep.id}`);
-    chip.click();
-    await waitFor(() => expect(chip).toHaveAttribute("data-state", "included"));
-    chip.click();
-    await waitFor(() => expect(chip).toHaveAttribute("data-state", "excluded"));
-
+  it("clears the empty state once time is logged for the selected period", async () => {
+    const first = renderPage();
     await waitFor(() => {
-      expect(screen.queryByTestId(`sva-row-${sleep.id}`)).not.toBeInTheDocument();
+      expect(screen.getByTestId("dashboard-empty")).toBeInTheDocument();
     });
-    expect(getDashboardExcludedLabels()).toEqual([sleep.id]);
+    first.unmount();
+
+    insertLog({
+      date: todayISO(),
+      start_time: "09:00",
+      end_time: "10:00",
+      type: "productive",
+      category_id: null,
+    });
+
+    // Re-render to pick up the newly inserted guest log (simulates navigating back to the dashboard).
+    renderPage();
+    await waitFor(() => {
+      expect(screen.queryByTestId("dashboard-empty")).not.toBeInTheDocument();
+    });
   });
 });
 
@@ -254,29 +175,15 @@ describe("DashboardPage — signed-in mode", () => {
         { id: "cat-1", name: "Deep work", color: "#3b82f6", type: "productive", is_default: false, hidden: false },
       ],
     });
-    setTableResult("weekly_plans", {
-      data: {
-        slots: [
-          {
-            day: addDaysISO(weekStart, 1),
-            start: "09:00",
-            end: "10:00",
-            activity_id: "act-1",
-            activity_name: "Deep work",
-          },
-        ],
-      },
-    });
+    setTableResult("schedule_blocks", { data: [] });
   });
 
-  it("shows Review week and the AI plan vs logged card", async () => {
+  it("renders KPIs and the trend chart for a signed-in user", async () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Review week|Revisar semana/i })).toBeInTheDocument();
-      expect(screen.getByText(/AI plan vs logged|Plan IA vs registrado/i)).toBeInTheDocument();
-      expect(screen.getByText(/AI slots|Slots de IA/i)).toBeInTheDocument();
+      expect(screen.getByText(/Total tracked|Tiempo registrado/i)).toBeInTheDocument();
+      expect(screen.getByText("Deep work")).toBeInTheDocument();
     });
-    expect(screen.queryByText(/AI weekly plans|Planes semanales con IA/i)).not.toBeInTheDocument();
   });
 });

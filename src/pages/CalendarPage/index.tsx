@@ -3,19 +3,19 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
-import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, fmtDayHeading, fromMin, isoToWeekday, todayISO } from "@/lib/time";
 import { logDefaultsFromBlock } from "@/lib/schedule";
-import { DayTimeline, type ScheduleBlock, type TimeLog } from "@/components/day/DayTimeline";
+import { useCategoryName } from "@/lib/categoryLabels";
+import { DayTimeline } from "@/components/day/DayTimeline";
 import { DaySummary } from "@/components/day/DaySummary";
 import { ConfirmDayButton } from "@/components/day/ConfirmDayButton";
-import type { ConfirmDayBlock, ConfirmDayCategory, ConfirmDayLog } from "@/lib/confirmDay";
-import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
+import { QuickLogDialog } from "@/components/day/QuickLogDialog";
+import type { Category, ScheduleBlock, TimeLog } from "@/resources";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { CalendarNav } from "@/components/calendar/CalendarNav";
 import { CalendarCreateMenu } from "@/components/calendar/CalendarCreateMenu";
 import { toast } from "sonner";
-import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, updateTimeLog, upsertCategory, useDailyNote, useUpsertDailyNote } from "@/lib/dataStore";
+import { useVisibleCategories, pickerCategories, useScheduleBlocks, useTimeLogsInRange, useUpdateTimeLogMutation, useUpsertCategoryMutation, useDailyNote, useUpsertDailyNote } from "@/lib/dataStore";
 import { lazy, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -29,12 +29,13 @@ const RecurringNoteEditor = lazy(() =>
   import("@/components/notes/RecurringNoteEditor").then((m) => ({ default: m.RecurringNoteEditor }))
 );
 import { useNowMinute } from "@/hooks/useNowMinute";
+import { toastError } from "@/lib/toastError";
 import { useAutoScrollToHour } from "./useAutoScrollToHour";
 import { useAddBlockHereListener } from "./useAddBlockHereListener";
 
 export default function CalendarPage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const categoryName = useCategoryName();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date") || todayISO();
   const [date, setDate] = useState<string>(initialDate);
@@ -72,20 +73,22 @@ export default function CalendarPage() {
   const { data: allBlocks, refresh: refreshBlocks } = useScheduleBlocks();
   const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const logsStart = useMemo(() => addDaysISO(date, -1), [date]);
-  const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs, mode } = useTimeLogsInRange(logsStart, date);
+  const { data: dayLogs, setData: setDayLogs, refresh: refreshLogs } = useTimeLogsInRange(logsStart, date);
+  const updateTimeLogMutation = useUpdateTimeLogMutation();
+  const upsertCategoryMutation = useUpsertCategoryMutation();
 
   const blocks = useMemo(
-    () => (allBlocks as unknown as ScheduleBlock[]).filter((x) => x.days_of_week?.includes(weekday)),
+    () => allBlocks.filter((x) => x.days_of_week?.includes(weekday)),
     [allBlocks, weekday]
   );
-  const logs = dayLogs as unknown as TimeLog[];
-  const cats = allCategories as unknown as Category[];
+  const logs: TimeLog[] = dayLogs;
+  const cats: Category[] = allCategories;
   const logPickerCategories = useMemo(
-    () => pickerCategories(visibleCategories as Category[], cats, logDefaults.defaultCategoryId),
+    () => pickerCategories(visibleCategories, cats, logDefaults.defaultCategoryId),
     [visibleCategories, cats, logDefaults.defaultCategoryId]
   );
   const blockPickerCategories = useMemo(
-    () => pickerCategories(visibleCategories as Category[], cats, blockDialogTarget.block?.category_id),
+    () => pickerCategories(visibleCategories, cats, blockDialogTarget.block?.category_id),
     [visibleCategories, cats, blockDialogTarget.block?.category_id]
   );
 
@@ -119,20 +122,21 @@ export default function CalendarPage() {
   const openSleepLog = useCallback(async () => {
     let sleepCat = cats.find((c) => c.name === "Sleep");
     if (!sleepCat) {
-      const created = await upsertCategory(user ? "cloud" : "guest", user?.id ?? null, {
+      const created = await upsertCategoryMutation.mutateAsync({
         name: "Sleep", type: "productive", color: "#6366f1",
       });
       await refreshCats();
-      sleepCat = created as Category;
+      sleepCat = created;
     }
-    setLogDefaults({ start: "23:00", end: "07:00", defaultCategoryId: sleepCat?.id, defaultTitle: "Sleep" });
+    setLogDefaults({ start: "23:00", end: "07:00", defaultCategoryId: sleepCat?.id, defaultTitle: categoryName("Sleep") });
     setLogOpen(true);
-  }, [cats, user, refreshCats]);
+  }, [cats, upsertCategoryMutation, refreshCats, categoryName]);
 
   const handleBlockClick = useCallback((block: ScheduleBlock) => {
-    setLogDefaults({ ...logDefaultsFromBlock(block), defaultCategoryId: undefined });
+    const defaults = logDefaultsFromBlock(block);
+    setLogDefaults({ ...defaults, defaultTitle: categoryName(defaults.defaultTitle), defaultCategoryId: undefined });
     setLogOpen(true);
-  }, []);
+  }, [categoryName]);
 
   const handleLogClick = useCallback((log: TimeLog) => {
     setLogDefaults({
@@ -155,24 +159,26 @@ export default function CalendarPage() {
         return;
       }
       try {
-        await updateTimeLog(mode, user?.id ?? null, logId, {
-          date: newDate,
-          start_time: fromMin(newStartMin),
-          end_time: fromMin(newEndMin),
-          category_id: log.category_id,
-          type: log.type,
-          title: log.title ?? null,
-          notes: log.notes,
-          note_json: log.note_json ?? null,
+        await updateTimeLogMutation.mutateAsync({
+          id: logId,
+          input: {
+            date: newDate,
+            start_time: fromMin(newStartMin),
+            end_time: fromMin(newEndMin),
+            category_id: log.category_id,
+            type: log.type,
+            title: log.title ?? null,
+            notes: log.notes,
+            note_json: log.note_json ?? null,
+          },
         });
         toast.success(t("week.rescheduled"));
         await refreshLogs();
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : t("week.couldNotReschedule");
-        toast.error(msg);
+        toastError(e, t, "week.couldNotReschedule");
       }
     },
-    [logs, mode, user?.id, refreshLogs, t]
+    [logs, updateTimeLogMutation, refreshLogs, t]
   );
 
   const heading = useMemo(() => fmtDayHeading(date), [date]);
@@ -197,9 +203,9 @@ export default function CalendarPage() {
           <div className="flex items-center gap-2">
             <ConfirmDayButton
               date={date}
-              blocks={blocks as unknown as ConfirmDayBlock[]}
-              logs={logs as unknown as ConfirmDayLog[]}
-              categories={cats as unknown as ConfirmDayCategory[]}
+              blocks={allBlocks}
+              logs={logs}
+              categories={cats}
             />
             <CalendarNav
               onToday={() => setDate(todayISO())}

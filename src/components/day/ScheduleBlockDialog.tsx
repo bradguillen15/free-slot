@@ -15,14 +15,14 @@ import {
   Form, FormControl, FormField, FormItem, FormMessage,
 } from "@/components/ui/form";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { upsertScheduleBlock, deleteScheduleBlock, upsertCategory } from "@/lib/dataStore";
+import { useUpsertScheduleBlockMutation, useDeleteScheduleBlockMutation, useUpsertCategoryMutation } from "@/lib/dataStore";
 import { ColorInput } from "@/components/ColorInput";
 import { CategoryPicker, type PickerCategory } from "@/components/CategoryPicker";
 import { nextCreateColor } from "@/lib/categoryColors";
 import { hexColor, timeString } from "@/lib/formSchemas";
 import type { ScheduleBlock } from "./DayTimeline";
+import { toastError, errorMessage } from "@/lib/toastError";
 
 const COLORS = [
   "#6366f1", "#3b82f6", "#10b981", "#f59e0b",
@@ -72,9 +72,10 @@ export function ScheduleBlockDialog({
 }: Props) {
   const { t } = useTranslation();
   const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
-  const { user } = useAuth();
   const timeFormat = useTimeFormat();
-  const mode = user ? "cloud" : "guest";
+  const upsertBlockMutation = useUpsertScheduleBlockMutation();
+  const deleteBlockMutation = useDeleteScheduleBlockMutation();
+  const upsertCategoryMutation = useUpsertCategoryMutation();
 
   const scheduleBlockSchema = useMemo(() => makeScheduleBlockSchema(t), [t]);
 
@@ -102,12 +103,12 @@ export function ScheduleBlockDialog({
   const days = form.watch("days");
   const color = form.watch("color");
 
-  const isPreset = (preset: number[]) =>
+  const isPreset = (preset: readonly number[]) =>
     days.length === preset.length && preset.every((d) => days.includes(d));
 
   const save = async (values: ScheduleBlockValues) => {
     try {
-      await upsertScheduleBlock(mode, user?.id ?? null, {
+      await upsertBlockMutation.mutateAsync({
         id: block?.id,
         name: values.name,
         start_time: values.startTime,
@@ -121,7 +122,7 @@ export function ScheduleBlockDialog({
       onOpenChange(false);
       onSaved?.();
     } catch (err: unknown) {
-      toast.error(t("scheduleBlock.saveFailed", { error: err instanceof Error ? err.message : "unknown" }));
+      toast.error(t("scheduleBlock.saveFailed", { error: errorMessage(err) }));
     }
   };
 
@@ -129,12 +130,12 @@ export function ScheduleBlockDialog({
     if (!block) return;
     setDeleting(true);
     try {
-      await deleteScheduleBlock(mode, user?.id ?? null, block.id);
+      await deleteBlockMutation.mutateAsync(block.id);
       toast.success(t("scheduleBlock.deleted"));
       onOpenChange(false);
       onDeleted?.();
     } catch (err: unknown) {
-      toast.error(t("scheduleBlock.deleteFailed", { error: err instanceof Error ? err.message : "unknown" }));
+      toast.error(t("scheduleBlock.deleteFailed", { error: errorMessage(err) }));
     } finally {
       setDeleting(false);
     }
@@ -268,15 +269,15 @@ export function ScheduleBlockDialog({
                       onChange={(id) => field.onChange(id || "")}
                       onCreate={async (catName, type) => {
                         try {
-                          const created = await upsertCategory(mode, user?.id ?? null, {
+                          const created = await upsertCategoryMutation.mutateAsync({
                             name: catName,
                             type,
                             color: nextCreateColor(categories.length),
                           });
                           await onCategoriesRefresh?.();
-                          return created as PickerCategory;
+                          return created;
                         } catch (err: unknown) {
-                          toast.error(err instanceof Error ? err.message : t("scheduleBlock.couldNotCreateLabel"));
+                          toastError(err, t, "scheduleBlock.couldNotCreateLabel");
                           return null;
                         }
                       }}
@@ -310,7 +311,7 @@ export function ScheduleBlockDialog({
                         onClick={() => field.onChange([...preset])}
                         className={cn(
                           "px-3 py-1 rounded-full text-xs font-medium border transition-all",
-                          isPreset(preset as unknown as number[])
+                          isPreset(preset)
                             ? "bg-primary text-primary-foreground border-primary"
                             : "border-border text-foreground/70 hover:border-primary/50"
                         )}

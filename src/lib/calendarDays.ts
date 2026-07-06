@@ -4,6 +4,9 @@ import { findFreeWindows, totalFreeMinutes } from "@/lib/gaps";
 import type { LocalCategory, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import { useScheduleBlocks, useTimeLogsInRange, useVisibleCategories, useProfile } from "@/lib/dataStore";
 import { segmentsForLogOnDay, visibleBlockSegments } from "@/lib/daySegments";
+import { translateCategoryName } from "@/lib/categoryLabels";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 type Seg = { startMin: number; endMin: number };
 
@@ -46,6 +49,8 @@ export type BuildDayCellsInput = {
   profile: LocalProfile | null;
   today: string;
   aiPlan?: { slots: Array<{ day: string; start: string; end: string; activity_id: string; activity_name: string; rationale?: string }> } | null;
+  /** Translates a fallback category name when a log has no title of its own. Omit outside a React/i18n context. */
+  t?: TFunction;
 };
 
 const SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -61,11 +66,12 @@ export function useCalendarDays(
   const { data: logsRaw }   = useTimeLogsInRange(logsStartISO, endISO);
   const { all: catsRaw }    = useVisibleCategories();
   const { data: profileRaw } = useProfile();
+  const { t } = useTranslation();
 
-  const blocks     = blocksRaw as unknown as LocalScheduleBlock[];
-  const logs       = logsRaw   as unknown as LocalTimeLog[];
-  const categories = catsRaw   as unknown as LocalCategory[];
-  const profile    = profileRaw as LocalProfile | null;
+  const blocks     = blocksRaw;
+  const logs       = logsRaw;
+  const categories = catsRaw;
+  const profile    = profileRaw;
 
   return useMemo(() => {
     const days: string[] = [];
@@ -75,8 +81,8 @@ export function useCalendarDays(
       days.push(current.toISOString().slice(0, 10));
       current.setDate(current.getDate() + 1);
     }
-    return buildDayCells({ days, blocks, logs, categories, profile, today: todayISO(), aiPlan });
-  }, [startISO, endISO, blocks, logs, categories, profile, aiPlan]);
+    return buildDayCells({ days, blocks, logs, categories, profile, today: todayISO(), aiPlan, t });
+  }, [startISO, endISO, blocks, logs, categories, profile, aiPlan, t]);
 }
 
 export function buildDayCells({
@@ -87,6 +93,7 @@ export function buildDayCells({
   profile,
   today,
   aiPlan,
+  t,
 }: BuildDayCellsInput): DayCellData[] {
   const peak = profile?.peak_hours ?? null;
 
@@ -121,7 +128,7 @@ export function buildDayCells({
       return segmentsForLogOnDay(l, iso).map(({ startMin, endMin }) => ({
         id: l.id,
         seg: { startMin, endMin },
-        name: l.title || (cat?.name ?? l.type),
+        name: l.title || (cat ? (t ? translateCategoryName(cat.name, t) : cat.name) : l.type),
         color,
         category_id: l.category_id,
         type: l.type,

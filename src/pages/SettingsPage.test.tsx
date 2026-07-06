@@ -28,7 +28,7 @@ const refreshProfile = vi.hoisted(() => vi.fn());
 const updateProfileMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/dataStore", () => ({
   useProfile: () => ({ data: profileData.data, refresh: refreshProfile }),
-  updateProfile: updateProfileMock,
+  useUpdateProfileMutation: () => ({ mutateAsync: updateProfileMock }),
   useDeleteAccountMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -74,7 +74,7 @@ describe("SettingsPage planner preferences", () => {
     await user.click(screen.getByRole("switch", { name: "Switch to 12-hour AM/PM" }));
 
     await waitFor(() =>
-      expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", { time_format: "12h" }),
+      expect(updateProfileMock).toHaveBeenCalledWith({ time_format: "12h" }),
     );
   });
 
@@ -86,7 +86,7 @@ describe("SettingsPage planner preferences", () => {
     await user.click(screen.getByRole("button", { name: /Save preferences/ }));
 
     await waitFor(() =>
-      expect(updateProfileMock).toHaveBeenCalledWith("cloud", "u1", {
+      expect(updateProfileMock).toHaveBeenCalledWith({
         include_weekends: false,
         weekly_review_day: 2,
         time_format: "24h",

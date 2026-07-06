@@ -10,6 +10,7 @@ import { TimelineLogMobileDragHandle } from "@/components/calendar/TimelineLogMo
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { computeLaneLayout, segmentsForLogOnDay, visibleBlockSegments, type Segment } from "@/lib/daySegments";
+import { useCategoryName } from "@/lib/categoryLabels";
 import {
   barHeightFromDuration,
   isCompactBar,
@@ -23,29 +24,13 @@ import {
   timelinePlannedLabelClassName,
 } from "@/lib/timelineBarStyles";
 import type { Category } from "./QuickLogDialog";
+import type { ScheduleBlock as DomainScheduleBlock, TimeLog as DomainTimeLog } from "@/resources";
 
-export type ScheduleBlock = {
-  id: string;
-  name: string;
-  color: string;
-  start_time: string;
-  end_time: string;
-  days_of_week: number[];
-  type: "fixed" | "waste_expected"; // matches the block_type DB enum
-  category_id?: string | null;
-};
+export type ScheduleBlock = Pick<DomainScheduleBlock, "id" | "name" | "color" | "start_time" | "end_time" | "days_of_week" | "type"> &
+  Partial<Pick<DomainScheduleBlock, "category_id">>;
 
-export type TimeLog = {
-  id: string;
-  date?: string;
-  category_id: string | null;
-  type: "productive" | "unproductive" | "essential";
-  start_time: string;
-  end_time: string;
-  title?: string | null;
-  notes: string | null;
-  note_json?: object | null;
-};
+export type TimeLog = Pick<DomainTimeLog, "id" | "category_id" | "type" | "start_time" | "end_time" | "title" | "notes" | "note_json"> &
+  Partial<Pick<DomainTimeLog, "date">>;
 
 const PX_PER_HOUR = 56;
 const TOTAL_HEIGHT = PX_PER_HOUR * 24;
@@ -75,6 +60,7 @@ export function DayTimeline({
   onLogClick?: (log: TimeLog) => void;
 }) {
   const timeFormat = useTimeFormat();
+  const categoryName = useCategoryName();
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
     [categories]
@@ -247,7 +233,7 @@ export function DayTimeline({
                   key={key}
                   seg={seg}
                   color={b.color}
-                  name={b.name}
+                  name={categoryName(b.name)}
                   lane={0}
                   groupWidth={1}
                   onClick={onBlockClick ? () => onBlockClick(b) : undefined}
@@ -272,7 +258,7 @@ export function DayTimeline({
                   log={l}
                   seg={seg}
                   color={color}
-                  name={l.title || (cat?.name ?? l.type)}
+                  name={l.title || (cat ? categoryName(cat.name) : l.type)}
                   index={idx}
                   lane={lane}
                   groupWidth={groupWidth}

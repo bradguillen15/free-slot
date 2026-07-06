@@ -1,5 +1,7 @@
 # Dashboard Schedule vs Actual
 
+> **Superseded.** This change's implemented capabilities (`dashboard-schedule-vs-actual`, `dashboard-label-filtering`) were removed by `dashboard-activity-trends`, which replaced the card-grid dashboard with a single period-scoped trend chart (the schedule-vs-actual comparison now lives as a "show planned" dashed-line overlay on that chart instead of a standalone card). Not archived into main specs — do not sync.
+
 ## Why
 
 The dashboard is too generic: it charts logged time but never compares it against the recurring schedule the user maintains daily — the only "plan vs logged" card uses AI plan slots, which is empty without an AI plan. Users cannot see where scheduled time actually went, which activities displaced it, or exclude labels that shouldn't count (e.g. Sleep). Schedule blocks now carry `category_id` (since guided-first-run-tour), making a label-level comparison computable.

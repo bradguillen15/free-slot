@@ -1,6 +1,6 @@
 // Unified data adapter — same shape whether the user is signed in (cloud) or in guest mode (localStorage).
 // Reads go through React Query; mutations invalidate the relevant query keys.
-import { useCallback, useMemo, useState, type SetStateAction } from "react";
+import { useCallback, useMemo, type SetStateAction } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import type { LocalActivity, LocalCategory, LocalDailyNote, LocalInboxItem, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
@@ -39,7 +39,9 @@ import type { WeeklyPlan } from "@/resources/types/weeklyPlan";
 import { getQueryClient } from "@/lib/queryClient";
 import { queryKeys, type Mode } from "@/lib/queryKeys";
 import { buildConfirmDayRows, type ConfirmDayResult } from "@/lib/confirmDay";
-import { nowHHMM, todayISO } from "@/lib/time";
+import { addDaysISO, nowHHMM, todayISO } from "@/lib/time";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 export type { Mode };
 
@@ -75,28 +77,45 @@ function useDataQuery<T>({
   enabled?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const query = useQuery({
-    queryKey,
-    enabled,
-    queryFn: async () => {
-      try {
-        const data = await queryFn();
-        setFetchError(null);
-        return data;
-      } catch (error) {
-        setFetchError(toErrorMessage(error));
-        throw error;
-      }
-    },
-  });
+  const query = useQuery({ queryKey, enabled, queryFn });
+  const fetchError = query.isError ? toErrorMessage(query.error) : null;
 
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey });
   }, [queryClient, queryKey]);
 
   return { query, fetchError, refresh };
+}
+
+/** Optimistic list mutation: snapshot → apply optimistic update → rollback on error → invalidate on settle. */
+function useOptimisticListMutation<TItem, TVars>({
+  queryKey,
+  mutationFn,
+  applyOptimistic,
+}: {
+  queryKey: readonly unknown[];
+  mutationFn: (vars: TVars) => Promise<unknown>;
+  applyOptimistic: (previous: TItem[], vars: TVars) => TItem[];
+}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onMutate: async (vars: TVars) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<TItem[]>(queryKey) ?? [];
+      queryClient.setQueryData<TItem[]>(queryKey, applyOptimistic(previous, vars));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(queryKey, ctx.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
 }
 
 const EMPTY_CATEGORIES: LocalCategory[] = [];
@@ -372,16 +391,19 @@ export function useDeleteAccountMutation() {
 }
 
 /** Materializes eligible schedule blocks for `date` into real time logs. See confirmDay.ts for the skip rules; today is elapsed-only. */
-export async function confirmDay(mode: Mode, userId: string | null, date: string): Promise<ConfirmDayResult> {
+export async function confirmDay(mode: Mode, userId: string | null, date: string, t?: TFunction): Promise<ConfirmDayResult> {
+  // Overnight blocks may be confirmed as a "tail" instance dated the previous day
+  // (see buildConfirmDayRows) — fetch that day's logs too so its overlap check works.
+  const prevDate = addDaysISO(date, -1);
   const [blocks, logs, categories] = mode === "guest"
-    ? [listScheduleBlocks(), listLogsInRange(date, date), listCategories()]
+    ? [listScheduleBlocks(), listLogsInRange(prevDate, date), listCategories()]
     : await Promise.all([
         resources.scheduleBlocks.list(userId!),
-        resources.timeLogs.listInRange(userId!, date, date),
+        resources.timeLogs.listInRange(userId!, prevDate, date),
         resources.categories.list(userId!),
       ]);
 
-  const result = buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined);
+  const result = buildConfirmDayRows(date, blocks, logs, categories, date === todayISO() ? nowHHMM() : undefined, t);
 
   if (result.rows.length) {
     if (mode === "guest") {
@@ -400,8 +422,9 @@ export async function confirmDay(mode: Mode, userId: string | null, date: string
 
 export function useConfirmDayMutation() {
   const { mode, userId } = useAuthScope();
+  const { t } = useTranslation();
   return useMutation({
-    mutationFn: (date: string) => confirmDay(mode, userId, date),
+    mutationFn: (date: string) => confirmDay(mode, userId, date, t),
   });
 }
 
@@ -437,12 +460,9 @@ export async function insertTimeLog(
     note_json?: object | null;
   },
 ) {
-  let result: unknown;
-  if (mode === "guest") {
-    result = localInsertLog(input);
-  } else {
-    result = await resources.timeLogs.insert(userId!, input);
-  }
+  const result = mode === "guest"
+    ? localInsertLog(input)
+    : await resources.timeLogs.insert(userId!, input);
   invalidateTimeLogs(mode, userId);
   return result;
 }
@@ -471,14 +491,10 @@ export async function updateTimeLog(
     date?: string;
   },
 ) {
-  let result: unknown;
+  let result: LocalTimeLog;
   if (mode === "guest") {
     const { date, ...patch } = input;
-    if (date) {
-      result = localMoveLog(id, date, patch);
-    } else {
-      result = localUpdateLog(id, patch);
-    }
+    result = date ? localMoveLog(id, date, patch) : localUpdateLog(id, patch);
   } else {
     result = await resources.timeLogs.update(userId!, id, input);
   }
@@ -497,12 +513,9 @@ export async function upsertActivity(
     is_active: boolean;
   },
 ) {
-  let result: unknown;
-  if (mode === "guest") {
-    result = localUpsertActivity(input);
-  } else {
-    result = await resources.activities.upsert(userId!, input);
-  }
+  const result = mode === "guest"
+    ? localUpsertActivity(input)
+    : await resources.activities.upsert(userId!, input);
   invalidateActivities(mode, userId);
   return result;
 }
@@ -528,12 +541,9 @@ export async function upsertScheduleBlock(
     color: string;
   },
 ) {
-  let result: unknown;
-  if (mode === "guest") {
-    result = localUpsertScheduleBlock(input);
-  } else {
-    result = await resources.scheduleBlocks.upsert(userId!, input);
-  }
+  const result = mode === "guest"
+    ? localUpsertScheduleBlock(input)
+    : await resources.scheduleBlocks.upsert(userId!, input);
   invalidateScheduleBlocks(mode, userId);
   return result;
 }
@@ -561,12 +571,9 @@ export async function upsertCategory(
   userId: string | null,
   input: { id?: string; name?: string; color?: string; type?: "productive" | "unproductive" | "essential"; hidden?: boolean },
 ) {
-  let result: unknown;
-  if (mode === "guest") {
-    result = localUpsertCategory(input);
-  } else {
-    result = await resources.categories.upsert(userId!, input);
-  }
+  const result = mode === "guest"
+    ? localUpsertCategory(input)
+    : await resources.categories.upsert(userId!, input);
   invalidateCategories(mode, userId);
   return result;
 }
@@ -637,6 +644,34 @@ export function useUpsertCategoryMutation() {
   });
 }
 
+export function useDeleteCategoryMutation() {
+  const { mode, userId } = useAuthScope();
+  return useMutation({
+    mutationFn: (id: string) => deleteCategory(mode, userId, id),
+  });
+}
+
+export function useReorderCategoriesMutation() {
+  const { mode, userId } = useAuthScope();
+  return useMutation({
+    mutationFn: (orderedIds: string[]) => reorderCategories(mode, userId, orderedIds),
+  });
+}
+
+export function useUpsertActivityMutation() {
+  const { mode, userId } = useAuthScope();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof upsertActivity>[2]) => upsertActivity(mode, userId, input),
+  });
+}
+
+export function useDeleteActivityMutation() {
+  const { mode, userId } = useAuthScope();
+  return useMutation({
+    mutationFn: (id: string) => deleteActivity(mode, userId, id),
+  });
+}
+
 export function useUpsertScheduleBlockMutation() {
   const { mode, userId } = useAuthScope();
   return useMutation({
@@ -700,8 +735,8 @@ export function useUpsertDailyNote() {
         ? Promise.resolve(upsertGuestDailyNote(date, content)).then(() => undefined)
         : resources.dailyNotes.upsert(userId!, date, content),
     onSuccess: (_data, { date }) => {
-      queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNote", mode, userId, date] });
-      queryClient.invalidateQueries({ queryKey: ["freeslot", "dailyNotesForWeek", mode, userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dailyNote(mode, userId, date) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dailyNotesForWeekPrefix(mode, userId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.allDailyNoteDates(mode, userId) });
     },
   });
@@ -738,59 +773,33 @@ export function useInboxItems() {
 
 export function useAddInboxItem() {
   const { mode, userId } = useAuthScope();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (content: string) =>
+  return useOptimisticListMutation<LocalInboxItem, string>({
+    queryKey: queryKeys.inboxItems(mode, userId),
+    mutationFn: (content) =>
       mode === "guest"
         ? Promise.resolve(addGuestInboxItem(content))
         : resources.inboxItems.insert(userId!, content),
-    onMutate: async (content) => {
-      const key = queryKeys.inboxItems(mode, userId);
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<LocalInboxItem[]>(key) ?? [];
-      const optimistic: LocalInboxItem = {
+    applyOptimistic: (previous, content) => [
+      {
         id: `optimistic-${Date.now()}`,
         user_id: userId ?? "guest",
         content,
         created_at: new Date().toISOString(),
         archived_at: null,
-      };
-      queryClient.setQueryData<LocalInboxItem[]>(key, [optimistic, ...previous]);
-      return { previous };
-    },
-    onError: (_err, _content, ctx) => {
-      if (ctx?.previous) {
-        queryClient.setQueryData(queryKeys.inboxItems(mode, userId), ctx.previous);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.inboxItems(mode, userId) });
-    },
+      },
+      ...previous,
+    ],
   });
 }
 
 export function useArchiveInboxItem() {
   const { mode, userId } = useAuthScope();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
+  return useOptimisticListMutation<LocalInboxItem, string>({
+    queryKey: queryKeys.inboxItems(mode, userId),
+    mutationFn: (id) =>
       mode === "guest"
         ? Promise.resolve(archiveGuestInboxItem(id))
         : resources.inboxItems.archive(userId!, id),
-    onMutate: async (id) => {
-      const key = queryKeys.inboxItems(mode, userId);
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<LocalInboxItem[]>(key) ?? [];
-      queryClient.setQueryData<LocalInboxItem[]>(key, previous.filter((i) => i.id !== id));
-      return { previous };
-    },
-    onError: (_err, _id, ctx) => {
-      if (ctx?.previous) {
-        queryClient.setQueryData(queryKeys.inboxItems(mode, userId), ctx.previous);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.inboxItems(mode, userId) });
-    },
+    applyOptimistic: (previous, id) => previous.filter((i) => i.id !== id),
   });
 }

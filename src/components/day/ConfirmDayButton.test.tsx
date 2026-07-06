@@ -100,5 +100,19 @@ describe("ConfirmDayButton", () => {
       );
       expect(screen.getByTestId("confirm-day-button")).not.toBeDisabled();
     });
+
+    it("offers the confirm action for an overnight block that ended earlier today, even with nothing elapsed on today's own schedule", () => {
+      const { iso, weekday } = freezeToday(8);
+      const prevWeekday = (weekday + 6) % 7;
+      render(
+        <ConfirmDayButton
+          date={iso}
+          blocks={[block({ id: "sleep", name: "Sleep", start_time: "23:00", end_time: "07:00", days_of_week: [prevWeekday] })]}
+          logs={[]}
+          categories={[category]}
+        />
+      );
+      expect(screen.getByTestId("confirm-day-button")).not.toBeDisabled();
+    });
   });
 });
