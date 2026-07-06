@@ -2,7 +2,7 @@
 // scheduled/logged totals, overlap-based adherence, and displacement (what was
 // logged inside a label's scheduled windows). Minute-attribution sweeps trade
 // micro-performance for clarity — a week is at most 7 × 1440 steps per label.
-import { blocksOnDay, logsToIntervals, type Interval } from "@/lib/gaps";
+import { blocksOnDay, logsToIntervals, mergeIntervals } from "@/lib/gaps";
 import { durationMinutes, isoToWeekday, toMin } from "@/lib/time";
 import { weekDays } from "@/lib/week";
 
@@ -134,7 +134,7 @@ export function buildScheduleVsActual(
     const { owner, coverage } = sweepDay(dayLogs);
 
     for (const [categoryId, categoryBlocks] of blocksByCategory) {
-      const windows: Interval[] = blocksOnDay(categoryBlocks, weekday);
+      const windows = mergeIntervals(blocksOnDay(categoryBlocks, weekday));
       if (windows.length === 0) continue;
       const row = getRow(rows, categoryId);
       const own = coverage.get(categoryId);

@@ -142,6 +142,8 @@ export function ScheduleVsActualCard({
                   onClick={() => expandable && setExpandedId(expanded ? null : row.categoryId)}
                   disabled={!expandable}
                   data-testid={`sva-row-${row.categoryId}`}
+                  aria-expanded={expandable ? expanded : undefined}
+                  aria-controls={expandable ? `sva-displacement-${row.categoryId}` : undefined}
                   className="w-full flex items-center gap-3 px-2 py-2 text-left disabled:cursor-default"
                 >
                   <span className="flex items-center gap-2 w-32 shrink-0 min-w-0">

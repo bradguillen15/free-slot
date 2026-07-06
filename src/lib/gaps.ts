@@ -24,7 +24,7 @@ export type GapWindow = Interval & {
 const DAY_START = 0;
 const DAY_END = MIN_PER_DAY;
 
-function mergeIntervals(items: Interval[]): Interval[] {
+export function mergeIntervals(items: Interval[]): Interval[] {
   if (items.length === 0) return [];
   const sorted = [...items].sort((a, b) => a.start - b.start);
   const out: Interval[] = [{ ...sorted[0] }];

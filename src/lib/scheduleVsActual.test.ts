@@ -167,6 +167,21 @@ describe("buildScheduleVsActual", () => {
     expect(result.rows.map((r) => r.categoryId)).toEqual(["meals", "gaming", "deep"]);
   });
 
+  it("deduplicates overlapping same-category scheduled windows", () => {
+    const result = buildScheduleVsActual(
+      WEEK,
+      [
+        block("deep", "09:00", "12:00", [1]),
+        block("deep", "10:00", "14:00", [1]),
+      ],
+      [log("deep", "2026-07-06", "09:00", "14:00")]
+    );
+    const deep = rowFor(result, "deep")!;
+    expect(deep.scheduledMin).toBe(300);
+    expect(deep.adherenceMin).toBe(300);
+    expect(result.totals.adherencePct).toBe(100);
+  });
+
   it("only counts logs inside the requested week", () => {
     const result = buildScheduleVsActual(WEEK, [], [
       log("deep", "2026-07-05", "09:00", "10:00"), // Sunday before the week
