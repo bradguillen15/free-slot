@@ -7,6 +7,7 @@ import { useConfirmDayMutation } from "@/lib/dataStore";
 import { useTour } from "@/components/tour/TourProvider";
 import { nowHHMM, todayISO } from "@/lib/time";
 import { buildConfirmDayRows, blockInstancesForDate, type ConfirmDayBlock, type ConfirmDayCategory, type ConfirmDayLog } from "@/lib/confirmDay";
+import { toastError } from "@/lib/toastError";
 
 export function ConfirmDayButton({
   date,
@@ -79,7 +80,7 @@ export function ConfirmDayButton({
       });
       notifyAction("confirm-day");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("common.somethingWrong"));
+      toastError(e, t);
     }
   };
 

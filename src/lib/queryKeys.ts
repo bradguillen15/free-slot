@@ -25,6 +25,8 @@ export const queryKeys = {
     ["freeslot", "dailyNote", mode, userId, date] as const,
   dailyNotesForWeek: (mode: Mode, userId: string | null, startISO: string, endISO: string) =>
     ["freeslot", "dailyNotesForWeek", mode, userId, startISO, endISO] as const,
+  dailyNotesForWeekPrefix: (mode: Mode, userId: string | null) =>
+    ["freeslot", "dailyNotesForWeek", mode, userId] as const,
   inboxItems: (mode: Mode, userId: string | null) =>
     ["freeslot", "inboxItems", mode, userId] as const,
   allDailyNoteDates: (mode: Mode, userId: string | null) =>

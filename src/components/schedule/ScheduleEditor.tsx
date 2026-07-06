@@ -30,23 +30,22 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
-import type { ScheduleBlock } from "@/components/day/DayTimeline";
+import type { ScheduleBlock } from "@/resources";
 import {
   useVisibleCategories,
   pickerCategories,
   useScheduleBlocks,
-  upsertScheduleBlock,
-  deleteScheduleBlock,
-  reorderScheduleBlocks,
+  useUpsertScheduleBlockMutation,
+  useDeleteScheduleBlockMutation,
+  useReorderScheduleBlocksMutation,
 } from "@/lib/dataStore";
-import type { PickerCategory } from "@/components/CategoryPicker";
-import { useAuth } from "@/contexts/AuthContext";
 import { BLOCK_PRESETS, SUGGESTED_SCHEDULE_TEMPLATE, applyPresetSegmentsAtomic, presetSegments } from "@/lib/schedule";
 import { findScheduleCollisions, groupScheduleCollisions } from "@/lib/scheduleCollisions";
 import { useTour } from "@/components/tour/TourProvider";
 import { toMin } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Surface } from "@/components/Surface";
+import { toastError } from "@/lib/toastError";
 
 /** Monday-first ordering of the canonical DAYS constant. */
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -233,11 +232,11 @@ function SortableScheduleRow({
 export function ScheduleEditor() {
   const { t } = useTranslation();
   const dayLabels = t("scheduleBlock.dayLabels", { returnObjects: true }) as string[];
-  const { user } = useAuth();
-  const mode = user ? "cloud" : "guest";
-  const { data: blocksRaw, refresh } = useScheduleBlocks();
+  const { data: blocks, refresh } = useScheduleBlocks();
+  const upsertBlock = useUpsertScheduleBlockMutation();
+  const deleteBlock = useDeleteScheduleBlockMutation();
+  const reorderBlocks = useReorderScheduleBlocksMutation();
   const { data: categoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
-  const blocks = blocksRaw as unknown as ScheduleBlock[];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogBlock, setDialogBlock] = useState<ScheduleBlock | undefined>();
@@ -250,8 +249,8 @@ export function ScheduleEditor() {
 
   const dialogPickerCategories = useMemo(
     () => pickerCategories(
-      categoriesRaw as PickerCategory[],
-      allCategoriesRaw as PickerCategory[],
+      categoriesRaw,
+      allCategoriesRaw,
       dialogBlock?.category_id
     ),
     [categoriesRaw, allCategoriesRaw, dialogBlock?.category_id]
@@ -290,7 +289,7 @@ export function ScheduleEditor() {
       return;
     }
     try {
-      await upsertScheduleBlock(mode, user?.id ?? null, {
+      await upsertBlock.mutateAsync({
         id: next.id,
         name: next.name.trim(),
         start_time: next.start_time,
@@ -301,7 +300,7 @@ export function ScheduleEditor() {
       });
       refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
       refresh();
     }
   };
@@ -320,7 +319,7 @@ export function ScheduleEditor() {
 
   const duplicate = async (block: ScheduleBlock) => {
     try {
-      const created = await upsertScheduleBlock(mode, user?.id ?? null, {
+      const created = await upsertBlock.mutateAsync({
         name: `${block.name} (copy)`,
         start_time: block.start_time,
         end_time: block.end_time,
@@ -329,30 +328,30 @@ export function ScheduleEditor() {
         type: block.type ?? "fixed",
         category_id: block.category_id ?? null,
       });
-      const copyId = (created as { id: string }).id;
+      const copyId = created.id;
       const idx = orderedIds.indexOf(block.id);
       const nextIds =
         idx >= 0
           ? [...orderedIds.slice(0, idx + 1), copyId, ...orderedIds.slice(idx + 1)]
           : [...orderedIds, copyId];
-      await reorderScheduleBlocks(mode, user?.id ?? null, nextIds);
+      await reorderBlocks.mutateAsync(nextIds);
       setOrderedIds(nextIds);
       orderedIdsRef.current = nextIds;
       refresh();
       toast.success(t("schedule.duplicated"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
     }
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteScheduleBlock(mode, user?.id ?? null, deleteTarget.id);
+      await deleteBlock.mutateAsync(deleteTarget.id);
       setDeleteTarget(null);
       refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
     }
   };
 
@@ -361,31 +360,31 @@ export function ScheduleEditor() {
       await applyPresetSegmentsAtomic(
         presetSegments(preset),
         (seg) =>
-          upsertScheduleBlock(mode, user?.id ?? null, {
+          upsertBlock.mutateAsync({
             name: seg.name,
             start_time: seg.start,
             end_time: seg.end,
             days_of_week: [...preset.days],
             color: seg.color ?? preset.color,
             type: preset.type,
-          }) as Promise<{ id: string }>,
-        (id) => deleteScheduleBlock(mode, user?.id ?? null, id),
+          }),
+        (id) => deleteBlock.mutateAsync(id),
       );
       refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
     }
   };
 
   const applySuggestedSchedule = async () => {
     try {
       const categoryIdByName = new Map(
-        (allCategoriesRaw as PickerCategory[]).map((c) => [c.name, c.id])
+        allCategoriesRaw.map((c) => [c.name, c.id])
       );
       await applyPresetSegmentsAtomic(
         SUGGESTED_SCHEDULE_TEMPLATE,
         (block) =>
-          upsertScheduleBlock(mode, user?.id ?? null, {
+          upsertBlock.mutateAsync({
             name: block.name,
             start_time: block.start,
             end_time: block.end,
@@ -393,15 +392,15 @@ export function ScheduleEditor() {
             color: block.color,
             type: block.type,
             category_id: categoryIdByName.get(block.categoryName) ?? null,
-          }) as Promise<{ id: string }>,
-        (id) => deleteScheduleBlock(mode, user?.id ?? null, id),
+          }),
+        (id) => deleteBlock.mutateAsync(id),
       );
       setApplyTemplateOpen(false);
       refresh();
       toast.success(t("scheduleTemplate.applied"));
       notifyAction("apply-schedule");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
     }
   };
 
@@ -439,10 +438,10 @@ export function ScheduleEditor() {
     setOrderedIds(nextIds);
     orderedIdsRef.current = nextIds;
     try {
-      await reorderScheduleBlocks(mode, user?.id ?? null, nextIds);
+      await reorderBlocks.mutateAsync(nextIds);
       refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
       const fallback = blocks.map((b) => b.id);
       setOrderedIds(fallback);
       orderedIdsRef.current = fallback;

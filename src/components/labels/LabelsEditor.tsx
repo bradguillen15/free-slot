@@ -21,9 +21,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { Brain, ChevronDown, Eye, EyeOff, GripVertical, Heart, Lock, Plus, Trash2, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
-import { useCategories, upsertCategory, deleteCategory, reorderCategories } from "@/lib/dataStore";
-import type { LocalCategory } from "@/lib/localStore";
+import { useCategories, useUpsertCategoryMutation, useDeleteCategoryMutation, useReorderCategoriesMutation } from "@/lib/dataStore";
+import type { Category as LocalCategory } from "@/resources";
 import { nextCreateColor } from "@/lib/categoryColors";
 import { useCategoryName } from "@/lib/categoryLabels";
 import { AddLabelDialog } from "@/components/labels/AddLabelDialog";
@@ -39,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Surface } from "@/components/Surface";
+import { toastError } from "@/lib/toastError";
 
 type LabelType = "productive" | "essential" | "unproductive";
 const COLUMN_TYPES: LabelType[] = ["productive", "essential", "unproductive"];
@@ -229,10 +229,10 @@ function BoardColumn({
 
 export function LabelsEditor() {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const mode = user ? "cloud" : "guest";
-  const { data: categoriesRaw, refresh } = useCategories();
-  const categories = categoriesRaw as LocalCategory[];
+  const { data: categories, refresh } = useCategories();
+  const upsertCategoryMutation = useUpsertCategoryMutation();
+  const deleteCategoryMutation = useDeleteCategoryMutation();
+  const reorderCategoriesMutation = useReorderCategoriesMutation();
   const categoryName = useCategoryName();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -268,29 +268,29 @@ export function LabelsEditor() {
 
   const updateLabel = async (id: string, patch: Partial<LocalCategory>) => {
     try {
-      await upsertCategory(mode, user?.id ?? null, { id, ...patch });
+      await upsertCategoryMutation.mutateAsync({ id, ...patch });
       toast.success(t("labels.updated"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
     }
   };
 
   const toggleHidden = async (cat: LocalCategory) => {
     try {
-      await upsertCategory(mode, user?.id ?? null, { id: cat.id, hidden: !cat.hidden });
+      await upsertCategoryMutation.mutateAsync({ id: cat.id, hidden: !cat.hidden });
       toast.success(cat.hidden ? t("labels.shown") : t("labels.hidden"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
     }
   };
 
   const removeLabel = async (cat: LocalCategory) => {
     try {
-      await deleteCategory(mode, user?.id ?? null, cat.id);
+      await deleteCategoryMutation.mutateAsync(cat.id);
       setDeleteTarget(null);
       toast.success(t("labels.deleted"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
     }
   };
 
@@ -304,11 +304,11 @@ export function LabelsEditor() {
 
   const saveNewLabel = async (values: AddLabelValues): Promise<boolean> => {
     try {
-      await upsertCategory(mode, user?.id ?? null, { name: values.name, color: values.color, type: values.type });
+      await upsertCategoryMutation.mutateAsync({ name: values.name, color: values.color, type: values.type });
       toast.success(t("labels.created"));
       return true;
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
       return false;
     }
   };
@@ -371,12 +371,12 @@ export function LabelsEditor() {
 
     try {
       if (typeChanged) {
-        await upsertCategory(mode, user?.id ?? null, { id: activeId, type: container });
+        await upsertCategoryMutation.mutateAsync({ id: activeId, type: container });
       }
-      await reorderCategories(mode, user?.id ?? null, orderedIds);
+      await reorderCategoriesMutation.mutateAsync(orderedIds);
       if (typeChanged) toast.success(t("labels.updated"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("common.somethingWrong"));
+      toastError(err, t);
       refresh();
     }
   };

@@ -140,6 +140,105 @@ function normalizeCategory(raw: LocalCategory): LocalCategory {
   return { ...raw, hidden: raw.hidden ?? false };
 }
 
+type CollectionStoreConfig<T extends { id: string; created_at: string }> = {
+  storageKey: string;
+  /** Fills every non-id/created_at field, falling back to entity defaults for anything the input omits. */
+  buildDefaults: (input: Partial<T>) => Omit<T, "id" | "created_at">;
+  normalize?: (raw: T) => T;
+};
+
+function collectionStore<T extends { id: string; created_at: string }>({
+  storageKey,
+  buildDefaults,
+  normalize,
+}: CollectionStoreConfig<T>) {
+  const key = `${PREFIX}.${storageKey}`;
+
+  const list = (): T[] => {
+    const items = readArray<T>(key);
+    return normalize ? items.map(normalize) : items;
+  };
+
+  const upsert = (input: Partial<T> & { id?: string }): T => {
+    const all = list();
+    if (input.id && all.some((item) => item.id === input.id)) {
+      const next = all.map((item) => {
+        if (item.id !== input.id) return item;
+        const merged = { ...item, ...input } as T;
+        return normalize ? normalize(merged) : merged;
+      });
+      write(key, next);
+      return next.find((item) => item.id === input.id)!;
+    }
+    const created = {
+      ...buildDefaults(input),
+      id: input.id ?? rid(),
+      created_at: new Date().toISOString(),
+    } as T;
+    write(key, [...all, created]);
+    return created;
+  };
+
+  const remove = (id: string) => {
+    write(key, list().filter((item) => item.id !== id));
+  };
+
+  /** Reorder items to match `orderedIds` (unknown ids are ignored; missing ids trail). */
+  const reorder = (orderedIds: string[]) => {
+    const byId = new Map(list().map((item) => [item.id, item]));
+    const seen = new Set<string>();
+    const next: T[] = [];
+    for (const id of orderedIds) {
+      const item = byId.get(id);
+      if (item) {
+        next.push(item);
+        seen.add(id);
+      }
+    }
+    for (const item of byId.values()) {
+      if (!seen.has(item.id)) next.push(item);
+    }
+    write(key, next);
+  };
+
+  return { list, upsert, remove, reorder };
+}
+
+const categoriesStore = collectionStore<LocalCategory>({
+  storageKey: "categories",
+  normalize: normalizeCategory,
+  buildDefaults: (input) => ({
+    name: input.name ?? "Untitled",
+    type: input.type ?? "productive",
+    color: input.color ?? "#3b82f6",
+    is_default: false,
+    hidden: input.hidden ?? false,
+  }),
+});
+
+const activitiesStore = collectionStore<LocalActivity>({
+  storageKey: "activities",
+  buildDefaults: (input) => ({
+    name: input.name ?? "Untitled",
+    category_id: input.category_id ?? null,
+    target_hours_per_week: input.target_hours_per_week ?? 1,
+    is_active: input.is_active ?? true,
+  }),
+});
+
+const scheduleBlocksStore = collectionStore<LocalScheduleBlock>({
+  storageKey: "schedule_blocks",
+  buildDefaults: (input) => ({
+    name: input.name ?? "Block",
+    start_time: input.start_time ?? "09:00",
+    end_time: input.end_time ?? "10:00",
+    days_of_week: input.days_of_week ?? [],
+    color: input.color ?? "#3b82f6",
+    type: input.type ?? "fixed",
+    category_id: input.category_id ?? null,
+  }),
+});
+
 /** Insert any default labels missing by name (idempotent top-up for existing guests). */
 function topUpDefaultCategories() {
   const all = listCategories().map(normalizeCategory);
@@ -196,126 +295,51 @@ export function updateProfile(patch: Partial<LocalProfile>) {
 }
 
 export function listCategories(): LocalCategory[] {
-  return readArray<LocalCategory>(`${PREFIX}.categories`).map(normalizeCategory);
+  return categoriesStore.list();
 }
 
 export function upsertCategory(input: Partial<LocalCategory> & { id?: string }) {
-  const all = listCategories();
-  if (input.id && all.some((c) => c.id === input.id)) {
-    const next = all.map((c) => (c.id === input.id ? normalizeCategory({ ...c, ...input }) : c));
-    write(`${PREFIX}.categories`, next);
-    return next.find((c) => c.id === input.id)!;
-  }
-  const created: LocalCategory = {
-    id: input.id ?? rid(),
-    name: input.name ?? "Untitled",
-    type: input.type ?? "productive",
-    color: input.color ?? "#3b82f6",
-    is_default: false,
-    hidden: input.hidden ?? false,
-    created_at: new Date().toISOString(),
-  };
-  write(`${PREFIX}.categories`, [...all, created]);
-  return created;
+  return categoriesStore.upsert(input);
 }
 
 export function deleteCategory(id: string) {
   const cat = listCategories().find((c) => c.id === id);
   if (cat?.is_default) throw new Error("Default labels cannot be deleted");
-  write(`${PREFIX}.categories`, listCategories().filter((c) => c.id !== id));
+  categoriesStore.remove(id);
 }
 
 /** Reorder categories to match `orderedIds` (unknown ids are ignored; missing ids trail). */
 export function reorderCategories(orderedIds: string[]) {
-  const byId = new Map(listCategories().map((c) => [c.id, c]));
-  const seen = new Set<string>();
-  const next: LocalCategory[] = [];
-  for (const id of orderedIds) {
-    const cat = byId.get(id);
-    if (cat) {
-      next.push(cat);
-      seen.add(id);
-    }
-  }
-  for (const cat of byId.values()) {
-    if (!seen.has(cat.id)) next.push(cat);
-  }
-  write(`${PREFIX}.categories`, next);
+  categoriesStore.reorder(orderedIds);
 }
 
 export function listActivities(): LocalActivity[] {
-  return readArray<LocalActivity>(`${PREFIX}.activities`);
+  return activitiesStore.list();
 }
 
 export function upsertActivity(input: Partial<LocalActivity> & { id?: string }) {
-  const all = listActivities();
-  if (input.id && all.some((a) => a.id === input.id)) {
-    const next = all.map((a) => (a.id === input.id ? { ...a, ...input } : a));
-    write(`${PREFIX}.activities`, next);
-    return next.find((a) => a.id === input.id)!;
-  }
-  const created: LocalActivity = {
-    id: input.id ?? rid(),
-    name: input.name ?? "Untitled",
-    category_id: input.category_id ?? null,
-    target_hours_per_week: input.target_hours_per_week ?? 1,
-    is_active: input.is_active ?? true,
-    created_at: new Date().toISOString(),
-  };
-  write(`${PREFIX}.activities`, [...all, created]);
-  return created;
+  return activitiesStore.upsert(input);
 }
 
 export function deleteActivity(id: string) {
-  write(`${PREFIX}.activities`, listActivities().filter((a) => a.id !== id));
+  activitiesStore.remove(id);
 }
 
 export function listScheduleBlocks(): LocalScheduleBlock[] {
-  return readArray<LocalScheduleBlock>(`${PREFIX}.schedule_blocks`);
+  return scheduleBlocksStore.list();
 }
 
 export function upsertScheduleBlock(input: Partial<LocalScheduleBlock> & { id?: string }) {
-  const all = listScheduleBlocks();
-  if (input.id && all.some((b) => b.id === input.id)) {
-    const next = all.map((b) => (b.id === input.id ? { ...b, ...input } : b));
-    write(`${PREFIX}.schedule_blocks`, next);
-    return next.find((b) => b.id === input.id)!;
-  }
-  const created: LocalScheduleBlock = {
-    id: input.id ?? rid(),
-    name: input.name ?? "Block",
-    start_time: input.start_time ?? "09:00",
-    end_time: input.end_time ?? "10:00",
-    days_of_week: input.days_of_week ?? [],
-    color: input.color ?? "#3b82f6",
-    type: input.type ?? "fixed",
-    category_id: input.category_id ?? null,
-    created_at: new Date().toISOString(),
-  };
-  write(`${PREFIX}.schedule_blocks`, [...all, created]);
-  return created;
+  return scheduleBlocksStore.upsert(input);
 }
 
 export function deleteScheduleBlock(id: string) {
-  write(`${PREFIX}.schedule_blocks`, listScheduleBlocks().filter((b) => b.id !== id));
+  scheduleBlocksStore.remove(id);
 }
 
 /** Reorder blocks to match `orderedIds` (unknown ids are ignored; missing ids trail). */
 export function reorderScheduleBlocks(orderedIds: string[]) {
-  const byId = new Map(listScheduleBlocks().map((b) => [b.id, b]));
-  const seen = new Set<string>();
-  const next: LocalScheduleBlock[] = [];
-  for (const id of orderedIds) {
-    const block = byId.get(id);
-    if (block) {
-      next.push(block);
-      seen.add(id);
-    }
-  }
-  for (const block of byId.values()) {
-    if (!seen.has(block.id)) next.push(block);
-  }
-  write(`${PREFIX}.schedule_blocks`, next);
+  scheduleBlocksStore.reorder(orderedIds);
 }
 
 export function listLogsForMonth(month: string): LocalTimeLog[] {

@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { updateProfile, useProfile } from "@/lib/dataStore";
+import { useUpdateProfileMutation, useProfile } from "@/lib/dataStore";
 import { TOUR_STEPS, type TourStep } from "./tourSteps";
 import { TourBubble } from "./TourBubble";
 
@@ -31,10 +30,8 @@ export function useTour() {
 }
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const mode = user ? "cloud" : "guest";
-  const userId = user?.id ?? null;
   const { data: profile, isLoading } = useProfile();
+  const { mutateAsync: persistProfile } = useUpdateProfileMutation();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -45,8 +42,8 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
   const markCompleted = useCallback(() => {
     // Fire-and-forget: a failed write only means the tour may auto-start again.
-    updateProfile(mode, userId, { tour_completed: true }).catch(() => {});
-  }, [mode, userId]);
+    persistProfile({ tour_completed: true }).catch(() => {});
+  }, [persistProfile]);
 
   const start = useCallback(() => setStepIndex(0), []);
 

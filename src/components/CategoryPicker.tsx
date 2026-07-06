@@ -8,13 +8,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useCategoryName } from "@/lib/categoryLabels";
+import type { Category } from "@/resources";
 
-export type PickerCategory = {
-  id: string;
-  name: string;
-  color: string;
-  type: "productive" | "unproductive" | "essential";
-};
+export type PickerCategory = Pick<Category, "id" | "name" | "color" | "type">;
 
 /**
  * Searchable label picker with on-the-fly creation. Replaces the old chip rows,

@@ -16,12 +16,12 @@ import {
   Form, FormControl, FormField, FormItem, FormMessage,
 } from "@/components/ui/form";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 import { addDaysISO, durationMinutes, fmtDuration, toMin } from "@/lib/time";
-import { deleteTimeLog, insertTimeLog, updateTimeLog, upsertCategory } from "@/lib/dataStore";
+import { useDeleteTimeLogMutation, useInsertTimeLogMutation, useUpdateTimeLogMutation, useUpsertCategoryMutation } from "@/lib/dataStore";
 import { CategoryPicker, type PickerCategory } from "@/components/CategoryPicker";
 import { nextCreateColor } from "@/lib/categoryColors";
 import { timeString } from "@/lib/formSchemas";
+import { toastError, errorMessage } from "@/lib/toastError";
 
 const makeQuickLogSchema = (t: TFunction) => z.object({
   title: z.string().trim().min(1, t("validation.titleRequired")),
@@ -36,12 +36,7 @@ const makeQuickLogSchema = (t: TFunction) => z.object({
 
 type QuickLogValues = z.infer<ReturnType<typeof makeQuickLogSchema>>;
 
-export type Category = {
-  id: string;
-  name: string;
-  color: string;
-  type: "productive" | "unproductive" | "essential";
-};
+export type Category = PickerCategory;
 
 type Props = {
   open: boolean;
@@ -79,9 +74,12 @@ export function QuickLogDialog({
   onSaved, onDeleted, onOptimisticInsert, onCategoriesRefresh,
 }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const timeFormat = useTimeFormat();
   const [deleting, setDeleting] = useState(false);
+  const insertTimeLogMutation = useInsertTimeLogMutation();
+  const updateTimeLogMutation = useUpdateTimeLogMutation();
+  const deleteTimeLogMutation = useDeleteTimeLogMutation();
+  const upsertCategoryMutation = useUpsertCategoryMutation();
 
   const quickLogSchema = useMemo(() => makeQuickLogSchema(t), [t]);
 
@@ -126,14 +124,17 @@ export function QuickLogDialog({
 
     try {
       if (editId) {
-        await updateTimeLog(user ? "cloud" : "guest", user?.id ?? null, editId, {
-          date: logDate,
-          start_time: values.start,
-          end_time: values.end,
-          category_id: values.categoryId,
-          type: selected?.type ?? "productive",
-          title: values.title,
-          notes: values.notes || null,
+        await updateTimeLogMutation.mutateAsync({
+          id: editId,
+          input: {
+            date: logDate,
+            start_time: values.start,
+            end_time: values.end,
+            category_id: values.categoryId,
+            type: selected?.type ?? "productive",
+            title: values.title,
+            notes: values.notes || null,
+          },
         });
         toast.success(t("quickLog.updated", { duration: fmtDuration(dur) }));
       } else {
@@ -150,7 +151,7 @@ export function QuickLogDialog({
           title: values.title,
           notes: values.notes || null,
         });
-        await insertTimeLog(user ? "cloud" : "guest", user?.id ?? null, {
+        await insertTimeLogMutation.mutateAsync({
           date: logDate,
           start_time: values.start,
           end_time: values.end,
@@ -163,7 +164,7 @@ export function QuickLogDialog({
       }
       onSaved?.();
     } catch (err: unknown) {
-      toast.error(t("quickLog.saveFailed", { error: err instanceof Error ? err.message : "unknown" }));
+      toast.error(t("quickLog.saveFailed", { error: errorMessage(err) }));
       onSaved?.();
     }
   };
@@ -172,12 +173,12 @@ export function QuickLogDialog({
     if (!editId) return;
     setDeleting(true);
     try {
-      await deleteTimeLog(user ? "cloud" : "guest", user?.id ?? null, editId);
+      await deleteTimeLogMutation.mutateAsync(editId);
       toast.success(t("quickLog.logDeleted"));
       onOpenChange(false);
       onDeleted?.();
     } catch (err: unknown) {
-      toast.error(t("quickLog.deleteFailed", { error: err instanceof Error ? err.message : "unknown" }));
+      toast.error(t("quickLog.deleteFailed", { error: errorMessage(err) }));
     } finally {
       setDeleting(false);
     }
@@ -185,15 +186,15 @@ export function QuickLogDialog({
 
   const createLabel = async (name: string, type: "productive" | "unproductive" | "essential"): Promise<PickerCategory | null> => {
     try {
-      const created = await upsertCategory(user ? "cloud" : "guest", user?.id ?? null, {
+      const created = await upsertCategoryMutation.mutateAsync({
         name,
         type,
         color: nextCreateColor(categories.length),
       });
       await onCategoriesRefresh?.();
-      return created as PickerCategory;
+      return created;
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("quickLog.couldNotCreateLabel"));
+      toastError(err, t, "quickLog.couldNotCreateLabel");
       return null;
     }
   };

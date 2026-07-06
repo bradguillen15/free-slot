@@ -2,26 +2,15 @@ import { Target } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ActivityEditor } from "@/components/activities/ActivityEditor";
 import { PriorityRanker } from "@/components/activities/PriorityRanker";
-import { useAuth } from "@/contexts/AuthContext";
 import { useActivities, useVisibleCategories } from "@/lib/dataStore";
-import type { Category } from "@/components/day/QuickLogDialog";
-
-type Activity = {
-  id: string;
-  name: string;
-  category_id: string | null;
-  target_hours_per_week: number;
-  is_active: boolean;
-};
 
 export default function ActivitiesPage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const { data: visibleRaw, all: allRaw, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw, refresh: refreshActs } = useActivities();
 
-  const categories = (allRaw ?? []) as unknown as Category[];
-  const activities = (activitiesRaw ?? []) as unknown as Activity[];
+  const categories = allRaw ?? [];
+  const activities = activitiesRaw ?? [];
 
   const reload = () => { refreshCats(); refreshActs(); };
 
@@ -52,7 +41,6 @@ export default function ActivitiesPage() {
       </header>
 
       <ActivityEditor
-        userId={user?.id ?? null}
         categories={categories}
         activities={activities}
         onChange={reload}

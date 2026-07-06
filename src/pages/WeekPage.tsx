@@ -17,12 +17,11 @@ import { fmtWeekRange, weekDays, weekStartISO } from "@/lib/week";
 import { type GapWindow } from "@/lib/gaps";
 import { buildDayCells, type DayCellData, type DayCellBlock, type DayCellLog } from "@/lib/calendarDays";
 import { WeekGrid } from "@/components/week/WeekGrid";
-import { QuickLogDialog, type Category } from "@/components/day/QuickLogDialog";
+import { QuickLogDialog } from "@/components/day/QuickLogDialog";
 import { ScheduleBlockDialog } from "@/components/day/ScheduleBlockDialog";
 import { ConfirmDayButton } from "@/components/day/ConfirmDayButton";
-import type { ConfirmDayBlock, ConfirmDayCategory, ConfirmDayLog } from "@/lib/confirmDay";
-import type { ScheduleBlock, TimeLog } from "@/components/day/DayTimeline";
-import { AIPlanPanel, type WeeklyPlan, type ActivityLite } from "@/components/week/AIPlanPanel";
+import type { ScheduleBlock } from "@/resources";
+import { AIPlanPanel, type WeeklyPlan } from "@/components/week/AIPlanPanel";
 import {
   useActivities,
   useVisibleCategories,
@@ -30,11 +29,12 @@ import {
   useProfile,
   useScheduleBlocks,
   useTimeLogsInRange,
-  updateTimeLog,
-  upsertCategory,
+  useUpdateTimeLogMutation,
+  useUpsertCategoryMutation,
   useDailyNotesForWeek,
 } from "@/lib/dataStore";
 import { StatCard } from "@/components/StatCard";
+import { toastError } from "@/lib/toastError";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -72,18 +72,15 @@ export default function WeekPage() {
   const weekEnd = useMemo(() => addDaysISO(weekStart, 6), [weekStart]);
   const logsStart = useMemo(() => addDaysISO(weekStart, -1), [weekStart]);
 
-  const { data: blocksRaw, refresh: refreshBlocks } = useScheduleBlocks();
-  const { data: logsRaw, refresh: refreshLogs } = useTimeLogsInRange(logsStart, weekEnd);
-  const { data: visibleCategoriesRaw, all: allCategoriesRaw, refresh: refreshCats } = useVisibleCategories();
+  const { data: blocks, refresh: refreshBlocks } = useScheduleBlocks();
+  const { data: logs, refresh: refreshLogs } = useTimeLogsInRange(logsStart, weekEnd);
+  const { data: visibleCategories, all: allCategories, refresh: refreshCats } = useVisibleCategories();
   const { data: activitiesRaw } = useActivities();
   const { data: weekNotes = [] } = useDailyNotesForWeek(weekStart, weekEnd);
   const notedDates = useMemo(() => new Set(weekNotes.map((n) => n.date)), [weekNotes]);
-  const { data: profileRaw } = useProfile();
-
-  const blocks = blocksRaw as unknown as ScheduleBlock[];
-  const logs = logsRaw as unknown as TimeLog[];
-  const allCategories = allCategoriesRaw as unknown as Category[];
-  const visibleCategories = visibleCategoriesRaw as unknown as Category[];
+  const { data: profile } = useProfile();
+  const updateTimeLogMutation = useUpdateTimeLogMutation();
+  const upsertCategoryMutation = useUpsertCategoryMutation();
   const logPickerCategories = useMemo(
     () => pickerCategories(visibleCategories, allCategories, logCtx.defaultCategoryId),
     [visibleCategories, allCategories, logCtx.defaultCategoryId]
@@ -93,10 +90,9 @@ export default function WeekPage() {
     [visibleCategories, allCategories, blockDialogTarget.block?.category_id]
   );
   const activities = useMemo(
-    () => (activitiesRaw ?? []).filter((a) => (a as { is_active?: boolean }).is_active),
+    () => (activitiesRaw ?? []).filter((a) => a.is_active),
     [activitiesRaw]
   );
-  const profile = profileRaw as unknown as { peak_hours: { start: string; end: string } | null } | null;
 
   const blockById = useMemo(
     () => Object.fromEntries(blocks.map((b) => [b.id, b])),
@@ -109,16 +105,7 @@ export default function WeekPage() {
   );
 
   const dayCells: DayCellData[] = useMemo(
-    () => buildDayCells({
-      days,
-      blocks: blocks as unknown as Parameters<typeof buildDayCells>[0]["blocks"],
-      logs: logs as unknown as Parameters<typeof buildDayCells>[0]["logs"],
-      categories: allCategories as unknown as Parameters<typeof buildDayCells>[0]["categories"],
-      profile: profile as unknown as Parameters<typeof buildDayCells>[0]["profile"],
-      today,
-      aiPlan,
-      t,
-    }),
+    () => buildDayCells({ days, blocks, logs, categories: allCategories, profile, today, aiPlan, t }),
     [days, blocks, logs, allCategories, profile, today, aiPlan, t]
   );
 
@@ -145,20 +132,19 @@ export default function WeekPage() {
   const openSleepLog = async () => {
     const inWeek = today >= weekStart && today <= addDaysISO(weekStart, 6);
     const targetDate = inWeek ? today : weekStart;
-    let sleepCat = allCategories.find((c) => (c as { name?: string }).name === "Sleep");
+    let sleepCat = allCategories.find((c) => c.name === "Sleep");
     if (!sleepCat) {
-      const mode = isGuest ? "guest" as const : "cloud" as const;
-      const created = await upsertCategory(mode, user?.id ?? null, {
+      const created = await upsertCategoryMutation.mutateAsync({
         name: "Sleep", type: "productive", color: "#6366f1",
       });
       await refreshCats();
-      sleepCat = created as typeof allCategories[0];
+      sleepCat = created;
     }
     setLogCtx({
       date: targetDate,
       start: "23:00",
       end: "07:00",
-      defaultCategoryId: (sleepCat as { id: string }).id,
+      defaultCategoryId: sleepCat.id,
       defaultTitle: categoryName("Sleep"),
     });
     setLogOpen(true);
@@ -188,27 +174,29 @@ export default function WeekPage() {
     newStartMin: number,
     newEndMin: number,
   ) => {
-    const log = (logsRaw ?? []).find((l) => (l as { id?: string }).id === logId);
-    if (!(log as { category_id?: string | null } | undefined)?.category_id) {
+    const log = logs.find((l) => l.id === logId);
+    if (!log?.category_id) {
       toast.error(t("week.assignCategory"));
       return;
     }
     try {
-      const mode = isGuest ? "guest" as const : "cloud" as const;
-      await updateTimeLog(mode, user?.id ?? null, logId, {
-        date: newDate,
-        start_time: fromMin(newStartMin),
-        end_time: fromMin(newEndMin),
-        category_id: (log as { category_id: string }).category_id,
-        type: (log as { type: "productive" | "unproductive" | "essential" }).type,
-        title: (log as { title?: string | null }).title ?? null,
-        notes: (log as { notes: string | null }).notes,
-        note_json: (log as { note_json?: object | null }).note_json ?? null,
+      await updateTimeLogMutation.mutateAsync({
+        id: logId,
+        input: {
+          date: newDate,
+          start_time: fromMin(newStartMin),
+          end_time: fromMin(newEndMin),
+          category_id: log.category_id,
+          type: log.type,
+          title: log.title ?? null,
+          notes: log.notes,
+          note_json: log.note_json ?? null,
+        },
       });
       toast.success(t("week.rescheduled"));
       await refreshLogs();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("week.couldNotReschedule"));
+      toastError(e, t, "week.couldNotReschedule");
     }
   };
 
@@ -239,9 +227,9 @@ export default function WeekPage() {
             {today >= weekStart && today <= weekEnd && (
               <ConfirmDayButton
                 date={today}
-                blocks={blocks as unknown as ConfirmDayBlock[]}
-                logs={logs as unknown as ConfirmDayLog[]}
-                categories={allCategories as unknown as ConfirmDayCategory[]}
+                blocks={blocks}
+                logs={logs}
+                categories={allCategories}
               />
             )}
             <CalendarNav
@@ -292,7 +280,7 @@ export default function WeekPage() {
         <AIPlanPanel
           weekStart={weekStart}
           gaps={flatGaps}
-          activities={activities as ActivityLite[]}
+          activities={activities}
           categories={allCategories}
           onPlanChange={setAiPlan}
           onSlotAccepted={refreshLogs}

@@ -2,19 +2,21 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+const insertTimeLogMock = vi.hoisted(() => vi.fn());
+const updateTimeLogMock = vi.hoisted(() => vi.fn());
+const deleteTimeLogMock = vi.hoisted(() => vi.fn());
+const upsertCategoryMock = vi.hoisted(() => vi.fn());
+
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/dataStore", () => ({
-  insertTimeLog: vi.fn(),
-  updateTimeLog: vi.fn(),
-  deleteTimeLog: vi.fn(),
+  useInsertTimeLogMutation: () => ({ mutateAsync: insertTimeLogMock }),
+  useUpdateTimeLogMutation: () => ({ mutateAsync: updateTimeLogMock }),
+  useDeleteTimeLogMutation: () => ({ mutateAsync: deleteTimeLogMock }),
+  useUpsertCategoryMutation: () => ({ mutateAsync: upsertCategoryMock }),
   useProfile: () => ({ data: { time_format: "24h" } }),
-}));
-vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: null, session: null, loading: false, signOut: vi.fn() }),
 }));
 
 import { toast } from "sonner";
-import { insertTimeLog, deleteTimeLog } from "@/lib/dataStore";
 import { QuickLogDialog, type Category } from "./QuickLogDialog";
 
 const cat: Category = { id: "c1", name: "Deep work", color: "#00f", type: "productive" };
@@ -42,18 +44,18 @@ describe("QuickLogDialog", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("End time must differ from start time")).toBeInTheDocument();
-    expect(insertTimeLog).not.toHaveBeenCalled();
+    expect(insertTimeLogMock).not.toHaveBeenCalled();
   });
 
   it("accepts an overnight entry (end < start) and logs the wrapped duration", async () => {
     const user = userEvent.setup();
-    vi.mocked(insertTimeLog).mockResolvedValue({ id: "row" });
+    insertTimeLogMock.mockResolvedValue({ id: "row" });
 
     render(<QuickLogDialog {...withCategory} defaultStart="23:00" defaultEnd="06:00" />);
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(insertTimeLog).toHaveBeenCalled());
-    expect(vi.mocked(insertTimeLog).mock.calls[0][2]).toMatchObject({
+    await waitFor(() => expect(insertTimeLogMock).toHaveBeenCalled());
+    expect(insertTimeLogMock.mock.calls[0][0]).toMatchObject({
       start_time: "23:00",
       end_time: "06:00",
     });
@@ -63,14 +65,14 @@ describe("QuickLogDialog", () => {
 
   it("saves an overnight insert with the previous day's date so it starts on the right night", async () => {
     const user = userEvent.setup();
-    vi.mocked(insertTimeLog).mockResolvedValue({ id: "row" });
+    insertTimeLogMock.mockResolvedValue({ id: "row" });
 
     // date prop is "2026-06-10"; overnight sleep starts the night of June 9.
     render(<QuickLogDialog {...withCategory} defaultStart="23:00" defaultEnd="07:00" />);
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(insertTimeLog).toHaveBeenCalled());
-    expect(vi.mocked(insertTimeLog).mock.calls[0][2]).toMatchObject({
+    await waitFor(() => expect(insertTimeLogMock).toHaveBeenCalled());
+    expect(insertTimeLogMock.mock.calls[0][0]).toMatchObject({
       date: "2026-06-09",
       start_time: "23:00",
       end_time: "07:00",
@@ -78,8 +80,7 @@ describe("QuickLogDialog", () => {
   });
 
   it("preserves the original editDate on an overnight edit to avoid double-shifting", async () => {
-    const { updateTimeLog } = await import("@/lib/dataStore");
-    vi.mocked(updateTimeLog).mockResolvedValue({ id: "row" });
+    updateTimeLogMock.mockResolvedValue({ id: "row" });
     const user = userEvent.setup();
 
     render(
@@ -93,11 +94,14 @@ describe("QuickLogDialog", () => {
     );
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(updateTimeLog).toHaveBeenCalled());
-    expect(vi.mocked(updateTimeLog).mock.calls[0][3]).toMatchObject({
-      date: "2026-06-09",
-      start_time: "23:00",
-      end_time: "07:00",
+    await waitFor(() => expect(updateTimeLogMock).toHaveBeenCalled());
+    expect(updateTimeLogMock.mock.calls[0][0]).toMatchObject({
+      id: "log-1",
+      input: {
+        date: "2026-06-09",
+        start_time: "23:00",
+        end_time: "07:00",
+      },
     });
   });
 
@@ -106,7 +110,7 @@ describe("QuickLogDialog", () => {
     render(<QuickLogDialog {...baseProps} />);
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Pick a label")).toBeInTheDocument();
-    expect(insertTimeLog).not.toHaveBeenCalled();
+    expect(insertTimeLogMock).not.toHaveBeenCalled();
   });
 
   it("shows Pick a label when there are no categories to pick", async () => {
@@ -114,13 +118,13 @@ describe("QuickLogDialog", () => {
     render(<QuickLogDialog {...baseProps} categories={[]} />);
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Pick a label")).toBeInTheDocument();
-    expect(insertTimeLog).not.toHaveBeenCalled();
+    expect(insertTimeLogMock).not.toHaveBeenCalled();
   });
 
   it("fires the optimistic insert immediately but the success toast only after the insert resolves", async () => {
     const user = userEvent.setup();
     let resolveInsert!: (v: unknown) => void;
-    vi.mocked(insertTimeLog).mockReturnValue(new Promise((r) => { resolveInsert = r; }));
+    insertTimeLogMock.mockReturnValue(new Promise((r) => { resolveInsert = r; }));
     const onOptimisticInsert = vi.fn();
 
     render(<QuickLogDialog {...withCategory} onOptimisticInsert={onOptimisticInsert} />);
@@ -133,9 +137,9 @@ describe("QuickLogDialog", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Logged 1h"));
   });
 
-  it("shows Delete when editing and calls deleteTimeLog with onDeleted", async () => {
+  it("shows Delete when editing and calls the delete mutation with onDeleted", async () => {
     const user = userEvent.setup();
-    vi.mocked(deleteTimeLog).mockResolvedValue(undefined);
+    deleteTimeLogMock.mockResolvedValue(undefined);
     const onDeleted = vi.fn();
     const onOpenChange = vi.fn();
 
@@ -151,7 +155,7 @@ describe("QuickLogDialog", () => {
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() =>
-      expect(deleteTimeLog).toHaveBeenCalledWith("guest", null, "log-42")
+      expect(deleteTimeLogMock).toHaveBeenCalledWith("log-42")
     );
     expect(toast.success).toHaveBeenCalledWith("Log deleted");
     expect(onOpenChange).toHaveBeenCalledWith(false);

@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Settings as SettingsIcon, Trash2, Save, Tag, AlertTriangle, CalendarRange, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProfile, updateProfile, useDeleteAccountMutation } from "@/lib/dataStore";
+import { useProfile, useUpdateProfileMutation, useDeleteAccountMutation } from "@/lib/dataStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import { plannerPrefsSchema, type PlannerPrefsValues } from "@/lib/formSchemas";
 import { ChangePasswordCard } from "@/components/settings/ChangePasswordCard";
 import { InstallAppCard } from "@/components/settings/InstallAppCard";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toastError";
 
 const deleteAccountSchema = z.object({ confirmText: z.literal("DELETE") });
 
@@ -32,9 +33,9 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const days = t("settings.days", { returnObjects: true }) as string[];
   const navigate = useNavigate();
-  const mode = user ? "cloud" : "guest";
 
   const { data: profileRaw } = useProfile();
+  const updateProfileMutation = useUpdateProfileMutation();
 
   const form = useForm<PlannerPrefsValues>({
     resolver: zodResolver(plannerPrefsSchema),
@@ -55,14 +56,13 @@ export default function SettingsPage() {
   }, [profileRaw, isDirty, form]);
 
   const persistTimeFormat = async (timeFormat: PlannerPrefsValues["timeFormat"]) => {
-    if (mode === "cloud" && !user) return;
     const previous = profileRaw?.time_format === "12h" ? "12h" : "24h";
     try {
-      await updateProfile(mode, user?.id ?? null, { time_format: timeFormat });
+      await updateProfileMutation.mutateAsync({ time_format: timeFormat });
       form.resetField("timeFormat", { defaultValue: timeFormat });
     } catch (err: unknown) {
       form.resetField("timeFormat", { defaultValue: previous });
-      toast.error(err instanceof Error ? err.message : t("settings.couldNotSavePrefs"));
+      toastError(err, t, "settings.couldNotSavePrefs");
     }
   };
 
@@ -75,9 +75,8 @@ export default function SettingsPage() {
   });
 
   const saveProfile = async (values: PlannerPrefsValues) => {
-    if (mode === "cloud" && !user) return;
     try {
-      await updateProfile(mode, user?.id ?? null, {
+      await updateProfileMutation.mutateAsync({
         include_weekends: values.includeWeekends,
         weekly_review_day: values.weeklyReviewDay,
         time_format: values.timeFormat,
@@ -85,7 +84,7 @@ export default function SettingsPage() {
       form.reset(values);
       toast.success(t("settings.preferencesSaved"));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t("settings.couldNotSavePrefs"));
+      toastError(err, t, "settings.couldNotSavePrefs");
     }
   };
 
@@ -96,7 +95,7 @@ export default function SettingsPage() {
       await signOut();
       navigate("/", { replace: true });
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("settings.failedDeleteAccount"));
+      toastError(e, t, "settings.failedDeleteAccount");
     }
   };
 

@@ -63,7 +63,7 @@ Examples: `pages/DashboardPage/` (`useDashboardStats`, `useWeeklyReviewPrompt`),
 
 1. **Pages and feature components** must use `dataStore` React Query hooks for reads (`useCategories`, `useActivities`, `useTimeLogsInRange`, `useProfile`, `useWeeklyPlan`, etc.).
 2. **Never** fetch data in `useEffect` — no hand-rolled `useState` + Supabase/localStorage reads in components.
-3. **Writes** go through `dataStore` async mutation functions or `use*Mutation` hooks; they invalidate query keys automatically — do not thread manual `refresh()` / `onSaved` callbacks.
+3. **Writes from components go through `dataStore` `use*Mutation` hooks** (`useUpsertCategoryMutation`, `useInsertTimeLogMutation`, …); they invalidate query keys automatically — do not thread manual `refresh()` / `onSaved` callbacks. The typed free functions (`upsertCategory(mode, userId, input)`, …) exist for non-hook callers only (`migrateGuest`, `confirmDay`, tests) — components must not derive `mode`/`userId` themselves. Surface mutation failures with `toastError(err, t, fallbackKey?)` from `@/lib/toastError`, not hand-rolled `err instanceof Error` ternaries.
 4. **Never** call `supabase.from(...)` from pages or components (ESLint enforced). Allowed locations: `src/lib/**`, `src/contexts/AuthContext.tsx`, `src/integrations/**`, and temporary overrides listed in `eslint.config.js` until Phase 3 stragglers migrate.
 5. Account-only features (AI planner, weekly reviews, settings) may use cloud-only hooks or edge functions via `dataStore` — not raw component fetches.
 6. Cloud reads now live in `src/resources/_providers/supabase/` (via `ResourcesProvider`); `dataFetchers.ts` has been deleted. New cloud reads go into the provider, not `dataStore` directly. See `src/resources/README.md` for the full pattern. Full ESLint enforcement comes in resources Phase 5.
@@ -74,7 +74,7 @@ Examples: `pages/DashboardPage/` (`useDashboardStats`, `useWeeklyReviewPrompt`),
 |---|---|
 | Read guest/cloud data | `useCategories()`, `useTimeLogsInRange(start, end)`, … |
 | Cloud-only read | `useWeeklyPlan(weekStart)` with `enabled: !!user` inside the hook |
-| Write + cache update | `await upsertCategory(mode, userId, input)` or `useUpsertCategoryMutation()` |
+| Write + cache update | `useUpsertCategoryMutation().mutateAsync(input)` (components); `upsertCategory(mode, userId, input)` only outside hooks |
 | Manual refetch | `const { refresh } = useCategories(); await refresh()` (prefer mutation invalidation) |
 | Optimistic log insert | `setData` from `useTimeLogsInRange` → backed by `queryClient.setQueryData` |
 | Query keys | Always use `queryKeys.*` from `@/lib/queryKeys` — never string literals |

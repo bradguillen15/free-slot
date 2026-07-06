@@ -68,10 +68,10 @@ export function useCalendarDays(
   const { data: profileRaw } = useProfile();
   const { t } = useTranslation();
 
-  const blocks     = blocksRaw as unknown as LocalScheduleBlock[];
-  const logs       = logsRaw   as unknown as LocalTimeLog[];
-  const categories = catsRaw   as unknown as LocalCategory[];
-  const profile    = profileRaw as LocalProfile | null;
+  const blocks     = blocksRaw;
+  const logs       = logsRaw;
+  const categories = catsRaw;
+  const profile    = profileRaw;
 
   return useMemo(() => {
     const days: string[] = [];
