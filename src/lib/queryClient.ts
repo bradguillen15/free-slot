@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { isGuestQueryKey } from "./queryKeys";
 
-export const defaultQueryClientOptions = {
+const defaultQueryClientOptions = {
   queries: {
     staleTime: 30_000,
     retry: 1,

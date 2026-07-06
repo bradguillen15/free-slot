@@ -52,7 +52,6 @@ export type ChangePasswordValues = z.infer<ReturnType<typeof makeChangePasswordS
 /** Planner preferences — used by SettingsPage. */
 export const plannerPrefsSchema = z.object({
   includeWeekends: z.boolean(),
-  weeklyReviewDay: z.number().int().min(0).max(6),
   timeFormat: z.enum(["12h", "24h"]),
 });
 

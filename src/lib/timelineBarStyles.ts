@@ -14,7 +14,7 @@ export function isCompactBar(barHeightPx: number): boolean {
   return barHeightPx < COMPACT_BAR_PX;
 }
 
-export const timelineBarBaseClassName = "absolute overflow-hidden rounded-sm";
+const timelineBarBaseClassName = "absolute overflow-hidden rounded-sm";
 
 export const timelineLogBarClassName = cn(
   timelineBarBaseClassName,

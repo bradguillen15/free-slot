@@ -1,9 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import type { ResourcesProvider, ActivityInput, CategoryInput, ScheduleBlockInput, TimeLogInput, TimeLogPatch } from "@/resources/_providers/types";
-import { mapActivity, mapCategory, mapDailyNote, mapInboxItem, mapProfile, mapScheduleBlock, mapTimeLog, mapWeeklyPlan, sortCategories, sortScheduleBlocks } from "./mappers";
+import { mapActivity, mapCategory, mapDailyNote, mapProfile, mapScheduleBlock, mapTimeLog, mapWeeklyPlan, sortCategories, sortScheduleBlocks } from "./mappers";
 
-export function edgeFunctionErrorMessage(error: unknown, data: unknown): string {
+function edgeFunctionErrorMessage(error: unknown, data: unknown): string {
   if (data && typeof data === "object" && "error" in data) {
     const message = (data as { error: unknown }).error;
     if (typeof message === "string" && message.length > 0) return message;
@@ -384,26 +384,6 @@ export function createSupabaseProvider(): ResourcesProvider {
       },
     },
 
-    weeklyReviews: {
-      async getForWeek(userId, weekStart) {
-        const { data, error } = await supabase
-          .from("weekly_reviews")
-          .select("id,week_start,insights,completed_at")
-          .eq("user_id", userId)
-          .eq("week_start", weekStart)
-          .maybeSingle();
-        if (error) throw new Error(error.message);
-        if (!data) return null;
-        const r = data as Record<string, unknown>;
-        return {
-          id: r.id as string,
-          week_start: r.week_start as string,
-          insights: (r.insights ?? null) as string | null,
-          completed_at: r.completed_at as string,
-        };
-      },
-    },
-
     weeklyPriorities: {
       async listForWeek(userId, weekStart) {
         const { data, error } = await supabase
@@ -497,60 +477,7 @@ export function createSupabaseProvider(): ResourcesProvider {
       },
     },
 
-    inboxItems: {
-      async list(userId) {
-        const { data, error } = await supabase
-          .from("inbox_items")
-          .select("id,user_id,content,created_at,archived_at")
-          .eq("user_id", userId)
-          .is("archived_at", null)
-          .order("created_at", { ascending: false });
-        if (error) throw new Error(error.message);
-        return (data ?? []).map((r: Record<string, unknown>) => mapInboxItem(r));
-      },
-
-      async insert(userId, content) {
-        const { data, error } = await supabase
-          .from("inbox_items")
-          .insert({ user_id: userId, content })
-          .select("id,user_id,content,created_at,archived_at")
-          .single();
-        if (error) throw new Error(error.message);
-        return mapInboxItem(data as Record<string, unknown>);
-      },
-
-      async archive(userId, id) {
-        const { error } = await supabase
-          .from("inbox_items")
-          .update({ archived_at: new Date().toISOString() })
-          .eq("id", id)
-          .eq("user_id", userId);
-        if (error) throw new Error(error.message);
-      },
-
-      async insertMany(userId, rows) {
-        if (!rows.length) return [];
-        const { data, error } = await supabase
-          .from("inbox_items")
-          .insert(rows.map((r) => ({
-            user_id: userId,
-            content: r.content,
-            created_at: r.created_at,
-            archived_at: r.archived_at,
-          })))
-          .select("id,user_id,content,created_at,archived_at");
-        if (error) throw new Error(error.message);
-        return (data ?? []).map((r: Record<string, unknown>) => mapInboxItem(r));
-      },
-    },
-
     functions: {
-      async generateWeeklyReview(body) {
-        const { data, error } = await supabase.functions.invoke("weekly-review", { body });
-        throwOnFunctionError(error, data);
-        return data as { review: { insights: string } };
-      },
-
       async generateWeeklyPlan(body) {
         const { data, error } = await supabase.functions.invoke("generate-weekly-plan", { body });
         throwOnFunctionError(error, data);

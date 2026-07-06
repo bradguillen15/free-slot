@@ -129,9 +129,9 @@ The single source of truth is the Supabase schema (replicated by `localStore.ts`
 | `time_logs` | What the user actually did. `title + date + start_time + end_time + category_id`, with optional rich `note_json`. |
 | `weekly_priorities` | Per-week ranked list of activity ids — drives AI planning. |
 | `weekly_plans` | Cached AI output per `(user_id, week_start)` — uniqueness enforced. `slots: jsonb` is the array of suggested time slots. |
-| `weekly_reviews` | One per completed week; stores AI insights. |
+| `weekly_reviews` | **Feature removed** (weekly-review UI, hooks, and edge function deleted); table retained pending a drop migration. |
 | `daily_notes` | Per-day rich notes used by dashboard review and weekly planning context. |
-| `inbox_items` | **UI removed** (was a Week-view capture inbox; that was its only entry point). Data layer and table retained pending a follow-up decision on full removal — see the `week-confirm-and-overnight-fix` change. |
+| `inbox_items` | **Feature removed** (inbox UI, data layer, and AI-payload path deleted in `prune-dead-verticals`); table retained pending a drop migration. |
 
 **RLS**: every table has an "own X all" policy of the form `auth.uid() = user_id`. No data is shared between users.
 
@@ -175,8 +175,6 @@ Cloud-only. Flow:
 3. Edge function calls the **Gemini `generateContent` API** directly (`gemini-2.5-flash`, via the `GEMINI_API_KEY` Supabase secret) with a prompt asking for slot assignments, instructed to respond in the request's locale (defaulting to English).
 4. Result is `upsert`ed into `weekly_plans` keyed on `(user_id, week_start)` — the unique constraint prevents race conditions from double-clicks.
 5. UI displays slots as dashed primary-colored ribbons over the week grid; clicking "Accept" inserts a corresponding `time_log` (also guarded with `useRef` against double-fires).
-
-The weekly review (`weekly-review` edge function) follows the same locale convention.
 
 **Why edge function and not client-side?** AI keys are server-only, and we want a single canonical prompt format that we can iterate on without shipping client builds.
 

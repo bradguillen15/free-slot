@@ -4,7 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { cn } from "@/lib/utils";
 import { NoteToolbar } from "./NoteToolbar";
 
-export const EMPTY_TIPTAP_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+const EMPTY_TIPTAP_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
 const PROSEMIRROR_CLASS =
   "tiptap text-sm outline-none text-foreground focus:outline-none";

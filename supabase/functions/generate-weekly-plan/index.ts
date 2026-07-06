@@ -7,17 +7,26 @@ import {
 } from "../_shared/gemini.ts";
 import {
   buildPlanPrompts,
+  capDailyNotes,
   validateSlots,
   type GapWindow,
   type PlanActivity as Activity,
   type Priority,
 } from "../_shared/planning.ts";
 
+// Pin CORS to the app origin in production (set ALLOWED_ORIGIN in Supabase
+// secrets); fall back to * for local development.
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+// Sanity caps on structural arrays — bounds prompt size (and Gemini cost)
+// against oversized payloads from authenticated clients.
+const MAX_GAPS = 200;
+const MAX_ACTIVITIES = 100;
+const MAX_PRIORITIES = 100;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -40,15 +49,19 @@ Deno.serve(async (req) => {
     const gaps: GapWindow[] = body.gaps ?? [];
     const activities: Activity[] = body.activities ?? [];
     const priorities: Priority[] = body.priorities ?? [];
+    const dailyNotes = capDailyNotes(body.daily_notes);
     const locale: "en" | "es" = body.locale === "es" ? "es" : "en";
 
     if (!week_start) return json({ error: "week_start required" }, 400);
+    if (gaps.length > MAX_GAPS || activities.length > MAX_ACTIVITIES || priorities.length > MAX_PRIORITIES) {
+      return json({ error: "Request payload too large" }, 400);
+    }
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) return json({ error: "AI not configured" }, 500);
 
     const { system: systemPrompt, user: userPrompt } = buildPlanPrompts(
-      week_start, gaps, activities, priorities, [], [], locale
+      week_start, gaps, activities, priorities, dailyNotes, locale
     );
 
     const aiRes = await callGeminiGenerateContent(

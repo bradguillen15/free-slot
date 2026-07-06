@@ -3,10 +3,8 @@
 import { useCallback, useMemo, type SetStateAction } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import type { LocalActivity, LocalCategory, LocalDailyNote, LocalInboxItem, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
+import type { LocalActivity, LocalCategory, LocalDailyNote, LocalProfile, LocalScheduleBlock, LocalTimeLog } from "@/lib/localStore";
 import {
-  addGuestInboxItem,
-  archiveGuestInboxItem,
   deleteActivity as localDeleteActivity,
   deleteCategory as localDeleteCategory,
   deleteLog as localDeleteLog,
@@ -14,7 +12,6 @@ import {
   ensureBootstrap,
   getGuestDailyNote,
   listAllGuestDailyNotes,
-  getGuestInboxItems,
   getProfile as localGetProfile,
   insertLog as localInsertLog,
   listActivities,
@@ -44,12 +41,6 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
 export type { Mode };
-
-export function useMode(): Mode {
-  const { user, loading } = useAuth();
-  if (loading) return "guest";
-  return user ? "cloud" : "guest";
-}
 
 function useAuthScope() {
   const { user } = useAuth();
@@ -88,36 +79,6 @@ function useDataQuery<T>({
   return { query, fetchError, refresh };
 }
 
-/** Optimistic list mutation: snapshot → apply optimistic update → rollback on error → invalidate on settle. */
-function useOptimisticListMutation<TItem, TVars>({
-  queryKey,
-  mutationFn,
-  applyOptimistic,
-}: {
-  queryKey: readonly unknown[];
-  mutationFn: (vars: TVars) => Promise<unknown>;
-  applyOptimistic: (previous: TItem[], vars: TVars) => TItem[];
-}) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn,
-    onMutate: async (vars: TVars) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<TItem[]>(queryKey) ?? [];
-      queryClient.setQueryData<TItem[]>(queryKey, applyOptimistic(previous, vars));
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) {
-        queryClient.setQueryData(queryKey, ctx.previous);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey });
-    },
-  });
-}
-
 const EMPTY_CATEGORIES: LocalCategory[] = [];
 const EMPTY_ACTIVITIES: LocalActivity[] = [];
 const EMPTY_BLOCKS: LocalScheduleBlock[] = [];
@@ -145,11 +106,6 @@ function invalidateProfile(mode: Mode, userId: string | null) {
 
 function invalidateWeeklyPlan(userId: string, weekStart: string) {
   getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyPlan(userId, weekStart) });
-}
-
-function invalidateWeeklyReview(userId: string | null, weekStart: string) {
-  if (!userId) return;
-  getQueryClient().invalidateQueries({ queryKey: queryKeys.weeklyReview(userId, weekStart) });
 }
 
 function invalidateWeeklyPriorities(mode: Mode, userId: string | null, weekStart: string) {
@@ -304,31 +260,6 @@ export function useProfile() {
     mode,
     isLoading: query.isLoading,
   };
-}
-
-export function useWeeklyReview(weekStart: string) {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
-  const query = useQuery({
-    queryKey: queryKeys.weeklyReview(userId ?? "", weekStart),
-    queryFn: () => resources.weeklyReviews.getForWeek(userId!, weekStart),
-    enabled: !!userId,
-  });
-  return {
-    data: query.data ?? null,
-    isLoading: query.isLoading,
-  };
-}
-
-export function useGenerateWeeklyReviewMutation() {
-  const { user } = useAuth();
-  return useMutation({
-    mutationFn: (body: Parameters<typeof resources.functions.generateWeeklyReview>[0]) =>
-      resources.functions.generateWeeklyReview(body),
-    onSuccess: (_data, vars) => {
-      invalidateWeeklyReview(user?.id ?? null, vars.week_start);
-    },
-  });
 }
 
 const EMPTY_PRIORITIES: import("@/lib/localStore").LocalPriority[] = [];
@@ -759,47 +690,3 @@ export function useAllDailyNoteDates(): string[] {
   return data ?? [];
 }
 
-export function useInboxItems() {
-  const { mode, userId } = useAuthScope();
-  return useQuery<LocalInboxItem[]>({
-    queryKey: queryKeys.inboxItems(mode, userId),
-    queryFn: () =>
-      mode === "guest"
-        ? Promise.resolve(getGuestInboxItems().filter((i) => !i.archived_at))
-        : resources.inboxItems.list(userId!),
-    staleTime: 30_000,
-  });
-}
-
-export function useAddInboxItem() {
-  const { mode, userId } = useAuthScope();
-  return useOptimisticListMutation<LocalInboxItem, string>({
-    queryKey: queryKeys.inboxItems(mode, userId),
-    mutationFn: (content) =>
-      mode === "guest"
-        ? Promise.resolve(addGuestInboxItem(content))
-        : resources.inboxItems.insert(userId!, content),
-    applyOptimistic: (previous, content) => [
-      {
-        id: `optimistic-${Date.now()}`,
-        user_id: userId ?? "guest",
-        content,
-        created_at: new Date().toISOString(),
-        archived_at: null,
-      },
-      ...previous,
-    ],
-  });
-}
-
-export function useArchiveInboxItem() {
-  const { mode, userId } = useAuthScope();
-  return useOptimisticListMutation<LocalInboxItem, string>({
-    queryKey: queryKeys.inboxItems(mode, userId),
-    mutationFn: (id) =>
-      mode === "guest"
-        ? Promise.resolve(archiveGuestInboxItem(id))
-        : resources.inboxItems.archive(userId!, id),
-    applyOptimistic: (previous, id) => previous.filter((i) => i.id !== id),
-  });
-}

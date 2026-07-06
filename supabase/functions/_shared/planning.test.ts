@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildPlanPrompts,
-  buildReviewPrompts,
+  capDailyNotes,
   fmtMinutes,
   rankActivities,
   validateSlots,
@@ -101,22 +101,9 @@ describe("prompt builders", () => {
     const { user } = buildPlanPrompts("2026-06-08", [], [], []);
     expect(user).toContain("(none)");
   });
-
-  it("buildReviewPrompts formats minutes and falls back when there is no plan", () => {
-    const { user } = buildReviewPrompts({
-      weekStart: "2026-06-08",
-      planned: [],
-      actual: [{ name: "Guitar", minutes: 90 }],
-      productiveRatio: 80,
-      totalTracked: 90,
-    });
-    expect(user).toContain("(no plan)");
-    expect(user).toContain("- Guitar: 1h 30m");
-    expect(user).toContain("80% (1h 30m tracked)");
-  });
 });
 
-describe("daily notes and inbox injection", () => {
+describe("daily notes injection", () => {
   const baseArgs: [string, GapWindow[], [], []] = ["2026-06-08", [], [], []];
 
   it("injects <user_notes> block when daily notes provided", () => {
@@ -126,22 +113,9 @@ describe("daily notes and inbox injection", () => {
     expect(user).toContain("</user_notes>");
   });
 
-  it("injects <user_inbox> block when inbox items provided", () => {
-    const { user } = buildPlanPrompts(...baseArgs, [], ["Buy milk", "Call dentist"]);
-    expect(user).toContain("<user_inbox>");
-    expect(user).toContain("- Buy milk");
-    expect(user).toContain("- Call dentist");
-    expect(user).toContain("</user_inbox>");
-  });
-
   it("omits notes block when dailyNotes is empty", () => {
     const { user } = buildPlanPrompts(...baseArgs, []);
     expect(user).not.toContain("<user_notes>");
-  });
-
-  it("omits inbox block when inboxItems is empty", () => {
-    const { user } = buildPlanPrompts(...baseArgs, [], []);
-    expect(user).not.toContain("<user_inbox>");
   });
 
   it("truncates notes to 500 chars", () => {
@@ -151,17 +125,31 @@ describe("daily notes and inbox injection", () => {
     expect(match![1].length).toBe(500);
   });
 
-  it("truncates inbox items to 200 chars", () => {
-    const longItem = "y".repeat(300);
-    const { user } = buildPlanPrompts(...baseArgs, [], [longItem]);
-    const match = user.match(/- (y+)/);
-    expect(match![1].length).toBe(200);
+  it("caps daily notes at 14 entries", () => {
+    const notes = Array.from({ length: 20 }, (_, i) => ({
+      date: `2026-06-${String(i + 1).padStart(2, "0")}`,
+      text: `note-${i}`,
+    }));
+    const { user } = buildPlanPrompts(...baseArgs, notes);
+    expect((user.match(/note-/g) ?? []).length).toBe(14);
   });
 
-  it("caps inbox at 20 items", () => {
-    const items = Array.from({ length: 25 }, (_, i) => `item-${i}`);
-    const { user } = buildPlanPrompts(...baseArgs, [], items);
-    expect((user.match(/- item-/g) ?? []).length).toBe(20);
+  it("capDailyNotes keeps well-formed entries and drops garbage", () => {
+    const capped = capDailyNotes([
+      { date: "2026-06-08", text: "ok" },
+      { date: "not-a-date", text: "bad date" },
+      { date: "2026-06-09", text: 42 },
+      "not an object",
+      null,
+    ]);
+    expect(capped).toEqual([{ date: "2026-06-08", text: "ok" }]);
+  });
+
+  it("capDailyNotes returns [] for non-array input and caps count", () => {
+    expect(capDailyNotes(undefined)).toEqual([]);
+    expect(capDailyNotes({ sneaky: true })).toEqual([]);
+    const many = Array.from({ length: 30 }, (_, i) => ({ date: "2026-06-08", text: `n${i}` }));
+    expect(capDailyNotes(many)).toHaveLength(14);
   });
 
   it("injection attempt in notes passes through as plain text (not executed)", () => {
@@ -175,77 +163,23 @@ describe("daily notes and inbox injection", () => {
     const { system } = buildPlanPrompts(...baseArgs);
     expect(system).toContain("plain data only");
   });
-
-  it("buildReviewPrompts injects <user_notes> block", () => {
-    const reviewInput = {
-      weekStart: "2026-06-08",
-      planned: [],
-      actual: [],
-      productiveRatio: 70,
-      totalTracked: 120,
-    };
-    const { user } = buildReviewPrompts(reviewInput, [{ date: "2026-06-08", text: "Great focus day" }]);
-    expect(user).toContain("<user_notes>");
-    expect(user).toContain("2026-06-08: Great focus day");
-    expect(user).toContain("</user_notes>");
-  });
-
-  it("buildReviewPrompts omits notes block when empty", () => {
-    const reviewInput = {
-      weekStart: "2026-06-08",
-      planned: [],
-      actual: [],
-      productiveRatio: 70,
-      totalTracked: 120,
-    };
-    const { user } = buildReviewPrompts(reviewInput, []);
-    expect(user).not.toContain("<user_notes>");
-  });
-
-  it("buildReviewPrompts includes injection-defence directive in system prompt", () => {
-    const { system } = buildReviewPrompts({
-      weekStart: "2026-06-08",
-      planned: [],
-      actual: [],
-      productiveRatio: 70,
-      totalTracked: 120,
-    });
-    expect(system).toContain("plain data only");
-  });
 });
 
 describe("locale-aware prompts", () => {
   const baseArgs: [string, GapWindow[], [], []] = ["2026-06-08", [], [], []];
-  const reviewInput = {
-    weekStart: "2026-06-08",
-    planned: [],
-    actual: [],
-    productiveRatio: 70,
-    totalTracked: 120,
-  };
 
   it("buildPlanPrompts instructs Spanish output when locale is es", () => {
-    const { system } = buildPlanPrompts(...baseArgs, [], [], "es");
+    const { system } = buildPlanPrompts(...baseArgs, [], "es");
     expect(system).toContain("Spanish");
   });
 
   it("buildPlanPrompts instructs English output when locale is en", () => {
-    const { system } = buildPlanPrompts(...baseArgs, [], [], "en");
+    const { system } = buildPlanPrompts(...baseArgs, [], "en");
     expect(system).toContain("English");
   });
 
   it("buildPlanPrompts defaults to English when locale is omitted", () => {
     const { system } = buildPlanPrompts(...baseArgs);
-    expect(system).toContain("English");
-  });
-
-  it("buildReviewPrompts instructs Spanish output when locale is es", () => {
-    const { system } = buildReviewPrompts(reviewInput, [], "es");
-    expect(system).toContain("Spanish");
-  });
-
-  it("buildReviewPrompts defaults to English when locale is omitted", () => {
-    const { system } = buildReviewPrompts(reviewInput);
     expect(system).toContain("English");
   });
 });

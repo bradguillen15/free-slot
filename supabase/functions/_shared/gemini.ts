@@ -67,18 +67,6 @@ export function buildPlanGeminiBody(
   };
 }
 
-export function buildReviewGeminiBody(
-  systemPrompt: string,
-  userPrompt: string,
-  maxOutputTokens = 512
-): Record<string, unknown> {
-  return {
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    contents: [{ parts: [{ text: userPrompt }] }],
-    generationConfig: { maxOutputTokens },
-  };
-}
-
 export async function callGeminiGenerateContent(
   apiKey: string,
   body: Record<string, unknown>
@@ -113,14 +101,6 @@ export async function callGeminiGenerateContent(
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-export function parseGeminiText(response: GeminiResponse): string | null {
-  const parts = response.candidates?.[0]?.content?.parts ?? [];
-  const raw = parts.find((p) => typeof p.text === "string")?.text;
-  if (raw == null) return null;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function parseGeminiFunctionCall(

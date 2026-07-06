@@ -28,7 +28,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 const profileData = vi.hoisted(() => ({
-  data: { peak_hours: { start: "08:00", end: "11:00" }, include_weekends: false, weekly_review_day: 2, time_format: "24h" } as Record<string, unknown> | null,
+  data: { peak_hours: { start: "08:00", end: "11:00" }, include_weekends: false, time_format: "24h" } as Record<string, unknown> | null,
 }));
 const refreshProfile = vi.hoisted(() => vi.fn());
 const updateProfileMock = vi.hoisted(() => vi.fn());
@@ -46,7 +46,6 @@ beforeEach(() => {
   profileData.data = {
     peak_hours: { start: "08:00", end: "11:00" },
     include_weekends: false,
-    weekly_review_day: 2,
     time_format: "24h",
   };
   getUserMock.mockResolvedValue({ data: { user: { email: "user@example.com" } }, error: null });
@@ -94,8 +93,7 @@ describe("SettingsPage planner preferences", () => {
     await waitFor(() =>
       expect(updateProfileMock).toHaveBeenCalledWith({
         include_weekends: false,
-        weekly_review_day: 2,
-        time_format: "24h",
+            time_format: "24h",
       }),
     );
   });

@@ -33,10 +33,10 @@ const SNAP_MIN = 15;
 const DRAG_CANCEL_PX = 4;
 const HOUR_RAIL_PX = 48;
 /** Desktop week grid min width (48px rail + 7 × ~96px columns). */
-export const WEEK_GRID_MIN_WIDTH_PX = 720;
+const WEEK_GRID_MIN_WIDTH_PX = 720;
 /** Mobile day columns are 20px wider than the desktop minimum (~96px → 116px). */
-export const MOBILE_DAY_COL_PX = 116;
-export const MOBILE_WEEK_GRID_MIN_WIDTH_PX = HOUR_RAIL_PX + MOBILE_DAY_COL_PX * 7;
+const MOBILE_DAY_COL_PX = 116;
+const MOBILE_WEEK_GRID_MIN_WIDTH_PX = HOUR_RAIL_PX + MOBILE_DAY_COL_PX * 7;
 
 type Seg = { startMin: number; endMin: number };
 

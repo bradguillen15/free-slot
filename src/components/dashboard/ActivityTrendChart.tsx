@@ -8,7 +8,7 @@ import { fmtDuration } from "@/lib/time";
 import type { CategoryMeta, TrendRow } from "@/pages/DashboardPage/useDashboardStats";
 
 export const DEFAULT_VISIBLE_CAP = 6;
-export const PLANNED_SUFFIX = "_planned";
+const PLANNED_SUFFIX = "_planned";
 
 export function isCategoryVisible(
   index: number,

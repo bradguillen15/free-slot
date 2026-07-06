@@ -35,9 +35,9 @@ Environment variables (`.env` — copy from `.env.example`):
 | `time_logs` | `id`, `user_id`, `title`, `date`, `start_time`, `end_time`, `category_id`, `type`, `notes`, `note_json` | What actually happened, including optional rich inline notes. |
 | `weekly_priorities` | `user_id`, `week_start`, `activity_id`, `rank` | Drag-ranked focus per week — drives AI planning. |
 | `weekly_plans` | `user_id`, `week_start`, `generated_at`, `slots jsonb` | AI-generated week plan. **`UNIQUE(user_id, week_start)`** to prevent duplicates. |
-| `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | One AI insight summary per completed week. |
+| `weekly_reviews` | `user_id`, `week_start`, `completed_at`, `insights` | **Feature removed** — weekly-review code and edge function deleted; table retained pending a drop migration. |
 | `daily_notes` | `user_id`, `date`, `content jsonb`, `updated_at` | Per-day rich notes. |
-| `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | **UI removed** — was a Week-view capture inbox (its only entry point); table retained pending a follow-up removal decision. |
+| `inbox_items` | `id`, `user_id`, `content`, `created_at`, `archived_at` | **Feature removed** — inbox code deleted; table retained pending a drop migration. |
 
 ### Trigger
 
@@ -90,14 +90,13 @@ supabase functions deploy generate-weekly-plan --project-ref <YOUR_PROJECT_REF>
 | Function | Purpose | JWT | AI |
 |---|---|---|---|
 | `generate-weekly-plan` | Calls Gemini with the user's gaps + activities + priorities; upserts the result into `weekly_plans`. | required | `gemini-2.5-flash` |
-| `weekly-review` | Aggregates planned-vs-actual for a week, asks the AI for insights, writes `weekly_reviews`. | required | `gemini-2.5-flash` |
 | `delete-account` | Service-role cleanup + auth user deletion. | required | none |
 
 ### Calling an edge function
 
 ```ts
 const { data, error } = await supabase.functions.invoke("generate-weekly-plan", {
-  body: { week_start, gaps, activities, priorities },
+  body: { week_start, gaps, activities, priorities, daily_notes },
 });
 ```
 
@@ -121,9 +120,6 @@ Model in use: `gemini-2.5-flash` — fast, cost-efficient, and eligible for the 
 Always parse responses defensively:
 
 ```ts
-// Text response (weekly-review)
-const text = parseGeminiText(aiJson) ?? "fallback";
-
 // Function-call response (generate-weekly-plan)
 const parsed = parseGeminiFunctionCall(aiJson, "propose_plan");
 ```
@@ -145,8 +141,9 @@ Currently required:
 
 | Secret | Used by | How to get |
 |---|---|---|
-| `GEMINI_API_KEY` | `generate-weekly-plan`, `weekly-review` | [Google AI Studio](https://aistudio.google.com/apikey) → API Keys |
+| `GEMINI_API_KEY` | `generate-weekly-plan` | [Google AI Studio](https://aistudio.google.com/apikey) → API Keys |
 | `SUPABASE_SERVICE_ROLE_KEY` | `delete-account` | Supabase dashboard → Settings → API → service_role key |
+| `ALLOWED_ORIGIN` | all functions (optional) | The app's production origin (e.g. `https://free-slot.vercel.app`). Pins `Access-Control-Allow-Origin`; when unset, functions fall back to `*` for local development. |
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically by Supabase into every edge function — you do not need to set these manually.
 

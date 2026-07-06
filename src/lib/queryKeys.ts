@@ -17,8 +17,6 @@ export const queryKeys = {
     ["freeslot", "profile", mode, userId] as const,
   weeklyPlan: (userId: string, weekStart: string) =>
     ["freeslot", "weeklyPlan", userId, weekStart] as const,
-  weeklyReview: (userId: string, weekStart: string) =>
-    ["freeslot", "weeklyReview", userId, weekStart] as const,
   weeklyPriorities: (userId: string | null, weekStart: string) =>
     ["freeslot", "weeklyPriorities", userId, weekStart] as const,
   dailyNote: (mode: Mode, userId: string | null, date: string) =>
@@ -27,8 +25,6 @@ export const queryKeys = {
     ["freeslot", "dailyNotesForWeek", mode, userId, startISO, endISO] as const,
   dailyNotesForWeekPrefix: (mode: Mode, userId: string | null) =>
     ["freeslot", "dailyNotesForWeek", mode, userId] as const,
-  inboxItems: (mode: Mode, userId: string | null) =>
-    ["freeslot", "inboxItems", mode, userId] as const,
   allDailyNoteDates: (mode: Mode, userId: string | null) =>
     ["freeslot", "allDailyNoteDates", mode, userId] as const,
 };

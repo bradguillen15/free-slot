@@ -3,7 +3,7 @@ process.env.TZ = "America/New_York";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { seedGuestData } from "../test/factories";
 import { migrateGuestToCloud } from "./migrateGuest";
-import { hasGuestData, DEFAULT_CATEGORY_SEED, updateProfile, type LocalCategory } from "./localStore";
+import { hasGuestData, DEFAULT_CATEGORY_SEED, insertLog, updateProfile, type LocalCategory } from "./localStore";
 
 const {
   mockCategories,
@@ -122,6 +122,26 @@ describe("migrateGuestToCloud — happy path", () => {
       expect.objectContaining({ onboarding_completed: true, time_format: "24h" }),
     );
     expect(mockWeeklyPriorities.upsertMany).toHaveBeenCalled();
+  });
+
+  it("carries note_json on migrated time logs so rich notes survive signup", async () => {
+    seedGuestData();
+    insertLog({
+      date: "2026-06-11", start_time: "07:00", end_time: "08:00",
+      type: "productive", category_id: null,
+      notes: "plain fallback",
+      note_json: { type: "doc", content: [] },
+    });
+    setupHappyPath();
+
+    await migrateGuestToCloud("u1");
+
+    const rows = mockTimeLogs.insertMany.mock.calls[0][1] as Array<Record<string, unknown>>;
+    const withNote = rows.find((r) => r.date === "2026-06-11");
+    expect(withNote).toMatchObject({
+      notes: "plain fallback",
+      note_json: { type: "doc", content: [] },
+    });
   });
 
   it("preserves a 12h time_format preference during profile migration", async () => {

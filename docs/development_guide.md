@@ -79,6 +79,10 @@ flow** end to end. Key facts:
 
 When guest-visible flows change, update matching `e2e/*.e2e.ts` specs in the same change. Use `pickDefaultLabel()` from `e2e/fixtures/guest.ts` when create dialogs require a label.
 
+### Test dates: never let the calendar catch up
+
+If the code under test branches on the current date/time (`todayISO()`, `nowHHMM()`, `new Date()`), the test MUST fake time (`vi.useFakeTimers()` + `vi.setSystemTime(...)`) or use a date safely in the past — never a hardcoded date the calendar can reach. Two suites have already broken this way when their fixture date became "today" (`ConfirmDayButton.test.tsx`, `dataStore.test.ts` confirmDay). Pure functions taking explicit date/now parameters may use any fixed dates.
+
 ## OpenSpec / Harness Workflow
 
 | Step | Command | Purpose |

@@ -6,7 +6,6 @@
 //   freeslot.guest.schedule_blocks            -> ScheduleBlock[]
 //   freeslot.guest.time_logs.YYYY-MM          -> TimeLog[]   (one bucket per month)
 //   freeslot.guest.daily_notes.<YYYY-MM-DD>   -> DailyNote   (one key per day)
-//   freeslot.guest.inbox_items                -> InboxItem[]
 //   freeslot.guest.bootstrapped               -> "1" once defaults seeded
 
 const PREFIX = "freeslot.guest";
@@ -128,7 +127,7 @@ function write<T>(key: string, value: T) {
   }
 }
 
-export function monthKey(iso: string) {
+function monthKey(iso: string) {
   return iso.slice(0, 7); // YYYY-MM
 }
 
@@ -369,7 +368,7 @@ export function listLogsInRange(startISO: string, endISO: string): LocalTimeLog[
   return out.sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time));
 }
 
-export function listAllLogs(): LocalTimeLog[] {
+function listAllLogs(): LocalTimeLog[] {
   if (typeof window === "undefined") return [];
   const out: LocalTimeLog[] = [];
   for (let i = 0; i < localStorage.length; i++) {
@@ -499,42 +498,6 @@ export function listGuestDailyNotesInRange(startISO: string, endISO: string): Lo
   return listAllGuestDailyNotes().filter((n) => n.date >= startISO && n.date <= endISO);
 }
 
-export type LocalInboxItem = {
-  id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  archived_at: string | null;
-};
-
-const INBOX_KEY = `${PREFIX}.inbox_items`;
-
-export function getGuestInboxItems(): LocalInboxItem[] {
-  return readArray<LocalInboxItem>(INBOX_KEY);
-}
-
-export function addGuestInboxItem(content: string): LocalInboxItem {
-  const item: LocalInboxItem = {
-    id: rid(),
-    user_id: "guest",
-    content,
-    created_at: new Date().toISOString(),
-    archived_at: null,
-  };
-  write(INBOX_KEY, [...getGuestInboxItems(), item]);
-  return item;
-}
-
-export function archiveGuestInboxItem(id: string): void {
-  const now = new Date().toISOString();
-  write(
-    INBOX_KEY,
-    getGuestInboxItems().map((item) =>
-      item.id === id ? { ...item, archived_at: now } : item
-    )
-  );
-}
-
 export type LocalPriority = { week_start: string; activity_id: string; rank: number };
 
 function prioKey(weekStart: string) {
@@ -549,7 +512,7 @@ export function setPriorities(weekStart: string, items: { activity_id: string; r
   write(prioKey(weekStart), items.map((it) => ({ week_start: weekStart, ...it })));
 }
 
-export function listAllPriorities(): LocalPriority[] {
+function listAllPriorities(): LocalPriority[] {
   if (typeof window === "undefined") return [];
   const out: LocalPriority[] = [];
   for (let i = 0; i < localStorage.length; i++) {

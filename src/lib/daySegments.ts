@@ -56,7 +56,7 @@ export function computeLaneLayout(
 
 export type Segment = { startMin: number; endMin: number };
 
-export function segmentsForDay(start: string, end: string): Segment[] {
+function segmentsForDay(start: string, end: string): Segment[] {
   const s = toMin(start);
   const e = toMin(end);
   return expandRange(s, e).map(([a, b]) => ({ startMin: a, endMin: b }));
