@@ -1,7 +1,7 @@
 #!/bin/sh
 # Pre-push gate: run the guest E2E suite so regressions are caught before they
-# reach the remote. PR CI also runs guest E2E via `pnpm verify:ci` in ci.yml;
-# this hook is an additional local guard before push.
+# reach the remote. PR CI skips E2E (fast checks only); this hook and the CD
+# pipeline (which runs E2E before deploy) are the two E2E gates.
 #
 # After the guest suite, run the CLOUD E2E suite (real local Supabase) when the
 # environment supports it. It is skipped gracefully — never blocking the push —

@@ -1,17 +1,26 @@
 name: CI
 
-# CI gates pull requests: lint, typecheck, unit tests, build, and the guest
-# E2E suite all run on every PR, so a change can't merge unless they pass.
-# It is also exposed as a reusable workflow (workflow_call) so the CD pipeline
-# can re-run the exact same checks on main before deploying.
+# CI gates pull requests with fast checks (lint, typecheck, unit tests, build).
+# The guest E2E suite is intentionally skipped on PRs — the pre-push git hook
+# already runs it locally, and CD runs it again on the merge commit as a hard
+# deploy gate — so the expensive suite only runs once per merged change.
+# This workflow is also exposed as a reusable workflow (workflow_call) so the
+# CD pipeline can run the full suite (checks + E2E) on main before deploying.
 on:
   pull_request:
   workflow_call:
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
+  checks:
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -27,23 +36,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Cache the Playwright browser binaries, keyed by the resolved version
-      # in the lockfile so the cache invalidates when @playwright/test updates.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Lint
+        run: pnpm lint
 
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Typecheck
+        run: pnpm typecheck
 
-      - name: Verify (lint, typecheck, unit tests, build, guest E2E)
-        run: pnpm verify:ci
-        env:
-          VITE_SUPABASE_URL: https://placeholder.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
+      - name: Unit tests (with coverage)
+        run: pnpm test:coverage
+
+      - name: Build
+        run: pnpm build
 
       - name: Upload coverage report
         if: always()
@@ -52,6 +55,47 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 14
+
+  e2e:
+    # Skip on pull_request: local pre-push hook covers E2E before the PR, and
+    # CD (via workflow_call, where the event is `push`) covers it before deploy.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Guest E2E
+        run: pnpm test:e2e
 
       - name: Upload Playwright report
         if: failure()
