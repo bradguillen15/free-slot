@@ -89,7 +89,7 @@ supabase functions deploy generate-weekly-plan --project-ref <YOUR_PROJECT_REF>
 
 | Function | Purpose | JWT | AI |
 |---|---|---|---|
-| `generate-weekly-plan` | Calls Gemini with the user's gaps + activities + priorities; upserts the result into `weekly_plans`. | required | `gemini-2.5-flash` |
+| `generate-weekly-plan` | Calls Gemini with the user's gaps + activities + priorities; upserts the result into `weekly_plans`. | required | `gemini-3.5-flash` |
 | `delete-account` | Service-role cleanup + auth user deletion. | required | none |
 
 ### Calling an edge function
@@ -115,7 +115,7 @@ Apply the same belt-and-braces approach for any expensive write.
 
 Edge functions call the Google Gemini `generateContent` REST API directly using `GEMINI_API_KEY` (a Supabase secret). No additional gateway or proxy is needed.
 
-Model in use: `gemini-2.5-flash` — fast, cost-efficient, and eligible for the Gemini API free tier.
+Model in use: `gemini-3.5-flash` — fast, cost-efficient, and eligible for the Gemini API free tier.
 
 Always parse responses defensively:
 
